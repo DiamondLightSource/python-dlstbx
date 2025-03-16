@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
+from pathlib import Path
 from unittest import mock
 
-import procrunner
-import py.path
 import pytest
 import workflows
 import workflows.recipe.wrapper
@@ -15,20 +16,22 @@ def make_wrapper(mocker, monkeypatch, tmpdir):
     def _make_wrapper(
         wrapper,
         recipe_wrapper,
+        expected_final_files=None,
         expected_output_files=None,
         expected_output_directories=None,
         expected_individual_files=None,
-        expected_procrunner_calls=None,
+        expected_subprocess_calls=None,
     ):
         return WrapperWrapper(
             wrapper,
             mocker,
             monkeypatch,
             recipe_wrapper,
+            expected_final_files=expected_final_files,
             expected_output_files=expected_output_files,
             expected_output_directories=expected_output_directories,
             expected_individual_files=expected_individual_files,
-            expected_procrunner_calls=expected_procrunner_calls,
+            expected_subprocess_calls=expected_subprocess_calls,
         )
 
     return _make_wrapper
@@ -41,15 +44,17 @@ class WrapperWrapper:
         mocker,
         monkeypatch,
         recipe_wrapper,
+        expected_final_files=None,
         expected_output_files=None,
         expected_output_directories=None,
         expected_individual_files=None,
-        expected_procrunner_calls=None,
+        expected_subprocess_calls=None,
     ):
+        self.expected_final_files = expected_final_files
         self.expected_output_files = expected_output_files
         self.expected_output_directories = expected_output_directories
         self.expected_individual_files = expected_individual_files
-        self.expected_procrunner_calls = expected_procrunner_calls
+        self.expected_subprocess_calls = expected_subprocess_calls
         self.setup_mocks(mocker, monkeypatch)
 
         # construct the wrapper and set the recipe wrapper
@@ -59,8 +64,9 @@ class WrapperWrapper:
         )
         self.wrapper.set_recipe_wrapper(self.recwrap)
         job_parameters = self.wrapper.recwrap.recipe_step["job_parameters"]
-        self.working_directory = py.path.local(job_parameters.get("working_directory"))
-        self.results_directory = py.path.local(job_parameters.get("results_directory"))
+        self.working_directory = Path(job_parameters.get("working_directory"))
+        self.results_directory = Path(job_parameters.get("results_directory"))
+        self.final_directory = Path(job_parameters.get("pipeline-final").get("path"))
 
     def run(self):
         # actually run the wrapper
@@ -71,35 +77,23 @@ class WrapperWrapper:
         self._mock_symlink = mocker.patch(
             "dlstbx.util.symlink.create_parent_symlink", autospec=True
         )
-        self._mock_procrunner = mocker.patch.object(procrunner, "run", autospec=True)
-        self._mock_procrunner.return_value = procrunner.ReturnObject(
-            exitcode=0, runtime=10, timeout=None
+        self._mock_subprocess = mocker.patch.object(subprocess, "run", autospec=True)
+        self._mock_subprocess.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=None, stderr=None
         )
-        self._mock_ensure = mocker.patch.object(py.path.local, "ensure", autospec=True)
-        self._mock_ensure.return_value = True
-        self._mock_copy = mocker.patch.object(py.path.local, "copy", autospec=True)
+        self._mock_mkdir = mocker.patch.object(Path, "mkdir", autospec=True)
+        self._mock_copy = mocker.patch.object(shutil, "copy", autospec=True)
 
-        def mock_check(this, file=1, exists=1):
-            if this.ext == ".error":
-                return False
-            else:
-                return True
-
-        monkeypatch.setattr(py.path.local, "check", mock_check)
-
-        def mock_listdir(this, fil=None, sort=None):
+        def mock_iterdir(this, fil=None, sort=None):
             if (
                 self.expected_output_directories
-                and this.basename in self.expected_output_directories
+                and this.name in self.expected_output_directories
             ):
-                return [
-                    this.join(f)
-                    for f in self.expected_output_directories[this.basename]
-                ]
+                return [this / f for f in self.expected_output_directories[this.name]]
             else:
-                return [this.join(f) for f in self.expected_output_files]
+                return [this / f for f in self.expected_output_files]
 
-        monkeypatch.setattr(py.path.local, "listdir", mock_listdir)
+        monkeypatch.setattr(Path, "iterdir", mock_iterdir)
 
         self._mock_transport = mock.create_autospec(
             workflows.transport.common_transport.CommonTransport
@@ -109,8 +103,8 @@ class WrapperWrapper:
         )
 
     def verify(self):
-        if self.expected_procrunner_calls is not None:
-            self._mock_procrunner.assert_has_calls(self.expected_procrunner_calls)
+        if self.expected_subprocess_calls is not None:
+            self._mock_subprocess.assert_has_calls(self.expected_subprocess_calls)
 
         create_symlink = self.wrapper.recwrap.recipe_step["job_parameters"].get(
             "create_symlink"
@@ -119,12 +113,14 @@ class WrapperWrapper:
             # test expected symlink calls
             self._mock_symlink.assert_has_calls(
                 [
-                    mock.call(self.working_directory.strpath, create_symlink),
-                    mock.call(self.results_directory.strpath, create_symlink),
+                    mock.call(self.working_directory, create_symlink),
+                    mock.call(self.results_directory, create_symlink),
                 ]
             )
 
         expected_count = 0
+        if self.expected_final_files is not None:
+            expected_count += len(self.expected_final_files)
         if self.expected_output_files is not None:
             expected_count += len(self.expected_output_files)
         if self.expected_output_directories is not None:
@@ -135,13 +131,16 @@ class WrapperWrapper:
         if self.expected_individual_files:
             for file_type, files in self.expected_individual_files.items():
                 for file_name in files:
-                    file_full = self.results_directory.join(file_name)
+                    if file_name in self.expected_final_files:
+                        file_full = self.final_directory / file_name
+                    elif file_name in self.expected_output_files:
+                        file_full = self.results_directory / file_name
                     self._mock_send_to.assert_any_call(
                         "result-individual-file",
                         {
                             "file_type": file_type,
-                            "file_name": file_full.basename,
-                            "file_path": file_full.dirname,
+                            "file_name": file_full.name,
+                            "file_path": str(file_full.parent),
                             "importance_rank": mock.ANY,
                         },
                     )

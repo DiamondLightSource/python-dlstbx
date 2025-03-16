@@ -376,23 +376,27 @@ def get_crank2_model_files(working_directory, logger):
     return mdl_dict
 
 
-def get_map_model_from_json(json_path):
-    abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
-    with open(abs_json_path) as json_file:
-        msg_json = json.load(json_file)
-    return {
-        "mtz": msg_json["mtz"],
-        "pdb": msg_json["pdb"],
-        "map": msg_json["map"],
-        "data": {
-            "residues": "{}".format(msg_json["total"]),
-            "max_frag": "{}".format(msg_json["max"]),
-            "frag": "{}".format(msg_json["fragments"]),
-            "mapcc": "{:.2f} ({:.2f})".format(
-                msg_json["mapcc"], msg_json["mapcc_dmin"]
-            ),
-        },
-    }
+def get_map_model_from_json(json_path, logger):
+    try:
+        abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
+        with open(abs_json_path) as json_file:
+            msg_json = json.load(json_file)
+        return {
+            "mtz": msg_json["mtz"],
+            "pdb": msg_json["pdb"],
+            "map": msg_json["map"],
+            "data": {
+                "residues": "{}".format(msg_json["total"]),
+                "max_frag": "{}".format(msg_json["max"]),
+                "frag": "{}".format(msg_json["fragments"]),
+                "mapcc": "{:.2f} ({:.2f})".format(
+                    msg_json["mapcc"], msg_json["mapcc_dmin"]
+                ),
+            },
+        }
+    except Exception:
+        logger.warning(f"Cannot get model data file in {json_path}", exc_info=True)
+        return {}
 
 
 def write_coot_script(working_directory, mdl_dict):
@@ -433,47 +437,3 @@ def ispyb_write_model_json(working_directory, mdl_dict, logger):
         os.path.join(working_directory, "big_ep_model_ispyb.json"), "w"
     ) as json_file:
         json_file.write(json_data)
-
-
-def send_results_to_ispyb(results_directory, log_files, record_result, logger):
-    try:
-        mdl_dict = get_map_model_from_json(results_directory)
-        for key in ["pdb", "map", "mtz"]:
-            fp = mdl_dict[key]
-            if os.path.isfile(fp):
-                record_result(
-                    {
-                        "file_path": os.path.dirname(fp),
-                        "file_name": os.path.basename(fp),
-                        "file_type": "Result",
-                        "importance_rank": 1,
-                    }
-                )
-        record_result(
-            {
-                "file_path": str(results_directory),
-                "file_name": "big_ep_model_ispyb.json",
-                "file_type": "Result",
-                "importance_rank": 2,
-            }
-        )
-    except Exception:
-        logger.warning(
-            f"Cannot get model data file in {results_directory}", exc_info=True
-        )
-
-    for pipeline_logfile in log_files:
-        if os.path.isfile(pipeline_logfile):
-            try:
-                record_result(
-                    {
-                        "file_path": os.path.dirname(pipeline_logfile),
-                        "file_name": os.path.basename(pipeline_logfile),
-                        "file_type": "log",
-                        "importance_rank": 1,
-                    }
-                )
-            except Exception:
-                logger.warning(
-                    f"Cannot write pipeline log file {pipeline_logfile}", exc_info=True
-                )

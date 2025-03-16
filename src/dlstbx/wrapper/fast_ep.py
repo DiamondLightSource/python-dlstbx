@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import time
+from fnmatch import fnmatch
 from pathlib import Path
 from pprint import pformat
 
@@ -292,6 +293,22 @@ class FastEPWrapper(Wrapper):
                     results_directory, params["create_symlink"]
                 )
 
+            if pipeine_final_params := params.get("pipeline-final", []):
+                final_directory = Path(pipeine_final_params["path"]) / params.get(
+                    "create_symlink", "fast_ep"
+                )
+                final_directory.mkdir(parents=True, exist_ok=True)
+                if params.get("create_symlink"):
+                    dlstbx.util.symlink.create_parent_symlink(
+                        final_directory, params["create_symlink"]
+                    )
+
+                def is_final_result(final_file: Path) -> bool:
+                    return any(
+                        fnmatch(str(final_file.name), patt)
+                        for patt in pipeine_final_params["patterns"]
+                    )
+
             self.log.info(
                 f"Copying fast_ep results to {str(results_directory)}",
             )
@@ -322,10 +339,14 @@ class FastEPWrapper(Wrapper):
                 shutil.copy(filename, destination)
                 allfiles.append(str(destination))
                 if filetype:
+                    file_path = results_directory
+                    if pipeine_final_params and is_final_result(filename):
+                        shutil.copy(filename, final_directory / filename.name)
+                        file_path = final_directory
                     self.record_result_individual_file(
                         {
-                            "file_path": str(destination.parent),
-                            "file_name": destination.name,
+                            "file_path": str(file_path),
+                            "file_name": filename.name,
                             "file_type": filetype,
                         }
                     )

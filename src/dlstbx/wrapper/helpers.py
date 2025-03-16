@@ -33,6 +33,25 @@ def run_dials_estimate_resolution(
     return resolution_limits
 
 
+def fix_tmp_paths_in_logs(working_directory, results_directory, logger, uuid=None):
+    src_paths_esc = [
+        r"\/".join(os.path.dirname(working_directory).split(os.sep)),
+    ]
+    if uuid:
+        src_paths_esc.append(rf"\/tmp\/{uuid}")
+    dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
+    for pth in src_paths_esc:
+        sed_command = (
+            r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
+            % (results_directory, pth, dest_pth_esc)
+        )
+        logger.info(f"Running sed command: {sed_command}")
+        try:
+            subprocess.call([sed_command], shell=True)
+        except Exception:
+            logger.warning("Failed to run sed command to update paths", exc_info=True)
+
+
 def copy_results(working_directory, results_directory, skip_copy, uuid, logger):
     def ignore_func(directory, files):
         ignore_list = deepcopy(skip_copy)
@@ -55,19 +74,7 @@ def copy_results(working_directory, results_directory, skip_copy, uuid, logger):
         ignore_dangling_symlinks=False,
         ignore=ignore_func,
     )
-    src_pth_esc = r"\/".join(os.path.dirname(working_directory).split(os.sep))
-    iris_pth_esc = rf"\/tmp\/{uuid}"
-    dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
-    for pth in (src_pth_esc, iris_pth_esc):
-        sed_command = (
-            r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
-            % (results_directory, pth, dest_pth_esc)
-        )
-        logger.info(f"Running sed command: {sed_command}")
-        try:
-            subprocess.call([sed_command], shell=True)
-        except Exception:
-            logger.warning("Failed to run sed command to update paths", exc_info=True)
+    fix_tmp_paths_in_logs(working_directory, results_directory, logger, uuid)
 
 
 def fix_acl_mask(subprocess_directory, results_directory, logger):

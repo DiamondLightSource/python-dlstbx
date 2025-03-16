@@ -7,7 +7,7 @@ source ${PHENIX}/phenix_env.sh
 {% else %}
 . /etc/profile.d/modules.sh
 
-module load {{ phenix_module }}
+module load phenix
 {% endif %}
 
 cat > autosol.eff << EOF

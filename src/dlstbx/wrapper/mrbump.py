@@ -267,15 +267,29 @@ class MrBUMPWrapper(Wrapper):
             xyzout = Path(params["mrbump"]["command"]["xyzout"])
             success = hklout.is_file() and xyzout.is_file() and success
 
+            if pipeine_final_params := params.get("pipeline-final", []):
+                final_directory = Path(pipeine_final_params["path"]) / params.get(
+                    "create_symlink", ""
+                )
+                final_directory.mkdir(parents=True, exist_ok=True)
+                if params.get("create_symlink"):
+                    dlstbx.util.symlink.create_parent_symlink(
+                        final_directory, params["create_symlink"]
+                    )
+
             keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
             for filename in results_directory.iterdir():
                 filetype = keep_ext.get(filename.suffix)
                 if filetype is None:
                     continue
                 if filetype:
+                    file_path = results_directory
+                    if pipeine_final_params:
+                        shutil.copy(filename, final_directory / filename.name)
+                        file_path = final_directory
                     self.record_result_individual_file(
                         {
-                            "file_path": str(filename.parent),
+                            "file_path": str(file_path),
                             "file_name": filename.name,
                             "file_type": filetype,
                             "importance_rank": 1,

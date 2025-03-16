@@ -23,10 +23,10 @@ from dlstbx.util.big_ep_helpers import (
     get_autosharp_model_files,
     get_crank2_model_files,
     get_heavy_atom_job,
+    get_map_model_from_json,
     ispyb_write_model_json,
     read_data,
     read_mtz_datasets,
-    send_results_to_ispyb,
     spacegroup_short,
     write_coot_script,
     write_sequence_file,
@@ -34,7 +34,7 @@ from dlstbx.util.big_ep_helpers import (
 )
 from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.wrapper import Wrapper
-from dlstbx.wrapper.helpers import copy_results
+from dlstbx.wrapper.helpers import copy_results, fix_tmp_paths_in_logs
 
 
 def get_bigep_parameters(big_ep_params, working_directory, logger):
@@ -519,27 +519,48 @@ class BigEPWrapper(Wrapper):
             self.log.debug("Result directory not specified")
             return success
 
+        if pipeine_final_params := params.get("pipeline-final", []):
+            final_directory = Path(pipeine_final_params["path"]) / pipeline
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                upstream = params["create_symlink"].replace("/", "-")
+                create_parent_symlink(final_directory, f"{pipeline}-{upstream}")
+
         self.log.debug("Registering results files in ISPyB")
-        send_results_to_ispyb(
-            results_directory,
-            params.get("log_files"),
-            self.record_result_individual_file,
-            self.log,
-        )
-        keep_ext = {".html": "log", ".png": "log"}
+        result_files = [
+            (str(results_directory / "big_ep_model_ispyb.json"), "Result", 2),
+        ]
+
+        mdl_dict = get_map_model_from_json(results_directory, self.log)
+        for key, mdl_file in mdl_dict.items():
+            if key in ("pdb", "map", "mtz") and Path(mdl_file).is_file():
+                result_files.append((mdl_file, "Result", 1))
+
+        for pipeline_logfile in params.get("log_files", []):
+            if Path(pipeline_logfile).is_file():
+                result_files.append((pipeline_logfile, "log", 1))
+
         for filename in results_directory.iterdir():
-            filetype = keep_ext.get(filename.suffix)
-            if filetype is None:
-                continue
             if filename.suffix == ".png":
-                self.record_result_individual_file(
-                    {
-                        "file_path": str(filename.parent),
-                        "file_name": filename.name,
-                        "file_type": filetype,
-                        "importance_rank": 2,
-                    }
-                )
+                result_files.append((str(filename), "log", 2))
+
+        if pipeine_final_params:
+            for file_name, file_type, file_rank in result_files:
+                shutil.copy(Path(file_name), final_directory / Path(file_name).name)
+            fix_tmp_paths_in_logs(results_directory, final_directory, self.log)
+            file_path = final_directory
+        else:
+            file_path = results_directory
+
+        for file_name, file_type, file_rank in result_files:
+            self.record_result_individual_file(
+                {
+                    "file_path": str(file_path),
+                    "file_name": Path(file_name).name,
+                    "file_type": file_type,
+                    "importance_rank": file_rank,
+                }
+            )
         return success
 
     def run(self):

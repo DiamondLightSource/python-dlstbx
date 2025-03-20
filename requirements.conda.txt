@@ -1,4 +1,5 @@
 drmaa
+hdf5plugin
 ispyb>=11.0.1
 junit-xml>=1.9
 marshmallow-sqlalchemy

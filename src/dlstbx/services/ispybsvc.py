@@ -343,7 +343,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 name=program,
                 command=cmdline,
                 environment=environment,
-                pipelineid=processingpipelineid,
+                pipeline_id=processingpipelineid,
             )
             self.log.info(
                 "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' with result '%s'.",

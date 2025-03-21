@@ -327,6 +327,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
+        processingpipelineid = parameters("pipelineid") or ""
         if isinstance(environment, dict):
             environment = ", ".join(
                 f"{key}={value}" for key, value in environment.items()
@@ -342,23 +343,26 @@ class DLSISPyB(EM_Mixin, CommonService):
                 name=program,
                 command=cmdline,
                 environment=environment,
+                pipelineid=processingpipelineid,
             )
             self.log.info(
-                "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' with result '%s'.",
+                "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' with result '%s'.",
                 program,
                 rpid,
                 cmdline,
                 environment,
+                processingpipelineid,
                 result,
             )
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
-                "Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
+                "Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' caused exception '%s'.",
                 program,
                 rpid,
                 cmdline,
                 environment,
+                processingpipelineid,
                 e,
                 exc_info=True,
             )

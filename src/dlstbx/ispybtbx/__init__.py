@@ -142,27 +142,26 @@ class ispybtbx:
             parameters["ispyb_processing_job"] = schema.dump(rp)
             if "ispyb_dcid" not in parameters:
                 parameters["ispyb_dcid"] = rp.dataCollectionId
-
-            # assign the pipeline an id
-            pipelineid_dict = {
-                "fast-dp": 3,
-                "xia2-3dii": 4,
-                "xia2-multiplex": 5,
-                "xia2-dials": 6,
-                "xia2-smallmolecule": 6,
-                "autoPROC": 8,
-                "fast-ep": 9,
-                "dimple": 10,
-                "mrbump": 11,
-            }
-            pipeline_id = [
-                val for key, val in pipelineid_dict.items() if key in rp.recipe
-            ]
-
-            if pipeline_id:
-                parameters["ispyb_pipeline_id"] = pipeline_id[0]
+            parameters["ispyb_pipeline_id"] = self.get_pipeline_id(rp.recipe)
 
         return message, parameters
+
+    def get_pipeline_id(self, recipe):
+        pipelineid_dict = {
+            "fast-dp": 3,
+            "xia2-3dii": 4,
+            "xia2-multiplex": 5,
+            "xia2-dials": 6,
+            "xia2-smallmolecule": 6,
+            "autoPROC": 8,
+            "fast-ep": 9,
+            "dimple": 10,
+            "mrbump": 11,
+        }
+        pipeline_id = [val for key, val in pipelineid_dict.items() if key in recipe]
+        if not pipeline_id:
+            return None
+        return pipeline_id[0]
 
     def get_gridscan_info(
         self, dcid: int, dcgid: int, session: sqlalchemy.orm.session.Session

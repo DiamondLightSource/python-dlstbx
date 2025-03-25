@@ -157,9 +157,10 @@ class ispybtbx:
             }
             pipeline_id = [
                 val for key, val in pipelineid_dict.items() if key in rp.recipe
-            ][0]
+            ]
 
-            parameters["ispyb_pipeline_id"] = pipeline_id
+            if pipeline_id:
+                parameters["ispyb_pipeline_id"] = pipeline_id[0]
 
         return message, parameters
 

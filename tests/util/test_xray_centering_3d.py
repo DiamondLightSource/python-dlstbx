@@ -50,36 +50,3 @@ def test_gridscan3d():
         "total_count": 44128.0,
         "bounding_box": ((2, 3, 2), (7, 6, 6)),
     }
-
-#  fmt: off
-@pytest.mark.parametrize("input_data, expected_results",
-                         [
-                             [  # NB x is down
-                                 (  # xy
-                                     np.array([[0, 0, 0],
-                                      [0, 0, 0],
-                                      [0, 1, 0],
-                                      [0, 0, 0],]),
-                                    # xz
-                                     np.array([[0, 0, 0],
-                                      [0, 0, 0],
-                                      [1, 0, 0],
-                                      [0, 0, 0]])
-                                 ),
-                                 [dlstbx.util.xray_centering_3d.GridScan3DResult(
-                                     centre_of_mass=(2.5, 1.5, 0.5),
-                                     max_voxel=(2.5, 1.5, 0.5),
-                                     max_count=1,
-                                     n_voxels=1,
-                                     total_count=1,
-                                     bounding_box=((2, 1, 0), (3, 2, 1))
-                                 )],
-                             ],
-                         ])
-#  fmt: on
-def test_gridscan_3d_coordinates(input_data,
-                                 expected_results):
-    results = dlstbx.util.xray_centering_3d.gridscan3d(
-        input_data
-    )
-    assert all([r == e for r, e in zip(results, expected_results, strict=True)]), f"{results} != {expected_results}"

@@ -941,7 +941,7 @@ def ispyb_filter(
 
         related_images = []
 
-        for dc in session.execute(stmt).all():
+        for dc in session.execute(stmt).mappings():
             start, end = i.dc_info_to_start_end(dc)
             parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
 

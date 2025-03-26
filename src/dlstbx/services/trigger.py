@@ -20,6 +20,8 @@ from ispyb.sqlalchemy import (
     AutoProcProgram,
     AutoProcProgramAttachment,
     AutoProcScaling,
+    BLSample,
+    BLSubSample,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -242,13 +244,12 @@ class LigandFitParameters(pydantic.BaseModel):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    pdb: pathlib.Path
-    mtz: pathlib.Path
-    pipeline: str
-    smiles: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
 
 
@@ -1535,8 +1536,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2408,49 +2413,36 @@ class DLSTrigger(CommonService):
 
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
-        - target: set this to "ligand_fit"
+        - target: set this to "pandda"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
-        - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
-        - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
-        - smiles: ligand SMILES code i.e. "{ispyb_smiles}"
         - comment: a comment to be stored in the ProcessingJob.comment field
         - scaling_id: scaling id of the data reduction pipeline that triggered dimple
         given as a list as this is how it is presented in the dimple recipe.
         - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
         processing jobs to finish before skipping
         - automatic: boolean value passed to ProcessingJob.automatic field
+        - backoff-delay: base delay (in seconds) for exponential backoff in the event
+            that one or more xia2-dials processing job is still running or yet to start
+        - backoff-max-try: the number of times that a message re-sent before giving up
+        - backoff-multiplier: the multiplier for exponential backoff
 
         Example recipe parameters:
         { "target": "pandda",
             "dcid": 123456,
-            "pdb": "/path/to/pdb",
-            "mtz": "/path/to/mtz"
-            "smiles": "frag" or "None"
             "automatic": true,
             "comment": "PanDDA triggered by dimple",
             "scaling_id": [123456],
-            "timeout-minutes": 115
-
+            "timeout-minutes": 115,
+            "backoff-delay": 8, # default
+            "backoff-max-try": 10, # default
+            "backoff-multiplier": 2, # default
         }
         """
-        # if (
-        #     parameters.smiles != "frag"
-        # ):  # workaround secret word trigger for now? better param for this?
-        #     self.log.info(
-        #         f"Skipping PanDDA trigger: SMILES string for DCID {parameters.dcid} does not correspond to fragment screen"
-        #     )
-        #     return {"success": True}
-
-        # if len(parameters.scaling_id) != 1:
-        #     self.log.info(
-        #         f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"
-        #     )
-        #     return {"success": True}
-
-        # scaling_id = parameters.scaling_id[0]
         dcid = parameters.dcid
+        program_id = parameters.program_id
+        # scaling_id = parameters.scaling_id[0]
 
-        # get the proposal code, visit number to find filesystem path
+        # get the proposal code, visit number to find filesystem path, or get from ispyb info?
         query = (
             session.query(Proposal, BLSession)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -2460,36 +2452,70 @@ class DLSTrigger(CommonService):
 
         proposal, blsession = query.first()
 
-        # proposal_visit = (
-        #     proposal.proposalCode
-        #     + proposal.proposalNumber
-        #     + f"-{blsession.visit_number}"
-        # )
+        proposal_visit = (
+            proposal.proposalCode
+            + proposal.proposalNumber
+            + f"-{blsession.visit_number}"
+        )
 
-        # path = "/dls/" + proposal_visit
-        # now from proposal and visit number get all dcids
+        path = pathlib.Path("/dls/" + proposal_visit)
+        processing_dir = path / "processing"
+        echodir = processing_dir / "echo"
+        if not echodir.exists():
+            self.log.info(
+                f"No echo directory in {path}, this is not a fragment screening experiment"
+            )
+            return {"success": True}
 
+        # should only be one final echo file in this location
+        for file_name in processing_dir.iterdir():
+            if "SoakExp" in file_name:
+                echo_file = file_name
+
+        if not echo_file:
+            self.log.info(
+                f"Aborting fragment screening analysis. Echo dir {echodir} exists, but no echo file found"
+            )
+            return {"success": True}
+
+        echofilepath = pathlib.Path(processing_dir / echo_file)
+        dfecho = pd.read_csv(echofilepath)
+
+        num_visits = len(dfecho["visit_number"].unique())
+        visit_numbers = [
+            dfecho["visit_number"].unique()[j].split("-")[1]
+            for j in np.arange(num_visits)
+        ]
+        locations = dfecho["location"].unique().tolist()
+
+        if len(locations) < 50:  # change to parameter
+            self.log.info(
+                f"Aborting PanDDA analysis. {len(locations)} dispensing locations should be > 50 in fragment screening analysis"
+            )
+            return {"success": True}
+
+        # now from proposal and visit number get all dcids in the fragment screen
         query = (
-            session.query(Proposal, BLSession, DataCollection)
+            session.query(Proposal, BLSession, DataCollection, BLSubSample)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
             .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .join(
+                BLSubSample, BLSubSample.blSubSampleId == DataCollection.blSubSampleId
+            )
+            .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
             .filter(Proposal.proposalCode == proposal.proposalCode)
             .filter(Proposal.proposalNumber == proposal.proposalNumber)
-            .filter(BLSession.visit_number == blsession.visit_number)
+            .filter(BLSession.visit_number.in_(visit_numbers))
+            .filter(BLSample.location.in_(locations))
         )
 
-        query = query.with_entities(
-            DataCollection.dataCollectionId,
-            Proposal.proposalCode,
-            Proposal.proposalNumber,
-            BLSession.visit_number,
-        )
-
+        query = query.with_entities(DataCollection.dataCollectionId)
         df = pd.read_sql(query.statement, query.session.bind)
         dcids = df["dataCollectionId"].unique()
-        self.log.info(f"PanDDA trigger: found dcids {dcids}")
 
-        # Check that all dcids have finished processing successfully,
+        # Check if there are xia2 multiplex or dimple jobs that were triggered on any new
+        # data collections after current job was triggered
+        min_start_time = datetime.now() - timedelta(hours=12)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -2498,50 +2524,126 @@ class DLSTrigger(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            # .filter(ProcessingJob.automatic == True)
-            .filter(AutoProcProgram.processingPrograms == "dimple")
-            .filter(
-                ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex"
-            )
+            .filter(ProcessingJob.dataCollectionId > dcid)
+            .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.autoProcProgramId > program_id)
             .filter(
                 or_(
-                    AutoProcProgram.processingStatus is None,
-                    AutoProcProgram.processingStartTime is None,
+                    AutoProcProgram.processingPrograms
+                    == "xia2.multiplex",  # why not all upstream jobs, include xia2 dials also?
+                    ProcessingJob.comments
+                    == "DIMPLE triggered by automatic xia2.multiplex",
+                )
+            )
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        )
+        # Abort triggering multiplex if we have xia2 multiplex or dimple running on any subsequent
+        # data collection in all sample groups
+        if triggered_processing_job := query.first():
+            self.log.info(
+                f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+            )
+            return {"success": True}
+
+        # Calculate message delay for exponential backoff in case a processing
+        # program for a related data collection is still running, in which case
+        # we checkpoint with the calculated message delay
+        status = {
+            "ntry": 0,
+        }
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        message_delay = int(
+            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
+        )
+        status["ntry"] += 1
+        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
+
+        # Check for any processing jobs that are yet to finish (or fail)
+        min_start_time = datetime.now() - timedelta(hours=24)
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            .filter(ProcessingJob.automatic == True)
+            .filter(
+                or_(
+                    AutoProcProgram.processingPrograms
+                    == "xia2.multiplex",  # why not all upstream jobs?
+                    ProcessingJob.comments
+                    == "DIMPLE triggered by automatic xia2.multiplex",
+                ).filter(
+                    or_(
+                        AutoProcProgram.processingStatus is None,
+                        AutoProcProgram.processingStartTime is None,
+                    )
                 )
             )
         )
 
-        waiting_jobs = query.all()
-        if len(waiting_jobs):
-            waiting_dcids = []
-            for _pj, waiting_dcid in waiting_jobs:
-                self.log.info(
-                    f"PanDDA trigger: Waiting for dcid: {waiting_dcid} to finish"
-                )
-                waiting_dcids.append(waiting_dcid)
-            # Get previous checkpoint history
-            start_time = message.get("start_time", time())
-            run_time = time() - start_time
-            if run_time > parameters.timeout * 60:
-                self.log.warning(
-                    f"PanDDA trigger: timeout exceeded waiting for dcids: {waiting_dcids}. Skipping trigger"
-                )
-                return {"success": True}
-            # Calculate the message delay
-            ntry = message.get("ntry", 0)
-            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
+        waiting_processing_jobs = query.all()
+        if n_waiting_processing_jobs := len(waiting_processing_jobs):
             self.log.info(
-                f"PanDDA trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
+                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
             )
-            ntry += 1
-            rw.checkpoint(
-                {"start_time": start_time, "ntry": ntry},
-                delay=delay * 60,
-                transaction=transaction,
-            )
-            return {"success": True}
+            waiting_dcids = [row.dataCollectionId for row in waiting_processing_jobs]
+            waiting_appids = [
+                row.AutoProcProgram.autoProcProgramId for row in waiting_processing_jobs
+            ]
+            if status["ntry"] >= parameters.backoff_max_try:
+                # Give up waiting for this program to finish and trigger
+                # multiplex with remaining related results are available
+                self.log.info(
+                    f"max-try exceeded, giving up waiting for related processings for dcids {waiting_dcids}\n"
+                )
+            else:
+                # Send results to myself for next round of processing
+                self.log.debug(
+                    f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
+                )
+                rw.checkpoint(
+                    {"trigger-status": status},
+                    delay=message_delay,
+                    transaction=transaction,
+                )
 
-        # check that pandda not already triggered by data collection in same frag screen expt?
+        # Additional check to see if there are enough datasets to qualify for PanDDA analysis?
+
+        # query = (
+        #     session.query(Proposal, BLSession, DataCollection, BLSubSample)
+        #     .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+        #     .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+        #     .join(
+        #         BLSubSample, BLSubSample.blSubSampleId == DataCollection.blSubSampleId
+        #     )
+        #     .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
+        #     .join(
+        #         ProcessingJob,
+        #         ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
+        #     )
+        #     .join(
+        #         AutoProcProgram,
+        #         AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+        #     )
+        #     .join(
+        #         AutoProcProgramAttachment,
+        #         AutoProcProgramAttachment.autoProcProgramId
+        #         == AutoProcProgram.autoProcProgramId,
+        #     )
+        #     .filter(Proposal.proposalCode == proposal.proposalCode)
+        #     .filter(Proposal.proposalNumber == proposal.proposalNumber)
+        #     .filter(BLSession.visit_number.in_(visit_numbers))
+        #     .filter(BLSample.location.in_(locations))
+        #     .filter(ProcessingJob.automatic == True)  #
+        #     .filter(AutoProcProgram.processingStatus== 1)
+        #     .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
+        #     .filter(ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex")
+        # )
+
         self.log.debug("PanDDA trigger: Starting")
 
         pandda_parameters = {

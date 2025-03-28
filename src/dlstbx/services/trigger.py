@@ -652,9 +652,11 @@ class DLSTrigger(CommonService):
             .options(
                 contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                 joinedload(ProcessingJob.ProcessingJobParameters),
-                Load(DataCollection)
-                .load_only("dataCollectionId", "wavelength")
-                .raiseload("*"),
+                Load(DataCollection).load_only(
+                    DataCollection.dataCollectionId,
+                    DataCollection.wavelength,
+                    raiseload=True,
+                ),
             )
             .populate_existing()
         )
@@ -1661,9 +1663,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -1766,14 +1770,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():
@@ -1998,9 +2001,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -2091,14 +2096,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():

@@ -1537,12 +1537,8 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(
-                            AutoProcProgram.autoProcProgramId > program_id
-                        )  # noqa E711
-                        .filter(
-                            AutoProcProgram.recordTimeStamp > min_start_time
-                        )  # noqa E711
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups

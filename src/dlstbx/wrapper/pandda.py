@@ -3,10 +3,9 @@ from __future__ import annotations
 import os
 import pathlib
 import re
-import shutil
 import subprocess
+
 import pandas as pd
-from shutil import ignore_patterns
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
@@ -146,7 +145,7 @@ class PanDDAWrapper(Wrapper):
 
         print(" \nFragment information found.\n ")
 
-        pandda_command = f"print('pandda command')"
+        pandda_command = "print('pandda command')"
 
         try:
             result = subprocess.run(

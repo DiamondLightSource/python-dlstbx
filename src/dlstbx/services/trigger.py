@@ -245,9 +245,9 @@ class LigandFitParameters(pydantic.BaseModel):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    scaling_id: list[int]
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
@@ -1537,8 +1537,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2303,13 +2307,13 @@ class DLSTrigger(CommonService):
         Example recipe parameters:
         { "target": "ligand_fit",
             "dcid": 123456,
+            "program_id": 123456,
             "pdb": "/path/to/pdb",
             "mtz": "/path/to/mtz"
             "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
             "pipeline": "phenix_pipeline",
             "automatic": true,
             "comment": "Ligand_fit triggered by xia2 dials",
-            "scaling_id": [123456],
             "min_cc_keep": 0.7,
             "timeout-minutes": 115
 

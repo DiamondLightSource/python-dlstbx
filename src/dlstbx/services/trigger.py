@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Literal, Mapping, Optional
 import gemmi
 import ispyb
 import pandas as pd
+import numpy as np
 import prometheus_client
 import pydantic
 import sqlalchemy.engine
@@ -21,8 +22,8 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcScaling,
     BLSample,
-    BLSubSample,
     BLSession,
+    BLSubSample,
     DataCollection,
     ProcessingJob,
     Proposal,
@@ -2431,7 +2432,6 @@ class DLSTrigger(CommonService):
             "dcid": 123456,
             "automatic": true,
             "comment": "PanDDA triggered by dimple",
-            "scaling_id": [123456],
             "timeout-minutes": 115,
             "backoff-delay": 8, # default
             "backoff-max-try": 10, # default
@@ -2442,28 +2442,17 @@ class DLSTrigger(CommonService):
         program_id = parameters.program_id
         # scaling_id = parameters.scaling_id[0]
 
-        # get the proposal code, visit number to find filesystem path, or get from ispyb info?
-        query = (
-            session.query(Proposal, BLSession)
-            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
-            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
-            .filter(DataCollection.dataCollectionId == dcid)
-        )
+        _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
 
-        proposal, blsession = query.first()
-
-        proposal_visit = (
-            proposal.proposalCode
-            + proposal.proposalNumber
-            + f"-{blsession.visit_number}"
-        )
-
-        path = pathlib.Path("/dls/" + proposal_visit)
-        processing_dir = path / "processing"
+        visit = ispyb_info.get("ispyb_visit", "")
+        proposal_code = visit.split("-")[0][0:2]
+        proposal_number = visit.split("-")[0][2::]
+        visitdir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
+        processing_dir = visitdir / "processing"
         echodir = processing_dir / "echo"
         if not echodir.exists():
             self.log.info(
-                f"No echo directory in {path}, this is not a fragment screening experiment"
+                f"No echo directory in {processing_dir}, this is deemed not to be a fragment screening experiment"
             )
             return {"success": True}
 
@@ -2490,7 +2479,8 @@ class DLSTrigger(CommonService):
 
         if len(locations) < 50:  # change to parameter
             self.log.info(
-                f"Aborting PanDDA analysis. {len(locations)} dispensing locations should be > 50 in fragment screening analysis"
+                f"Aborting PanDDA analysis. {len(locations)} dispensing locations found \
+                  but this number should be > 50 for PanDDA fragment screening analysis"
             )
             return {"success": True}
 
@@ -2503,8 +2493,8 @@ class DLSTrigger(CommonService):
                 BLSubSample, BLSubSample.blSubSampleId == DataCollection.blSubSampleId
             )
             .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
-            .filter(Proposal.proposalCode == proposal.proposalCode)
-            .filter(Proposal.proposalNumber == proposal.proposalNumber)
+            .filter(Proposal.proposalCode == proposal_code)
+            .filter(Proposal.proposalNumber == proposal_number)
             .filter(BLSession.visit_number.in_(visit_numbers))
             .filter(BLSample.location.in_(locations))
         )
@@ -2596,7 +2586,7 @@ class DLSTrigger(CommonService):
             ]
             if status["ntry"] >= parameters.backoff_max_try:
                 # Give up waiting for this program to finish and trigger
-                # multiplex with remaining related results are available
+                # PanDDA with remaining related results are available
                 self.log.info(
                     f"max-try exceeded, giving up waiting for related processings for dcids {waiting_dcids}\n"
                 )
@@ -2611,7 +2601,8 @@ class DLSTrigger(CommonService):
                     transaction=transaction,
                 )
 
-        # Additional check to see if there are enough datasets to qualify for PanDDA analysis?
+        # Additional final query to find out number of completed dimple jobs downstream
+        # from multiplex
 
         # query = (
         #     session.query(Proposal, BLSession, DataCollection, BLSubSample)
@@ -2646,12 +2637,7 @@ class DLSTrigger(CommonService):
 
         self.log.debug("PanDDA trigger: Starting")
 
-        pandda_parameters = {
-            "dcid": parameters.dcid,
-            "pdb": str(parameters.pdb),
-            "mtz": str(parameters.mtz),
-            "smiles": parameters.smiles,
-        }
+        pandda_parameters = {"dcid": parameters.dcid}  # anything else to pass here?
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
@@ -2674,8 +2660,6 @@ class DLSTrigger(CommonService):
             )
 
         self.log.debug(f"PanDDA_id trigger: Processing job {jobid} created")
-
-        # put all the echo file stuff in the wrapper?
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)

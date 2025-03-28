@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import time
+from fnmatch import fnmatch
 
 from cctbx import uctbx
 
@@ -243,6 +244,20 @@ class Xia2MultiplexWrapper(Wrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory, params["create_symlink"]
             )
+        if pipeine_final_params := params.get("pipeline-final", []):
+            final_directory = pathlib.Path(pipeine_final_params["path"])
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params["create_symlink"]
+                )
+
+            def is_final_result(final_file: pathlib.Path) -> bool:
+                return any(
+                    fnmatch(str(final_file.name), patt)
+                    for patt in pipeine_final_params["patterns"]
+                )
+
         keep_ext = {
             ".png": None,
             ".log": "log",
@@ -264,11 +279,13 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
-        primary_log_files = [
+        output_files = [
             working_directory / "xia2.multiplex.html",
             working_directory / "xia2.multiplex.log",
         ]
-
+        output_files.extend(
+            set(working_directory.iterdir()).difference(set(output_files))
+        )
         # Record cluster analysis result files for all found clusters
         cluster_result_files = []
         for dirpath, _, tmp_files in os.walk(working_directory):
@@ -286,11 +303,10 @@ class Xia2MultiplexWrapper(Wrapper):
                     if re.search(r"\d+_*", tmp_file):
                         cluster_result_files.append(cluster_filename)
                         keep[tmp_file] = filetype
+        output_files.extend(cluster_result_files)
 
         allfiles = []
-        for filename in (
-            primary_log_files + list(working_directory.iterdir()) + cluster_result_files
-        ):
+        for filename in output_files:
             if not filename.is_file():
                 continue  # primary_log_files may not actually exist
             filetype = keep_ext.get(filename.suffix)
@@ -299,12 +315,13 @@ class Xia2MultiplexWrapper(Wrapper):
             if filetype is None:
                 continue
             destination = results_directory / filename.name
-            if os.fspath(destination) in allfiles:
-                # We've already seen this file above
-                continue
             self.log.debug(f"Copying {filename} to {destination}")
-            allfiles.append(os.fspath(destination))
             shutil.copy(filename, destination)
+            if pipeine_final_params and is_final_result(filename):
+                destination = final_directory / filename.name
+                self.log.debug(f"Copying {filename} to {destination}")
+                shutil.copy(filename, final_directory)
+            allfiles.append(os.fspath(destination))
             if filetype:
                 self.record_result_individual_file(
                     {

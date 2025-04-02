@@ -380,7 +380,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             "MrBUMP": 11,
             "big_ep": 12,
         }
-        pipeline_id = pipelineid_dict["program"]
+        pipeline_id = pipelineid_dict[f"{program}"]
 
         return pipeline_id
 

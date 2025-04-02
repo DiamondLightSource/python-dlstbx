@@ -327,7 +327,8 @@ class DLSISPyB(EM_Mixin, CommonService):
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
-        processingpipelineid = self.get_pipeline_id(program)
+        upstream_source = parameters("upstream_source") or ""
+        processingpipelineid = self.get_pipeline_id(program, upstream_source)
         if isinstance(environment, dict):
             environment = ", ".join(
                 f"{key}={value}" for key, value in environment.items()
@@ -368,7 +369,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
             return False
 
-    def get_pipeline_id(self, program):
+    def get_pipeline_id(self, program, upstream_source):
+
+        if upstream_source:
+            program = f"{program}/{upstream_source}"
+
         pipelineid_dict = {
             "fast_dp": 3,
             "xia2.multiplex": 5,
@@ -379,7 +384,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             "fast_ep": 9,
             "dimple": 10,
             "MrBUMP": 11,
-            "big_ep": 12,
+            "big_ep/xds": 12,
+            "big_ep/dials": 13,
+            "big_ep": 14,
         }
         pipeline_id = pipelineid_dict[f"{program}"]
 

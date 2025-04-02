@@ -327,7 +327,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
-        processingpipelineid = parameters("pipelineid") or ""
+        processingpipelineid = self.get_pipeline_id(program)
         if isinstance(environment, dict):
             environment = ", ".join(
                 f"{key}={value}" for key, value in environment.items()
@@ -367,6 +367,22 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
             return False
+
+    def get_pipeline_id(self, program):
+        pipelineid_dict = {
+            "fast_dp": 3,
+            "xia2.multiplex": 5,
+            "xia2 dials": 6,
+            "xia2 3dii": 7,  # xds
+            "autoPROC": 8,
+            "fast_ep": 9,
+            "dimple": 10,
+            "MrBUMP": 11,
+            "big_ep": 12,
+        }
+        pipeline_id = pipelineid_dict["program"]
+
+        return pipeline_id
 
     def do_update_program_name(self, parameters, **kwargs):
         program_id = parameters("program_id")

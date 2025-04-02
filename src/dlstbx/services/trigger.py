@@ -24,6 +24,7 @@ from ispyb.sqlalchemy import (
     BLSample,
     BLSession,
     BLSubSample,
+    Container,
     DataCollection,
     ProcessingJob,
     Proposal,
@@ -1537,8 +1538,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2452,10 +2457,10 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        # should only be one final echo file in this location
-        for file_name in processing_dir.iterdir():
-            if "SoakExp" in file_name:
-                echo_file = file_name
+        for file in processing_dir.iterdir():
+            if "SoakExp" in file.name:
+                echo_file = file
+                break
 
         if not echo_file:
             self.log.info(
@@ -2466,19 +2471,14 @@ class DLSTrigger(CommonService):
         echofilepath = pathlib.Path(processing_dir / echo_file)
         dfecho = pd.read_csv(echofilepath)
 
-        num_visits = len(dfecho["visit_number"].unique())
-        visit_numbers = [
-            dfecho["visit_number"].unique()[j].split("-")[1]
-            for j in np.arange(num_visits)
-        ]
-        locations = dfecho["location"].unique().tolist()
-
-        if len(locations) < 50:  # change to parameter
-            self.log.info(
-                f"Aborting PanDDA analysis. {len(locations)} dispensing locations found \
-                  but this number should be > 50 for PanDDA fragment screening analysis"
-            )
-            return {"success": True}
+        plate_barcodes = dfecho[
+            "Plate Barcode"
+        ].unique()  # use the plate barcodes to look up dcids
+        # num_visits = len(dfecho["visit_number"].unique())
+        # visit_numbers = [
+        #     dfecho["visit_number"].unique()[j].split("-")[1]
+        #     for j in np.arange(num_visits)
+        # ]
 
         # now from proposal and visit number get all dcids in the fragment screen
         query = (
@@ -2489,10 +2489,8 @@ class DLSTrigger(CommonService):
                 BLSubSample, BLSubSample.blSubSampleId == DataCollection.blSubSampleId
             )
             .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
-            .filter(Proposal.proposalCode == proposal_code)
-            .filter(Proposal.proposalNumber == proposal_number)
-            .filter(BLSession.visit_number.in_(visit_numbers))
-            .filter(BLSample.location.in_(locations))
+            .join(Container, Container.containerId == BLSample.containerId)
+            .filter(Container.barcode.in_(plate_barcodes))
         )
 
         query = query.with_entities(DataCollection.dataCollectionId)
@@ -2630,6 +2628,13 @@ class DLSTrigger(CommonService):
         #     .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
         #     .filter(ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex")
         # )
+
+        if len(locations) < 50:  # change to parameter
+            self.log.info(
+                f"Aborting PanDDA analysis. {len(locations)} dispensing locations found \
+                  but this number should be > 50 for PanDDA fragment screening analysis"
+            )
+            return {"success": True}
 
         self.log.debug("PanDDA trigger: Starting")
 

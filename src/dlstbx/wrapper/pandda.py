@@ -46,13 +46,7 @@ class PanDDAWrapper(Wrapper):
             print(f"{echo_file} found.")
             echo_path = echo_dir / echo_file
             dfecho = pd.read_csv(echo_path)
-            plate_type = echo_file.parts[
-                -1
-            ].split(
-                "_"
-            )[
-                4
-            ]  # better to query Container.containerType and put in echofile before this step
+            plate_type = echo_file.parts[-1].split("_")[4]
             dfecho["Plate Type"] = plate_type
             df = pd.concat([df, dfecho])
 
@@ -64,9 +58,7 @@ class PanDDAWrapper(Wrapper):
         for index, row in df.iterrows():
             sourcewell = row["Source Well"]
             destinationwell = row["Destination Well"]
-            library = row[
-                "Library Barcode"
-            ]  # library looks to be the same as library barcode
+            library = row["Library Barcode"]
             plate_type = "platedefinition_" + row["Plate Type"]
             for library_file in os.listdir(table_dir):
                 if library in library_file:
@@ -84,15 +76,14 @@ class PanDDAWrapper(Wrapper):
                     match = dfdef.loc[dfdef["Destination Well"] == destinationwell]
                     WELL.append(match["Data Well"].item().split("_")[1])
 
-        print(" \nFragment information found.\n ")
         df["Catalog ID"] = ID
         df["Smiles"] = SMILES
         df["ISPyB Well"] = WELL
         df["Experiment ID"] = df["Catalog ID"] + "/" + df["Transfer Volume"].astype(str)
         df.rename(columns={"Plate Barcode": "barcode", "ISPyB Well": "location"})
 
-        df2 = pd.read_csv(processing_dir / "ispyb.csv")
-        dfmerged = pd.merge(df, df2, how="outer", on=["barcode", "location"])
+        df_ispyb = pd.read_csv(processing_dir / "ispyb.csv")
+        dfmerged = pd.merge(df, df_ispyb, how="outer", on=["barcode", "location"])
 
         dfmerged[dfmerged["filePath"].isna()]  # entries with smiles but no dcid, record
 
@@ -151,9 +142,9 @@ class PanDDAWrapper(Wrapper):
 
             library = row["Library Barcode"]
             source_well = row["Source Well"]
-            cif_dir = pathlib.Path("")  # make a central cif,smiles dir for each library
+            cif_dir = pathlib.Path("")  # central cif,smiles dir for each library
             shutil.copyfile(
-                cif_dir / "source_well" / "ligand.pdb",
+                cif_dir / f"{source_well}" / "ligand.pdb",
                 processing_dir
                 / "analysis"
                 / "model_building"
@@ -162,7 +153,7 @@ class PanDDAWrapper(Wrapper):
                 / "ligand.pdb",
             )
             shutil.copyfile(
-                cif_dir / "source_well" / "ligand.cif",
+                cif_dir / f"{source_well}" / "ligand.cif",
                 processing_dir
                 / "analysis"
                 / "model_building"

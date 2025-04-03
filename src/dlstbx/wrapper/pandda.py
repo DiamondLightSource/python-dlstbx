@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
-import re
+import shutil
 import subprocess
 
 import pandas as pd
@@ -14,27 +14,8 @@ from dlstbx.wrapper import Wrapper
 class PanDDAWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.pandda"
 
-    # def send_attachments_to_ispyb(self, pipeline_directory, min_cc_keep):
+    # def send_attachments_to_ispyb(self, pipeline_directory):
     #     for f in pipeline_directory.iterdir():
-    #         if f.stem.endswith("final") and CC >= min_cc_keep:
-    #             file_type = "Result"
-    #             importance_rank = 1
-    #         elif f.suffix == ".log":
-    #             file_type = "Log"
-    #             importance_rank = 2
-    #         else:
-    #             continue
-    #         try:
-    #             result_dict = {
-    #                 "file_path": str(pipeline_directory),
-    #                 "file_name": f.name,
-    #                 "file_type": file_type,
-    #                 "importance_rank": importance_rank,
-    #             }
-    #             self.record_result_individual_file(result_dict)
-    #             self.log.info(f"Uploaded {f.name} as an attachment")
-    #         except Exception:
-    #             self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -49,74 +30,32 @@ class PanDDAWrapper(Wrapper):
         results_directory = pathlib.Path(params["results_directory"])
         results_directory.mkdir(parents=True, exist_ok=True)
 
-        res_limit = float(3.00)
+        res_limit = float(3.00)  # make into recipe parameters
         completeness_limit = float(90)
-
-        echo_dir = working_directory + "/echo"
-        list_dir = os.listdir(echo_dir)
-
-        df = pd.DataFrame(
-            columns=[
-                "Catalog ID",
-                "Smiles",
-                "Library",
-                "Library Plate",
-                "Source Well",
-                "Destination Well",
-                "Plate Type",
-                "ISPyB Well",
-                "Transfer Volume",
-                "Destination Well X Offset",
-                "Destination Well Y Offset",
-                "Experiment ID",
-                "Well ID",
-                "All Well",
-                "Plate Barcode",
-                "Proposal",
-                "Visit",
-                "Protein",
-                "Dataset ID",
-                "Sample Name",
-                "Data Directory",
-                "All Well Path",
-                "All Crystal Path",
-                "All Multiplex Path",
-                "Selected Multiplex Path",
-                "Selected Dimple Path",
-                "Output Path",
-            ]
-        )
 
         query = "Echo.csv"
         echo_files = []
+        echo_dir = processing_dir / "echo"
+        for file in echo_dir.iterdir():
+            if query in file.name:
+                echo_files.append(file)
 
-        for file_name in sorted(list_dir, reverse=False):
-            if query in file_name:
-                echo_files.append(file_name)
+        df = pd.DataFrame(data=None)
 
         for echo_file in echo_files:
             print(f"{echo_file} found.")
-            echo_path = echo_dir + "/" + echo_file
+            echo_path = echo_dir / echo_file
             dfecho = pd.read_csv(echo_path)
-            protein_acr = echo_file.split("_")[0]
-            dfecho["Protein"] = protein_acr
-            proposal = re.split(r"_|-", echo_file)[3]
-            dfecho["Proposal"] = proposal
-            visit = re.split(r"_|-", echo_file)[4]
-            dfecho["Visit"] = visit
-            plate_barcode = echo_file.split("_")[1]
-            dfecho["Plate Barcode"] = plate_barcode
-            data_dir = "/dls/mx/data/" + proposal + "/" + proposal + "-" + visit
-            dfecho["Data Directory"] = data_dir
-            library_plate = echo_file.split("_")[3]
-            dfecho["Library Plate"] = library_plate
-            library = re.split(r"_|-", echo_file)[5]
-            dfecho["Library"] = library
-            plate_type = echo_file.split("_")[4]
+            plate_type = echo_file.parts[
+                -1
+            ].split(
+                "_"
+            )[
+                4
+            ]  # better to query Container.containerType and put in echofile before this step
             dfecho["Plate Type"] = plate_type
             df = pd.concat([df, dfecho])
 
-        # rewritten this block and checked output is the same as original
         ID = []
         SMILES = []
         WELL = []
@@ -125,7 +64,9 @@ class PanDDAWrapper(Wrapper):
         for index, row in df.iterrows():
             sourcewell = row["Source Well"]
             destinationwell = row["Destination Well"]
-            library = row["Library"]
+            library = row[
+                "Library Barcode"
+            ]  # library looks to be the same as library barcode
             plate_type = "platedefinition_" + row["Plate Type"]
             for library_file in os.listdir(table_dir):
                 if library in library_file:
@@ -141,11 +82,96 @@ class PanDDAWrapper(Wrapper):
                     dfdef = pd.read_csv(platedef_path)
 
                     match = dfdef.loc[dfdef["Destination Well"] == destinationwell]
-                    WELL.append(match["Data Well"].item())
+                    WELL.append(match["Data Well"].item().split("_")[1])
 
         print(" \nFragment information found.\n ")
+        df["Catalog ID"] = ID
+        df["Smiles"] = SMILES
+        df["ISPyB Well"] = WELL
+        df["Experiment ID"] = df["Catalog ID"] + "/" + df["Transfer Volume"].astype(str)
+        df.rename(columns={"Plate Barcode": "barcode", "ISPyB Well": "location"})
 
-        pandda_command = "print('pandda command')"
+        df2 = pd.read_csv(processing_dir / "ispyb.csv")
+        dfmerged = pd.merge(df, df2, how="outer", on=["barcode", "location"])
+
+        dfmerged[dfmerged["filePath"].isna()]  # entries with smiles but no dcid, record
+
+        # check multiplex dataset quality
+        multiplex_data = []
+        for index, row in dfmerged.iterrows():
+            multiplex_dir = Path(str(row["filePath"]))
+            if (multiplex_dir / "xia2.multiplex.log").exists():
+                with open(multiplex_dir / "xia2.multiplex.log") as f:
+                    for line in f:  # why search through all lines
+                        if "cluster_" in line:
+                            if len(line.split()) > 5:  # added this line for now to fix
+                                number_of_datasets_in_cluster = line.split()[1]
+                        if "Completeness" in line:
+                            if len(line.split()) == 4:
+                                completeness = line.split()[1]
+                        if "High resolution limit  " in line:
+                            high_res_limit = line.split()[
+                                5
+                            ]  # this gets the overall limit not the high res limit which would be [5], correct?
+
+                if (
+                    float(completeness) >= completeness_limit
+                    and float(high_res_limit) <= res_limit
+                ):
+                    multiplex_data.append(True)
+                else:
+                    multiplex_data.append(False)
+            else:
+                multiplex_data.append(False)
+
+        dfmerged["Multiplex quality"] = multiplex_data
+        df_final = dfmerged[dfmerged["Multiplex quality"] == True]  # filter data
+
+        pandda_datasets = len(df_final)
+        if pandda_datasets < 50:  # make into param?
+            self.log.error(
+                f"Aborting PanDDA processing. There are a total of {pandda_datasets} that meet the quality criteria which is less than the required amount of 50"
+            )
+            return False
+
+        # create the directory structure required for panddas analysis
+        for index, row in df_final.iterrows():
+            well = row["location"]
+            multiplex_path = Path(str(row["filePath"]))
+            Path(
+                processing_dir / "analysis" / "model_building" / f"Mac-x{well}/compound"
+            ).mkdir(parents=True, exist_ok=True)
+            dirpath = processing_dir / "analysis" / "model_building" / f"Mac-x{well}"
+            shutil.copyfile(
+                multiplex_path / "dimple/final.pdb", dirpath / f"x{well}_dimple.pdb"
+            )
+            shutil.copyfile(
+                multiplex_path / "dimple/final.mtz", dirpath / f"x{well}_dimple.mtz"
+            )
+
+            library = row["Library Barcode"]
+            source_well = row["Source Well"]
+            cif_dir = pathlib.Path("")  # make a central cif,smiles dir for each library
+            shutil.copyfile(
+                cif_dir / "source_well" / "ligand.pdb",
+                processing_dir
+                / "analysis"
+                / "model_building"
+                / f"Mac-x{well}"
+                / "compound"
+                / "ligand.pdb",
+            )
+            shutil.copyfile(
+                cif_dir / "source_well" / "ligand.cif",
+                processing_dir
+                / "analysis"
+                / "model_building"
+                / f"Mac-x{well}"
+                / "compound"
+                / "ligand.cif",
+            )
+
+        pandda_command = ""
 
         try:
             result = subprocess.run(
@@ -159,7 +185,7 @@ class PanDDAWrapper(Wrapper):
             )
 
         except subprocess.CalledProcessError as e:
-            self.log.error(f"Ligand_fit process '{pandda_command}' failed")
+            self.log.error(f"PanDDA process '{pandda_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             return False
@@ -182,15 +208,8 @@ class PanDDAWrapper(Wrapper):
                 os.fspath(results_directory), params["create_symlink"]
             )
 
-        # self.log.info("Sending results to ISPyB")
-        # self.send_attachments_to_ispyb(pipeline_directory)
+        self.log.info("Sending results to ISPyB")
+        self.send_attachments_to_ispyb(processing_dir)
 
-        # CC = self.pull_CC_from_log(pipeline_directory)
-        # if CC >= min_cc_keep:
-        #     self.log.info("Ligand_fitting pipeline finished successfully")
-        #     return True
-        # else:
-        #     self.log.info(
-        #         f"Ligand_fitting pipeline finished but ligand fitting CC ({CC}) did not meet quality threshold ({min_cc_keep})"
-        #     )
-        #     return False
+        self.log.info("PanDDA script finished")
+        return True

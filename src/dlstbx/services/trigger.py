@@ -25,6 +25,7 @@ from ispyb.sqlalchemy import (
     BLSession,
     BLSubSample,
     Container,
+    Crystal,
     DataCollection,
     ProcessingJob,
     Proposal,
@@ -1538,12 +1539,8 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(
-                            AutoProcProgram.autoProcProgramId > program_id
-                        )  # noqa E711
-                        .filter(
-                            AutoProcProgram.recordTimeStamp > min_start_time
-                        )  # noqa E711
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2603,49 +2600,71 @@ class DLSTrigger(CommonService):
                     transaction=transaction,
                 )
 
-        # Additional final query to find out number of completed dimple jobs downstream
-        # from multiplex
-
-        # query = (
-        #     session.query(Proposal, BLSession, DataCollection, BLSubSample)
-        #     .join(BLSession, BLSession.proposalId == Proposal.proposalId)
-        #     .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
-        #     .join(
-        #         BLSubSample, BLSubSample.blSubSampleId == DataCollection.blSubSampleId
-        #     )
-        #     .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
-        #     .join(
-        #         ProcessingJob,
-        #         ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
-        #     )
-        #     .join(
-        #         AutoProcProgram,
-        #         AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
-        #     )
-        #     .join(
-        #         AutoProcProgramAttachment,
-        #         AutoProcProgramAttachment.autoProcProgramId
-        #         == AutoProcProgram.autoProcProgramId,
-        #     )
-        #     .filter(Proposal.proposalCode == proposal.proposalCode)
-        #     .filter(Proposal.proposalNumber == proposal.proposalNumber)
-        #     .filter(BLSession.visit_number.in_(visit_numbers))
-        #     .filter(BLSample.location.in_(locations))
-        #     .filter(ProcessingJob.automatic == True)  #
-        #     .filter(AutoProcProgram.processingStatus== 1)
-        #     .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
-        #     .filter(ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex")
-        # )
-
-        if len(locations) < 50:  # change to parameter
-            self.log.info(
-                f"Aborting PanDDA analysis. {len(locations)} dispensing locations found \
-                  but this number should be > 50 for PanDDA fragment screening analysis"
+        # Create the final dataframe of completed dimple from multiplex jobs
+        # & write to the processing dir (to be used again in the wrapper)
+        # now merge with db query at the end of the pandda trigger, load this from the one created by the trigger?
+        query = (
+            session.query(
+                BLSubSample,
+                BLSample,
+                Container,
+                Protein,
+                Proposal,
+                DataCollection,
+                AutoProcProgram,
+                ProcessingJob,
             )
-            return {"success": True}
+            .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
+            .join(
+                DataCollection,
+                DataCollection.blSubSampleId == BLSubSample.blSubSampleId,
+            )
+            .join(
+                ProcessingJob,
+                ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .join(Container, Container.containerId == BLSample.containerId)
+            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
+            .join(Protein, Protein.proteinId == Crystal.proteinId)
+            .join(BLSession, BLSession.sessionId == Container.sessionId)
+            .join(Proposal, Proposal.proposalId == Protein.proposalId)
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            # .filter(BLSample.location.in_(locations))
+            .filter(ProcessingJob.automatic == True)  #
+            .filter(AutoProcProgram.processingStatus == 1)
+            .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
+            # .filter(AutoProcProgramAttachment.filePath.contains('xia2.multiplex'))
+            .filter(
+                ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex"
+            )
+        )
+
+        query = query.with_entities(
+            Container.barcode,
+            BLSample.location,
+            Proposal.proposalCode,
+            Proposal.proposalNumber,
+            BLSession.visit_number,
+            Protein.acronym,
+            Container.containerType,
+            DataCollection.dataCollectionId,
+            AutoProcProgramAttachment.filePath,
+        )
+
+        df = pd.read_sql(query.statement, query.session.bind)
+        outpath = processing_dir / "ispyb.csv"
+        df.to_csv(outpath)  # save for later
 
         self.log.debug("PanDDA trigger: Starting")
-
         pandda_parameters = {"dcid": parameters.dcid}  # anything else to pass here?
 
         jp = self.ispyb.mx_processing.get_job_params()

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
 import ispyb
+import numpy as np
 import pandas as pd
 import prometheus_client
 import pydantic
@@ -1537,8 +1538,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2436,13 +2441,12 @@ class DLSTrigger(CommonService):
         """
         dcid = parameters.dcid
         program_id = parameters.program_id
-        # scaling_id = parameters.scaling_id[0]
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
 
         visit = ispyb_info.get("ispyb_visit", "")
-        proposal_code = visit.split("-")[0][0:2]
-        proposal_number = visit.split("-")[0][2::]
+        # proposal_code = visit.split("-")[0][0:2]
+        # proposal_number = visit.split("-")[0][2::]
         visitdir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
         processing_dir = visitdir / "processing"
         echodir = processing_dir / "echo"
@@ -2466,31 +2470,40 @@ class DLSTrigger(CommonService):
         echofilepath = pathlib.Path(processing_dir / echo_file)
         dfecho = pd.read_csv(echofilepath)
 
-        plate_barcodes = dfecho[
-            "Plate Barcode"
-        ].unique()  # use the plate barcodes to look up dcids
-        # num_visits = len(dfecho["visit_number"].unique())
-        # visit_numbers = [
-        #     dfecho["visit_number"].unique()[j].split("-")[1]
-        #     for j in np.arange(num_visits)
-        # ]
-
-        # now from proposal and visit number get all dcids in the fragment screen
-        query = (
-            session.query(Proposal, BLSession, DataCollection, BLSubSample)
-            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
-            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
-            .join(
-                BLSubSample, BLSubSample.blSubSampleId == DataCollection.blSubSampleId
+        # get plate barcodes and corresponding dispensed locations for all plates in frag expt
+        plate_barcodes = dfecho["barcode"].unique()
+        locations = []
+        for i in range(len(plate_barcodes)):
+            locations.append(
+                dfecho[np.array([dfecho["barcode"] == f"{plate_barcodes[i]}"]).ravel()][
+                    "location"
+                ].tolist()
             )
-            .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
-            .join(Container, Container.containerId == BLSample.containerId)
-            .filter(Container.barcode.in_(plate_barcodes))
-        )
 
-        query = query.with_entities(DataCollection.dataCollectionId)
-        df = pd.read_sql(query.statement, query.session.bind)
-        dcids = df["dataCollectionId"].unique()
+        # get all dcids for the frag expt
+        dcids = []
+        for i in range(len(plate_barcodes)):
+            query = (
+                session.query(Proposal, BLSession, DataCollection, BLSubSample)
+                .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+                .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+                .join(
+                    BLSubSample,
+                    BLSubSample.blSubSampleId == DataCollection.blSubSampleId,
+                )
+                .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
+                .join(Container, Container.containerId == BLSample.containerId)
+                .filter(
+                    (
+                        (Container.barcode == plate_barcodes[i])
+                        & (BLSample.location.in_(locations[i]))
+                    )
+                )
+            )
+            query = query.with_entities(DataCollection.dataCollectionId)
+            dcids.append(np.array(query.all()).flatten())
+
+        dcids = np.concatenate(dcids)
 
         # Check if there are xia2 multiplex or dimple jobs that were triggered on any new
         # data collections after current job was triggered

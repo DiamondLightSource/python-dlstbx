@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
+import pathlib
+import shutil
 import subprocess
 import time
+from fnmatch import fnmatch
 
 import dateutil.parser
-import procrunner
-import py
 from prometheus_client import Histogram
 
 import dlstbx.util.symlink
@@ -134,18 +136,18 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
         command = self.construct_commandline(params)
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
 
         # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
+        working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                working_directory, params["create_symlink"]
             )
 
         # Set appropriate environment variables for forkxds
-        environment = {}
+        environment = dict(os.environ)
         if params.get("forkxds_queue"):
             environment["FORKXDS_QUEUE"] = params["forkxds_queue"]
         if params.get("forkxds_project"):
@@ -155,13 +157,22 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
         self.log.info("command: %s", " ".join(command))
         try:
             start_time = time.perf_counter()
-            result = procrunner.run(
+            result = subprocess.run(
                 command,
                 timeout=params.get("timeout"),
-                working_directory=working_directory,
-                environment_override=environment,
-                raise_timeout_exception=True,
+                env=environment,
+                cwd=working_directory,
             )
+            runtime = time.perf_counter() - start_time
+            self.log.info(f"fast_dp took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
+        except subprocess.TimeoutExpired as te:
+            success = False
+            self.log.warning(f"fast_dp timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
+            self._timeout_counter.inc()
+        else:
             success = not result.returncode
             if success:
                 self.log.info("fast_dp successful")
@@ -169,16 +180,8 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                 self.log.info(f"fast_dp failed with exitcode {result.returncode}")
                 self.log.debug(result.stdout)
                 self.log.debug(result.stderr)
-            runtime = time.perf_counter() - start_time
-            self.log.info(f"fast_dp took {runtime} seconds")
-            self._runtime_hist.observe(runtime)
-        except subprocess.TimeoutExpired as te:
-            self.log.info("fast_dp failed with timeout")
-            self.log.debug(te.stdout)
-            self.log.debug(te.stderr)
-            success = False
 
-        if success and working_directory.join("fast_dp.error").check():
+        if success and (working_directory / "fast_dp.error").is_file():
             # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
             success = False
             self.log.warning("fast_dp exited with error, but with returncode 0")
@@ -188,7 +191,7 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
         if success:
             command = [
                 "xia2.report",
-                "log_include=%s" % working_directory.join("fast_dp.log").strpath,
+                f"log_include={str(working_directory / "fast_dp.log")}",
                 "prefix=fast_dp",
                 "title=fast_dp",
                 "fast_dp_unmerged.mtz",
@@ -196,12 +199,15 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             # run xia2.report in working directory
             self.log.info("Running command: %s", " ".join(command))
             try:
-                result = procrunner.run(
+                result = subprocess.run(
                     command,
                     timeout=params.get("timeout"),
-                    raise_timeout_exception=True,
-                    working_directory=working_directory,
+                    env=environment,
+                    cwd=working_directory,
                 )
+                runtime = time.perf_counter() - start_time
+                self.log.info(f"fast_dp took {runtime} seconds")
+                self._runtime_hist.observe(runtime)
             except subprocess.TimeoutExpired as te:
                 success = False
                 self.log.warning(f"xia2.report timed out: {te.timeout}\n  {te.cmd}")
@@ -219,20 +225,33 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                     self.log.debug(result.stdout)
                     self.log.debug(result.stderr)
 
-            json_file = working_directory.join("iotbx-merging-stats.json")
+            json_file = working_directory / "iotbx-merging-stats.json"
             with json_file.open("w") as fh:
                 fh.write(
                     get_merging_statistics(
-                        str(working_directory.join("fast_dp_unmerged.mtz").strpath)
+                        str(working_directory / "fast_dp_unmerged.mtz")
                     ).as_json()
                 )
 
         # Create results directory and symlink if they don't already exist
-        results_directory.ensure(dir=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
+                results_directory, params["create_symlink"]
             )
+        if pipeine_final_params := params.get("pipeline-final", []):
+            final_directory = pathlib.Path(pipeine_final_params["path"])
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params["create_symlink"]
+                )
+
+            def is_final_result(final_file: pathlib.Path) -> bool:
+                return any(
+                    fnmatch(str(final_file.name), patt)
+                    for patt in pipeine_final_params["patterns"]
+                )
 
         # copy output files to result directory and attach them in ISPyB
         keep_ext = {
@@ -253,36 +272,40 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
-        primary_log_files = [
-            working_directory.join("fast_dp-report.html"),
-            working_directory.join("fast_dp.log"),
+        output_files = [
+            working_directory / "fast_dp-report.html",
+            working_directory / "fast_dp.log",
         ]
+        output_files.extend(
+            set(working_directory.iterdir()).difference(set(output_files))
+        )
 
         allfiles = []
-        for filename in primary_log_files + working_directory.listdir():
-            if not filename.check():
+        for filename in output_files:
+            if not filename.is_file():
                 continue
-            filetype = keep_ext.get(filename.ext)
-            if filename.basename in keep:
-                filetype = keep[filename.basename]
+            filetype = keep_ext.get(filename.suffix)
+            if filename.name in keep:
+                filetype = keep[filename.name]
             if filetype is None:
                 continue
-            destination = results_directory.join(filename.basename)
-            if destination.strpath in allfiles:
-                # We've already seen this file above
-                continue
-            self.log.debug(f"Copying {filename.strpath} to {destination.strpath}")
-            allfiles.append(destination.strpath)
-            filename.copy(destination)
+            destination = results_directory / filename.name
+            self.log.debug(f"Copying {str(filename)} to {str(destination)}")
+            shutil.copy(filename, destination)
+            if pipeine_final_params and is_final_result(filename):
+                destination = final_directory / filename.name
+                shutil.copy(filename, destination)
+            allfiles.append(str(destination))
+
             if filetype:
                 self.record_result_individual_file(
                     {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
+                        "file_path": str(destination.parent),
+                        "file_name": destination.name,
                         "file_type": filetype,
                         "importance_rank": (
                             1
-                            if destination.basename
+                            if destination.name
                             in ("fast_dp.mtz", "fast_dp-report.html")
                             else 2
                         ),
@@ -292,14 +315,14 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             self.record_result_all_files({"filelist": allfiles})
 
         # Forward JSON results if possible
-        if success and working_directory.join("fast_dp.json").check():
-            with working_directory.join("fast_dp.json").open("r") as fh:
+        if success and (working_directory / "fast_dp.json").is_file():
+            with (working_directory / "fast_dp.json").open("r") as fh:
                 json_data = json.load(fh)
             if (
                 params.get("store_xtriage_results")
-                and working_directory.join("fast_dp-report.json").check()
+                and (working_directory / "fast_dp-report.json").is_file()
             ):
-                with working_directory.join("fast_dp-report.json").open("rb") as fh:
+                with (working_directory / "fast_dp-report.json").open("rb") as fh:
                     xtriage_results = json.load(fh).get("xtriage")
             else:
                 xtriage_results = None

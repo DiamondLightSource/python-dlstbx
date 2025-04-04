@@ -68,7 +68,7 @@ class DLSClusterMonitor(CommonService):
         jobs_states = itertools.chain(
             *[
                 job.job_state
-                for job in dict(response.jobs).get("__root__", [])
+                for job in getattr(response.jobs, "root", [])
                 if job.user_name == "gda2"
             ]
         )

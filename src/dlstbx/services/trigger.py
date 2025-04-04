@@ -236,6 +236,8 @@ class LigandFitParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
+    min_cc_keep: float = pydantic.Field(default=0.7)
+    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
 
 
 class DLSTrigger(CommonService):
@@ -653,9 +655,11 @@ class DLSTrigger(CommonService):
             .options(
                 contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                 joinedload(ProcessingJob.ProcessingJobParameters),
-                Load(DataCollection)
-                .load_only("dataCollectionId", "wavelength")
-                .raiseload("*"),
+                Load(DataCollection).load_only(
+                    DataCollection.dataCollectionId,
+                    DataCollection.wavelength,
+                    raiseload=True,
+                ),
             )
             .populate_existing()
         )
@@ -1662,9 +1666,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -1767,14 +1773,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():
@@ -1999,9 +2004,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -2092,14 +2099,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():
@@ -2281,6 +2287,9 @@ class DLSTrigger(CommonService):
         - comment: a comment to be stored in the ProcessingJob.comment field
         - scaling_id: scaling id of the data reduction pipeline that triggered dimple
           given as a list as this is how it is presented in the dimple recipe.
+        - min_cc_keep: (optional) minimum correlation coefficient for ligand fitting to be considered successful
+        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
+          processing jobs to finish before skipping
         - automatic: boolean value passed to ProcessingJob.automatic field
 
         Example recipe parameters:
@@ -2292,7 +2301,9 @@ class DLSTrigger(CommonService):
             "pipeline": "phenix_pipeline",
             "automatic": true,
             "comment": "Ligand_fit triggered by xia2 dials",
-            "scaling_id": [123456]
+            "scaling_id": [123456],
+            "min_cc_keep": 0.7,
+            "timeout-minutes": 115
 
         }
         """

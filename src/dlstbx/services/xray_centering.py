@@ -67,7 +67,8 @@ class Parameters(pydantic.BaseModel):
     latency_log_warning: float = 30
     latency_log_error: float = 300
     beamline: str
-    threshold: pydantic.NonNegativeFloat = 0.25
+    threshold: pydantic.NonNegativeFloat = 0.05
+    threshold_absolute: pydantic.NonNegativeFloat = 5
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -176,7 +177,19 @@ class DLSXRayCentering(CommonService):
                     del self._centering_data[dcid]
 
     def add_pia_result(self, rw, header, message):
-        """Process incoming PIA result."""
+        """Process incoming PIA result.
+
+        This is invoked repeatedly as each image in the gridscan comes through.
+
+        Recipe Step Inputs:
+            gridinfo: This is the ISPyB DataCollectionGridInfo for the DataCollection
+            parameters: Other parameters in the recipe - see the relevant per-image-analysis-xxx.json
+        Args:
+            rw: an instance of RecipeWrapper
+            header: The message header
+            message: A dict which decodes to an instance of Message
+
+        """
 
         try:
             recipe_step = RecipeStep(**rw.recipe_step)
@@ -247,8 +260,8 @@ class DLSXRayCentering(CommonService):
                     dlstbx.util.xray_centering.reshape_grid(
                         cd.data,
                         (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
-                        snaked=cd.gridinfo.snaked,
-                        orientation=cd.gridinfo.orientation,
+                        cd.gridinfo.snaked,
+                        cd.gridinfo.orientation,
                     )
                 ]
                 for _dcid in dcg_dcids:
@@ -262,8 +275,8 @@ class DLSXRayCentering(CommonService):
                         dlstbx.util.xray_centering.reshape_grid(
                             _cd.data,
                             (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
-                            snaked=_cd.gridinfo.snaked,
-                            orientation=_cd.gridinfo.orientation,
+                            not _cd.gridinfo.snaked,  # XXX
+                            _cd.gridinfo.orientation,
                         )
                     )
                 else:
@@ -279,6 +292,7 @@ class DLSXRayCentering(CommonService):
                     result = dlstbx.util.xray_centering_3d.gridscan3d(
                         data=tuple(data),
                         threshold=parameters.threshold,
+                        threshold_absolute=parameters.threshold_absolute,
                         plot=False,
                     )
                     self.log.info(f"3D X-ray centering result: {result}")

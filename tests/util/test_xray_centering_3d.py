@@ -43,12 +43,10 @@ def test_gridscan3d():
     # check that the results are JSON-serializable
     json.dumps(result_d)
     assert result_d == {
-        "centre_of_mass": pytest.approx(
-            (4.858891830104681, 4.500240644928408, 4.197689808687282)
-        ),
+        "centre_of_mass": pytest.approx((4.7410034445, 4.568323966, 4.136851885)),
         "max_voxel": (5, 4, 4),
-        "max_count": 7298,
-        "n_voxels": 9,
-        "total_count": 33244,
-        "bounding_box": ((3, 3, 3), (7, 6, 5)),
+        "max_count": 7298.0,
+        "n_voxels": 20,
+        "total_count": 44128.0,
+        "bounding_box": ((2, 3, 2), (7, 6, 6)),
     }

@@ -1,5 +1,6 @@
 drmaa
-ispyb>=10.1.0
+hdf5plugin
+ispyb>=11.0.1
 junit-xml>=1.9
 marshmallow-sqlalchemy
 minio>=7.1.0
@@ -19,7 +20,7 @@ python-relion
 pyyaml
 pyzmq
 seaborn
-sqlalchemy>=1.4.0,<1.5
+sqlalchemy>=2.0.39,<3
 stomp.py>=7,<9
 workflows>=2.19
 xmltodict

@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import time
+from fnmatch import fnmatch
 from pathlib import Path
 
 import dateutil.parser
@@ -278,6 +279,22 @@ class Xia2Wrapper(Wrapper):
                 results_directory, params["create_symlink"]
             )
 
+        if pipeine_final_params := params.get("pipeline-final", []):
+            final_directory = (
+                Path(pipeine_final_params["path"]) / params["program_name"]
+            )
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params["create_symlink"]
+                )
+
+            def is_final_result(final_file: Path) -> bool:
+                return any(
+                    fnmatch(str(final_file.name), patt)
+                    for patt in pipeine_final_params["patterns"]
+                )
+
         for subdir in ("DataFiles", "LogFiles"):
             src = working_directory / subdir
             dst = results_directory / subdir
@@ -296,7 +313,11 @@ class Xia2Wrapper(Wrapper):
             if f.is_file() and not f.name.startswith(".") and f.suffix != ".sif":
                 self.log.debug(f"Copying {f} to results directory")
                 shutil.copy(f, results_directory)
-                allfiles.append(str(results_directory / f.name))
+                if pipeine_final_params and is_final_result(f):
+                    shutil.copy(f, final_directory)
+                    allfiles.append(str(final_directory / f.name))
+                else:
+                    allfiles.append(str(results_directory / f.name))
 
         success = (
             success
@@ -311,9 +332,14 @@ class Xia2Wrapper(Wrapper):
         logfiles = ("xia2.html", "xia2.txt", "xia2.error", "xia2-error.txt")
         for result_file in map(results_directory.joinpath, logfiles):
             if result_file.is_file():
+                result_file_path = str(result_file.parent)
+                if final_directory:
+                    final_file = final_directory / result_file.name
+                    if final_file.is_file():
+                        result_file_path = str(final_directory)
                 self.record_result_individual_file(
                     {
-                        "file_path": str(result_file.parent),
+                        "file_path": result_file_path,
                         "file_name": result_file.name,
                         "file_type": "log",
                         "importance_rank": 1 if result_file.name == "xia2.html" else 2,
@@ -328,9 +354,13 @@ class Xia2Wrapper(Wrapper):
                 file_type = "result"
                 if result_file.suffix in (".log", ".txt"):
                     file_type = "log"
+                result_file_path = str(result_file.parent)
+                if pipeine_final_params and is_final_result(result_file):
+                    shutil.copy(result_file, final_directory)
+                    result_file_path = str(final_directory)
                 self.record_result_individual_file(
                     {
-                        "file_path": str(result_file.parent),
+                        "file_path": result_file_path,
                         "file_name": result_file.name,
                         "file_type": file_type,
                         "importance_rank": (
@@ -338,7 +368,7 @@ class Xia2Wrapper(Wrapper):
                         ),
                     }
                 )
-                allfiles.append(os.fspath(result_file))
+                allfiles.append(os.fspath(Path(result_file_path) / result_file.name))
         else:
             self.log.info("xia2 DataFiles directory not found")
             success = False
@@ -353,15 +383,19 @@ class Xia2Wrapper(Wrapper):
                     file_type = "graph"
                 elif result_file.suffix == ".png":
                     file_type = "log"
+                result_file_path = str(result_file.parent)
+                if pipeine_final_params and is_final_result(result_file):
+                    shutil.copy(result_file, final_directory)
+                    result_file_path = str(final_directory)
                 self.record_result_individual_file(
                     {
-                        "file_path": str(result_file.parent),
+                        "file_path": str(result_file_path),
                         "file_name": result_file.name,
                         "file_type": file_type,
                         "importance_rank": 2,
                     }
                 )
-                allfiles.append(os.fspath(result_file))
+                allfiles.append(os.fspath(Path(result_file_path) / result_file.name))
         else:
             self.log.info("xia2 LogFiles directory not found")
             success = False

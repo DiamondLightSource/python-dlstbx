@@ -197,19 +197,11 @@ def read_xia2_processing(tmpl_data):
 
 def generate_model_snapshots(working_directory, pipeline, tmpl_env):
     logger.info(f"Model path: {working_directory}")
-    try:
-        mdl_data = get_map_model_from_json(working_directory)
-    except Exception:
-        logger.info(f"Cannot read map/model data from {working_directory}")
-        return
-    try:
-        map_file_coot = mdl_data["map"]
-    except Exception:
-        map_file_coot = False
-    try:
-        pdb_file_coot = mdl_data["pdb"]
-    except Exception:
-        pdb_file_coot = False
+    mdl_data = get_map_model_from_json(working_directory, logger)
+    if not (map_file_coot := mdl_data.get("map", False)):
+        logger.info(f"Cannot read map data from {working_directory}")
+    if not (pdb_file_coot := mdl_data.get("pdb", False)):
+        logger.info(f"Cannot read model data from {working_directory}")
     model_py = os.path.join(working_directory, pipeline + "_models.py")
     coot_sh = os.path.join(working_directory, pipeline + "_models.sh")
     img_name = f"{pipeline}_model"
@@ -238,7 +230,7 @@ def generate_model_snapshots(working_directory, pipeline, tmpl_env):
 
 def read_model_snapshots(working_directory, pipeline, tmpl_data):
     try:
-        mdl_data = get_map_model_from_json(working_directory)
+        mdl_data = get_map_model_from_json(working_directory, logger)
         tmpl_data["model_data"][pipeline] = mdl_data["data"]
     except Exception:
         logger.info(f"Cannot read map/model data from {working_directory}")

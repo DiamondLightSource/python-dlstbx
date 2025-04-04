@@ -80,18 +80,21 @@ def populate_dcg_xml_template(datacollection, sessionid, blsample_id):
     return temp
 
 
-def populate_grid_info_xml_template(_row, _dcgid):
+def populate_grid_info_xml_template(_row, _dcid):
     temp = _grid_info_temp_xml % (
-        _dcgid,
         _f(_row["dx_mm"]),
         _f(_row["dy_mm"]),
         _i(_row["steps_x"]),
         _i(_row["steps_y"]),
-        _f(_row["pixelspermicronx"]),
-        _f(_row["pixelspermicrony"]),
         _f(_row["snapshot_offsetxpixel"]),
         _f(_row["snapshot_offsetypixel"]),
         _s(_row["orientation"]),
+        bool(_row["snaked"]),
+        _dcid,
+        _i(_row["patchesx"]),
+        _i(_row["patchesy"]),
+        _f(_row["micronsperpixelx"]),
+        _f(_row["micronsperpixely"]),
     )
 
     # remove lines with null, nan and -1 values:
@@ -213,16 +216,19 @@ _dcg_temp_xml_format = (
 _grid_info_temp_xml = (
     '<?xml version="1.0" encoding="ISO-8859-1"?>'
     "<GridInfo>"
-    "<dataCollectionGroupId>%d</dataCollectionGroupId>"
     "<dx_mm>%.2f</dx_mm>"
     "<dy_mm>%.2f</dy_mm>"
     "<steps_x>%d</steps_x>"
     "<steps_y>%d</steps_y>"
-    "<pixelsPerMicronX>%.4f</pixelsPerMicronX>"
-    "<pixelsPerMicronY>%.4f</pixelsPerMicronY>"
     "<snapshot_offsetXPixel>%.4f</snapshot_offsetXPixel>"
     "<snapshot_offsetYPixel>%.4f</snapshot_offsetYPixel>"
     "<orientation>%s</orientation>"
+    "<snaked>%s</snaked>"
+    "<dataCollectionId>%d</dataCollectionId>"
+    "<patchesX>%d</patchesX>"
+    "<patchesY>%d</patchesY>"
+    "<micronsPerPixelX>%.6f</micronsPerPixelX>"
+    "<micronsPerPixelY>%.6f</micronsPerPixelY>"
     "</GridInfo>"
 )
 

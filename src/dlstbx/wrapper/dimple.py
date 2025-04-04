@@ -158,6 +158,13 @@ class DimpleWrapper(Wrapper):
                 ]
             )
 
+        if getattr(self, "final_directory", None):
+            for att in attachments:
+                if att.file_type is schemas.AttachmentFileType.INPUT:
+                    continue
+                shutil.copy(att.file_path / att.file_name, self.final_directory)
+                att.file_path = self.final_directory
+
         ispyb_results = {
             "ispyb_command": "insert_dimple_results",
             "mxmrrun": json.loads(mxmrrun.model_dump_json()),
@@ -270,6 +277,14 @@ class DimpleWrapper(Wrapper):
                 continue
             shutil.copy(f, self.results_directory)
 
+        if pipeine_final_params := self.params.get("pipeline-final", []):
+            self.final_directory = pathlib.Path(pipeine_final_params["path"])
+            self.final_directory.mkdir(parents=True, exist_ok=True)
+            if self.params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    self.final_directory, self.params["create_symlink"]
+                )
+
         # Replace tmp working_directory with results_directory in coot scripts
         filenames = [
             self.results_directory / f for f in ("coot.sh", "anom-coot.sh")
@@ -283,7 +298,7 @@ class DimpleWrapper(Wrapper):
                         os.fspath(self.results_directory),
                     )
                 )
-        if success and not self.params.get("supress_ispyb"):
+        if success:
             self.log.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
 

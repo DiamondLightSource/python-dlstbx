@@ -707,7 +707,7 @@ class ispybtbx:
             visit, "tmp", "zocalo", rest, collection_path, dc_info["uuid"]
         )
 
-    def dc_info_to_results_directory(self, dc_info):
+    def dc_info_to_results_directory(self, dc_info, final=False):
         directory = dc_info.get("imageDirectory")
         if not directory:
             return None
@@ -718,7 +718,14 @@ class ispybtbx:
         dc_number = dc_info["dataCollectionNumber"] or ""
         if collection_path or dc_number:
             collection_path = f"{collection_path}_{dc_number}"
-        return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
+        return os.path.join(
+            visit,
+            "processed",
+            "pipeline-final" if final else "",
+            rest,
+            collection_path,
+            dc_info["uuid"],
+        )
 
     def get_diffractionplan_from_dcid(
         self, dcid: int, session: sqlalchemy.orm.session.Session
@@ -825,6 +832,9 @@ def ispyb_filter(
     parameters["ispyb_visit_directory"] = visit_directory
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
+    parameters["ispyb_final_directory"] = i.dc_info_to_results_directory(
+        dc_info, final=True
+    )
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
     parameters["ispyb_reference_geometry"] = None
@@ -931,7 +941,7 @@ def ispyb_filter(
 
         related_images = []
 
-        for dc in session.execute(stmt).all():
+        for dc in session.execute(stmt).mappings():
             start, end = i.dc_info_to_start_end(dc)
             parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
 

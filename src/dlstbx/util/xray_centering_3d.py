@@ -17,6 +17,24 @@ Coordinate = tuple[int, int, int]
 
 
 class GridScan3DResult(GridScanResultBase):
+    """
+        Represents a single gridscan result, corresponding to a diffracting centre.
+
+        Coordinates expressed are in terms of grid boxes, with the centre of the box
+        lying on half-integer coordinates.
+
+        Attributes:
+             centre_of_mass: The position of the centre of mass of the crystal, for a
+             crystal of size (1, 1, 1) this will be on half-integer coordinates
+             max_voxel: Position of the maximum voxel, on integer coordinates!!!
+             max_count: max count achieved in a single voxel for the crystal
+             n_voxels: Number of voxels in the diffracting centre
+             total_count: Total of above-threshold spot counts in the labelled voxels
+             bounding_box: The rectangular prism that bounds the crystal, expressed
+                as the volume of whole boxes as a half-open range i.e such that
+                p1 = (x1, y1, z1) <= p < p2 = (x2, y2, z2) and
+                p2 - p1 gives the dimensions in whole voxels.
+    """
     centre_of_mass: Tuple[float, ...]
     max_voxel: Tuple[int, ...]
     max_count: float
@@ -27,7 +45,8 @@ class GridScan3DResult(GridScanResultBase):
 
 def gridscan3d(
     data: tuple[np.ndarray, ...],
-    threshold: float = 0.25,
+    threshold: float = 0.05,
+    threshold_absolute: float = 5,
     plot: bool = False,
 ) -> list[GridScan3DResult]:
     """
@@ -47,6 +66,8 @@ def gridscan3d(
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
         threshold: mask out values less than this fraction of the maximum data value
                    in the reconstructed 3d grid
+        threshold_absolute: mask out values less than this absolute value in the
+                            original grids
         plot: Show interactive debug plots of the grid scan analysis (default=False)
 
     Returns:
@@ -56,6 +77,10 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
+    # mask out grid scans to reduce impact of noisy pixels / edge effects
+    data[0][data[0] < threshold_absolute] = 0
+    data[1][data[1] < threshold_absolute] = 0
+
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)
     logger.debug(data[1].shape)
@@ -64,6 +89,7 @@ def gridscan3d(
         int(r[0]) for r in np.where(reconstructed_3d == reconstructed_3d.max())
     )
     max_count = int(reconstructed_3d[max_idx])
+
     thresholded = (reconstructed_3d >= threshold * max_count) * reconstructed_3d
     # Count corner-corner contacts as a contiguous region
     structure = np.ones((3, 3, 3))

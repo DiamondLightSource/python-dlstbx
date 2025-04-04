@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import time
+from fnmatch import fnmatch
 
 import iotbx.merging_statistics
 from cctbx import uctbx
@@ -234,8 +235,20 @@ class Xia2MultiplexWrapper(Wrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory, params["create_symlink"]
             )
+        if pipeline_final_params := params.get("pipeline-final", []):
+            final_directory = pathlib.Path(pipeline_final_params["path"])
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params["create_symlink"]
+                )
 
-        # Patterns for file keeping
+            def is_final_result(final_file: pathlib.Path) -> bool:
+                return any(
+                    fnmatch(str(final_file.name), patt)
+                    for patt in pipeline_final_params["patterns"]
+                )
+
         keep_ext = {
             ".png": None,
             ".log": "log",
@@ -351,11 +364,17 @@ class Xia2MultiplexWrapper(Wrapper):
                             filetype = keep[file_pattern]
                     if filetype is None:
                         continue
-                    destination = results_directory / filename.name
-                    if destination.as_posix() not in allfiles:
+                    # Files copied to a single results and single final directoy for all clusters
+                    if filename.as_posix() not in allfiles:
+                        allfiles.append(filename.as_posix())
+                        destination = results_directory / filename.name
                         self.log.debug(f"Copying {filename} to {destination}")
-                        allfiles.append(destination.as_posix())
                         shutil.copy(filename, destination)
+                        if pipeline_final_params and is_final_result(filename):
+                            destination = final_directory / filename.name
+                            self.log.debug(f"Copying {filename} to {destination}")
+                            shutil.copy(filename, destination)
+                    # Files uploaded separately for each cluster
                     if filetype:
                         attachments.append(
                             {

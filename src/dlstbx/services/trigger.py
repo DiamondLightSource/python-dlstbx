@@ -157,6 +157,7 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     recipe: Optional[str] = None
+    upstream_source: Optional[str] = None
 
 
 class FastEPParameters(pydantic.BaseModel):
@@ -1226,6 +1227,7 @@ class DLSTrigger(CommonService):
             "path_ext": parameters.path_ext,
             "shelxc_path": os.fspath(parameters.shelxc_path),
             "fast_ep_path": os.fspath(parameters.fast_ep_path),
+            "upstream_source": parameters.upstream_source,
         }
 
         for key, value in big_ep_parameters.items():

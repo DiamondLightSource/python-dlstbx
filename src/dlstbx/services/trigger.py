@@ -21,6 +21,7 @@ from ispyb.sqlalchemy import (
     AutoProcProgram,
     AutoProcProgramAttachment,
     AutoProcScaling,
+    AutoProcScalingStatistics,
     BLSample,
     BLSession,
     BLSubSample,
@@ -1539,8 +1540,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2429,7 +2434,7 @@ class DLSTrigger(CommonService):
         { "target": "pandda",
             "dcid": 123456,
             "automatic": true,
-            "comment": "PanDDA triggered by dimple",
+            "comment": "pandda triggered by dimple",
             "timeout-minutes": 115,
             "backoff-delay": 8, # default
             "backoff-max-try": 10, # default
@@ -2441,7 +2446,7 @@ class DLSTrigger(CommonService):
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
 
-        visit = ispyb_info.get("ispyb_visit", "")
+        # visit = ispyb_info.get("ispyb_visit", "")
         # proposal_code = visit.split("-")[0][0:2]
         # proposal_number = visit.split("-")[0][2::]
         visitdir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
@@ -2477,7 +2482,7 @@ class DLSTrigger(CommonService):
                 ].tolist()
             )
 
-        # get all dcids for the frag expt
+        # get all dcids in the fragment screening experiment
         dcids = []
         for i in range(len(plate_barcodes)):
             query = (
@@ -2530,7 +2535,7 @@ class DLSTrigger(CommonService):
         # data collection in all sample groups
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Aborting pandda trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
 
@@ -2600,9 +2605,7 @@ class DLSTrigger(CommonService):
                     transaction=transaction,
                 )
 
-        # Create the final dataframe of completed dimple from multiplex jobs
-        # & write to the processing dir (to be used again in the wrapper)
-        # now merge with db query at the end of the pandda trigger, load this from the one created by the trigger?
+        # Create the final dataframe of data & write to the processing dir (to be used again in the wrapper)
         query = (
             session.query(
                 BLSubSample,
@@ -2612,6 +2615,7 @@ class DLSTrigger(CommonService):
                 Proposal,
                 DataCollection,
                 AutoProcProgram,
+                AutoProcScalingStatistics,
                 ProcessingJob,
             )
             .join(BLSample, BLSample.blSampleId == BLSubSample.blSampleId)
@@ -2628,6 +2632,16 @@ class DLSTrigger(CommonService):
                 AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
             )
             .join(
+                AutoProc,
+                AutoProc.autoProcProgramId == AutoProcProgram.autoProcProgramId,
+            )
+            .join(AutoProcScaling, AutoProc.autoProcId == AutoProcScaling.autoProcId)
+            .join(
+                AutoProcScalingStatistics,
+                AutoProcScalingStatistics.autoProcScalingId
+                == AutoProcScaling.autoProcScalingId,
+            )
+            .join(
                 AutoProcProgramAttachment,
                 AutoProcProgramAttachment.autoProcProgramId
                 == AutoProcProgram.autoProcProgramId,
@@ -2638,14 +2652,11 @@ class DLSTrigger(CommonService):
             .join(BLSession, BLSession.sessionId == Container.sessionId)
             .join(Proposal, Proposal.proposalId == Protein.proposalId)
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            # .filter(BLSample.location.in_(locations))
             .filter(ProcessingJob.automatic == True)  #
+            .filter(AutoProcProgram.processingPrograms == "xia2.multiplex")
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
-            # .filter(AutoProcProgramAttachment.filePath.contains('xia2.multiplex'))
-            .filter(
-                ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex"
-            )
+            # .filter(ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex")
         )
 
         query = query.with_entities(
@@ -2657,15 +2668,41 @@ class DLSTrigger(CommonService):
             Protein.acronym,
             Container.containerType,
             DataCollection.dataCollectionId,
+            AutoProcScalingStatistics.resolutionLimitHigh,
+            AutoProcScalingStatistics.completeness,
             AutoProcProgramAttachment.filePath,
         )
 
         df = pd.read_sql(query.statement, query.session.bind)
+        df = df[::3]  # get the overall merging statistics
         outpath = processing_dir / "ispyb.csv"
-        df.to_csv(outpath)  # save for later
+        df.to_csv(outpath)  # save for wrapper
+
+        # stop gap just in case pandda job already started somehow, testing
+        min_start_time = datetime.now() - timedelta(hours=24)
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            .filter(AutoProcProgram.processingPrograms == "pandda")
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        )
+
+        if triggered_processing_job := query.first():
+            self.log.info(
+                f"Aborting pandda trigger for dcid {dcid} as pandda job has been started for dcid {triggered_processing_job.dataCollectionId}"
+            )
+            return {"success": True}
 
         self.log.debug("PanDDA trigger: Starting")
-        pandda_parameters = {"dcid": parameters.dcid}  # anything else to pass here?
+        pandda_parameters = {
+            "dcid": parameters.dcid,
+            "processing_directory": processing_dir,
+        }  # anything else?
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic

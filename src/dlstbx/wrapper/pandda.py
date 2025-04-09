@@ -25,36 +25,33 @@ class PanDDAWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
+        processing_dir = pathlib.Path(params["processing_directory"])
+        table_dir = pathlib.Path(params["table_directory"])
         working_directory = pathlib.Path(params["working_directory"])
         working_directory.mkdir(parents=True, exist_ok=True)
         results_directory = pathlib.Path(params["results_directory"])
         results_directory.mkdir(parents=True, exist_ok=True)
 
-        res_limit = float(3.00)  # make into recipe parameters
-        completeness_limit = float(90)
+        pathlib.Path(processing_dir).mkdir(parents=True, exist_ok=True)  # needed?
+        res_limit = params["res_limit"]
+        completeness_limit = params["completeness_limit"]
 
-        query = "Echo.csv"
         echo_files = []
         echo_dir = processing_dir / "echo"
         for file in echo_dir.iterdir():
-            if query in file.name:
+            if "Echo.csv" in file.name:
                 echo_files.append(file)
 
-        df = pd.DataFrame(data=None)
-
+        df = pd.DataFrame(data=None)  # init
         for echo_file in echo_files:
-            print(f"{echo_file} found.")
+            # self.log.info(f"{echo_file} found")
             echo_path = echo_dir / echo_file
             dfecho = pd.read_csv(echo_path)
             plate_type = echo_file.parts[-1].split("_")[4]
             dfecho["Plate Type"] = plate_type
             df = pd.concat([df, dfecho])
 
-        ID = []
-        SMILES = []
-        WELL = []
-        table_dir = "/dls/science/groups/mx/vmxi/tables"
-
+        ID, SMILES, WELL = ([] for i in range(3))
         for index, row in df.iterrows():
             sourcewell = row["Source Well"]
             destinationwell = row["Destination Well"]
@@ -85,84 +82,67 @@ class PanDDAWrapper(Wrapper):
         df_ispyb = pd.read_csv(processing_dir / "ispyb.csv")
         dfmerged = pd.merge(df, df_ispyb, how="outer", on=["barcode", "location"])
 
-        dfmerged[dfmerged["filePath"].isna()]  # entries with smiles but no dcid, record
+        dfmerged[
+            dfmerged["filePath"].isna()
+        ]  # entries with smiles but no dcid, record these
+        acronyms = dfmerged[dfmerged["acronym"].notna()][
+            "acronym"
+        ].unique()  # the non na protein acronyms
 
-        # check multiplex dataset quality
-        multiplex_data = []
-        for index, row in dfmerged.iterrows():
-            multiplex_dir = Path(str(row["filePath"]))
-            if (multiplex_dir / "xia2.multiplex.log").exists():
-                with open(multiplex_dir / "xia2.multiplex.log") as f:
-                    for line in f:  # why search through all lines
-                        if "cluster_" in line:
-                            if len(line.split()) > 5:  # added this line for now to fix
-                                number_of_datasets_in_cluster = line.split()[1]
-                        if "Completeness" in line:
-                            if len(line.split()) == 4:
-                                completeness = line.split()[1]
-                        if "High resolution limit  " in line:
-                            high_res_limit = line.split()[
-                                5
-                            ]  # this gets the overall limit not the high res limit which would be [5], correct?
+        # filter multiplex data based on res and completeness limits &  select best multiplex dataset per dcid
+        dfnew = dfmerged[
+            (dfmerged["resolutionLimitHigh"] < res_limit)
+            & (dfmerged["completeness"] > completeness_limit)
+        ]
+        df_final = (
+            dfnew.sort_values("resolutionLimitHigh", ascending=False)
+            .drop_duplicates("dataCollectionId")
+            .sort_index()
+        )
 
-                if (
-                    float(completeness) >= completeness_limit
-                    and float(high_res_limit) <= res_limit
-                ):
-                    multiplex_data.append(True)
-                else:
-                    multiplex_data.append(False)
-            else:
-                multiplex_data.append(False)
+        for j in range(len(acronyms)):
+            if (
+                len(df_final[df_final["acronym"] == acronyms[j]])
+                < params["min_datasets"]
+            ):
+                df_final = df_final[df_final["acronym"] != acronyms[j]]
+                self.log.info(
+                    f"Aborting PanDDA processing for target {acronyms[j]}. Insufficient number of datsets"
+                )
 
-        dfmerged["Multiplex quality"] = multiplex_data
-        df_final = dfmerged[dfmerged["Multiplex quality"] == True]  # filter data
-
-        pandda_datasets = len(df_final)
-        if pandda_datasets < 50:  # make into param?
-            self.log.error(
-                f"Aborting PanDDA processing. There are a total of {pandda_datasets} that meet the quality criteria which is less than the required amount of 50"
-            )
-            return False
-
-        # create the directory structure required for panddas analysis
+        # create the directory structure required for panddas analysis, test this
         for index, row in df_final.iterrows():
-            well = row["location"]
-            multiplex_path = Path(str(row["filePath"]))
-            Path(
-                processing_dir / "analysis" / "model_building" / f"Mac-x{well}/compound"
-            ).mkdir(parents=True, exist_ok=True)
-            dirpath = processing_dir / "analysis" / "model_building" / f"Mac-x{well}"
-            shutil.copyfile(
-                multiplex_path / "dimple/final.pdb", dirpath / f"x{well}_dimple.pdb"
-            )
-            shutil.copyfile(
-                multiplex_path / "dimple/final.mtz", dirpath / f"x{well}_dimple.mtz"
-            )
-
+            well = row["location"]  # assign multiple at once?
+            acr = row["acronym"]
             library = row["Library Barcode"]
             source_well = row["Source Well"]
-            cif_dir = pathlib.Path("")  # central cif,smiles dir for each library
-            shutil.copyfile(
-                cif_dir / f"{source_well}" / "ligand.pdb",
-                processing_dir
-                / "analysis"
-                / "model_building"
-                / f"Mac-x{well}"
-                / "compound"
-                / "ligand.pdb",
+
+            multiplex_path = pathlib.Path(str(row["filePath"]))
+            well_dir = processing_dir / "analysis" / "model_building" / f"{acr}-x{well}"
+            compound_dir = well_dir / "compound"
+            pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(  # will shutil create the dir automatically?
+                multiplex_path / "dimple/final.pdb", well_dir / f"x{well}_dimple.pdb"
             )
             shutil.copyfile(
-                cif_dir / f"{source_well}" / "ligand.cif",
-                processing_dir
-                / "analysis"
-                / "model_building"
-                / f"Mac-x{well}"
-                / "compound"
-                / "ligand.cif",
+                multiplex_path / "dimple/final.mtz", well_dir / f"x{well}_dimple.mtz"
             )
 
-        pandda_command = ""
+            cif_dir = (
+                table_dir / "pdb_cif" / f"{library}"
+            )  # central pdb_cif dir for library
+            pdb = cif_dir / f"{source_well}" / "ligand.pdb"
+            cif = (cif_dir / f"{source_well}" / "ligand.restraints.cif",)
+
+            if pdb.exists() and cif.exists():
+                shutil.copyfile(pdb, compound_dir / "ligand.pdb")
+                shutil.copyfile(cif, compound_dir / "ligand.cif")
+            else:
+                self.log.info(
+                    f"No ligand pdb/cif file found for well {well}, ligand library {library}, skipping..."
+                )  # or subprocess acedrg here to create ligand files
+
+        pandda_command = f"python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=36 --data_dirs={processing_dir}/'analysis/model_building' --out_dir={processing_dir}/'analysis/pandda2' "
 
         try:
             result = subprocess.run(
@@ -170,7 +150,7 @@ class PanDDAWrapper(Wrapper):
                 shell=True,
                 capture_output=True,
                 text=True,
-                cwd=working_directory,
+                cwd=processing_dir,
                 check=True,
                 timeout=params.get("timeout") * 60,
             )

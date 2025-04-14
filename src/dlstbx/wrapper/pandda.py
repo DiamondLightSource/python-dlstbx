@@ -150,46 +150,24 @@ class PanDDAWrapper(Wrapper):
                     f"No ligand pdb/cif file found for well {well}, ligand library {library}, skipping..."
                 )  # or subprocess acedrg here to create ligand files? acedrg -i A1/lig.smi -o A1/lig
 
-        # pandda_command = f"python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=36 --data_dirs={processing_dir}/'analysis/model_building' --out_dir={processing_dir}/'analysis/pandda2' "
+        for acr in acronyms:
+            pandda_command = f"source /dls/science/groups/i04-1/software/pandda_2_gemmi/act_experimental; \
+             conda activate pandda2_ray; \
+             python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=36 --data_dirs={processing_dir}/'analysis/model_building_{acr}' --out_dir={processing_dir}/'analysis/pandda2_{acr}' "
 
-        # try:
-        #     result = subprocess.run(
-        #         pandda_command,
-        #         shell=True,
-        #         capture_output=True,
-        #         text=True,
-        #         cwd=processing_dir,
-        #         check=True,
-        #         timeout=params.get("timeout") * 60,
-        #     )
-
-        # except subprocess.CalledProcessError as e:
-        #     self.log.error(f"PanDDA process '{pandda_command}' failed")
-        #     self.log.info(e.stdout)
-        #     self.log.error(e.stderr)
-        #     return False
-
-        pandda_commands = [
-            "module load mamba",
-            "source /dls/science/groups/i04-1/software/pandda_2_gemmi/act_experimental",
-            "conda activate pandda2_ray",
-            f"python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=36 --data_dirs={processing_dir}/'analysis/model_building' --out_dir={processing_dir}/'analysis/pandda2' ",
-        ]
-
-        for command in pandda_commands:
             try:
                 result = subprocess.run(
-                    command,
+                    pandda_command,
                     shell=True,
                     capture_output=True,
                     text=True,
                     cwd=processing_dir,
                     check=True,
-                    timeout=params.get("timeout") * 60,  # timeout-minutes is better
+                    timeout=params.get("timeout") * 60,
                 )
 
             except subprocess.CalledProcessError as e:
-                self.log.error(f"PanDDA process '{command}' failed")
+                self.log.error(f"PanDDA process '{pandda_command}' failed")
                 self.log.info(e.stdout)
                 self.log.error(e.stderr)
                 return False

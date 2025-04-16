@@ -270,7 +270,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
-        primary_log_files = [
+        output_files = [
             working_directory / "xia2.multiplex.html",
             working_directory / "xia2.multiplex.log",
         ]
@@ -355,25 +355,31 @@ class Xia2MultiplexWrapper(Wrapper):
                 xtriage_results = dataset.get("xtriage")
                 attachments = []
 
-                for filename in primary_log_files + list(base_dir.iterdir()):
+                for filename in list(base_dir.iterdir()):
+                    if filename not in output_files:
+                        output_files.append(filename)
+
+                for filename in output_files:
+                    filetype = None
                     if not filename.is_file():
-                        continue  # primary_log_files may not actually exist
+                        continue  # primary log files may not actually exist
                     filetype = keep_ext.get(filename.suffix)
                     for file_pattern in keep:
                         if filename.name.endswith(file_pattern):
                             filetype = keep[file_pattern]
                     if filetype is None:
                         continue
-                    # Files copied to a single results and single final directoy for all clusters
+                    destination = results_directory / filename.name
                     if filename.as_posix() not in allfiles:
                         allfiles.append(filename.as_posix())
-                        destination = results_directory / filename.name
                         self.log.debug(f"Copying {filename} to {destination}")
                         shutil.copy(filename, destination)
-                        if pipeline_final_params and is_final_result(filename):
-                            destination = final_directory / filename.name
+                    if pipeline_final_params and is_final_result(filename):
+                        destination = final_directory / filename.name
+                        if filename.as_posix() not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")
                             shutil.copy(filename, destination)
+
                     # Files uploaded separately for each cluster
                     if filetype:
                         attachments.append(

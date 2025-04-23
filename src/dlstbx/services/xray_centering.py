@@ -282,7 +282,7 @@ class DLSXRayCentering(CommonService):
 
             if cd.images_seen == gridinfo.image_count:
                 sample_bounds = self.parse_loop_type(
-                    parameters.loop_type, gridinfo.dx_mm
+                    parameters.loop_type, gridinfo.dx_mm * 1000
                 )
                 if dcg_dcids:
                     dcids = [dcid]
@@ -326,10 +326,11 @@ class DLSXRayCentering(CommonService):
 
                         result = dlstbx.util.xray_centering_3d.gridscan3d(
                             data=tuple(data),
-                            multipin_sample_ids=sample_ids,
+                            sample_id=parameters.sample_id,
                             threshold=parameters.threshold,
                             threshold_absolute=parameters.threshold_absolute,
                             plot=False,
+                            multipin_sample_ids=sample_ids,
                             sample_bounds=sample_bounds,
                         )
                         self.log.info(f"3D X-ray centering result: {result}")

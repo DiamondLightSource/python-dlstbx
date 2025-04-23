@@ -8,7 +8,7 @@ from typing import Tuple
 import numpy as np
 import scipy.ndimage
 
-from dlstbx.util.xray_centering import GridScanResultBase
+from dlstbx.util.xray_centering import GridScanResultBase, tag_sample_id
 
 logger = logging.getLogger(__name__)
 
@@ -130,16 +130,9 @@ def gridscan3d(
         )
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
-        tagged_sample_id = None
-        if not sample_bounds:
-            assert isinstance(multipin_sample_ids, int)
-            tagged_sample_id = sample_id
-        else:
-            centre_x = com[0]
-            for well, well_bounds in enumerate(sample_bounds, start=1):
-                if centre_x >= well_bounds[0] and centre_x <= well_bounds[1]:
-                    tagged_sample_id = multipin_sample_ids[well]
-                    break
+        tagged_sample_id = tag_sample_id(
+            sample_id, multipin_sample_ids, sample_bounds, com
+        )
 
         result = GridScan3DResult(
             centre_of_mass=com,

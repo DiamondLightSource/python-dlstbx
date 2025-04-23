@@ -65,13 +65,29 @@ def reshape_grid(
     return data
 
 
+def tag_sample_id(sample_id, multipin_sample_ids, sample_bounds, com):
+    tagged_sample_id = None
+    if not sample_bounds:
+        tagged_sample_id = sample_id
+    else:
+        centre_x = com[0]
+        for well, well_bounds in enumerate(sample_bounds, start=1):
+            if centre_x >= well_bounds[0] and centre_x <= well_bounds[1]:
+                tagged_sample_id = multipin_sample_ids[well]
+                break
+    return tagged_sample_id
+
+
 def gridscan2d(
     data: np.ndarray,
+    sample_id: int,
     steps: tuple[int, int],
     box_size_px: tuple[float, float],
     snapshot_offset: tuple[float, float],
     snaked: bool,
     orientation: Orientation,
+    multipin_sample_ids: dict[int, int] = {},
+    sample_bounds: list[tuple[float, float]] = [],
 ) -> tuple[GridScan2DResult, str]:
     output = [
         f"steps_x/y: {steps}",
@@ -103,6 +119,7 @@ def gridscan2d(
     # (label == 0), if there are any (i.e. if unique[0] == 0).
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
+    tagged_sample_id = tag_sample_id(sample_id, multipin_sample_ids, sample_bounds, com)
     max_voxel = tuple(
         reversed(scipy.ndimage.maximum_position(threshold, labels == best))
     )
@@ -135,4 +152,5 @@ def gridscan2d(
         best_region=best_region,
         best_image=best_image,
         reflections_in_best_image=maximum_spots,
+        sample_id=tagged_sample_id,
     ), "\n".join(output)

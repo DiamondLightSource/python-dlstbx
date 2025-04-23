@@ -21,7 +21,8 @@ class PanDDAWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        processing_dir = pathlib.Path(params["processing_directory"])
+        head_dir = pathlib.Path(params["head_directory"])
+        processing_dir = head_dir / "processing"
         table_dir = pathlib.Path(params["table_directory"])
         res_limit = params["res_limit"]
         completeness_limit = params["completeness_limit"]
@@ -34,15 +35,15 @@ class PanDDAWrapper(Wrapper):
         # entries with smiles but no dcid, record these, also dcid but no smiles
 
         acronyms = dfmerged[dfmerged["acronym"].notna()]["acronym"].unique()
-        # allow for multiple protein targets in a plate
+        # allow for multiple protein targets?
 
         # filter multiplex data based on resolution and completeness limits & select best multiplex dataset
         df_final = dfmerged[
-            (dfmerged["resolutionLimitHigh"] < res_limit)
-            & (dfmerged["completeness"] > completeness_limit)
+            (dfmerged["resolutionLimitHigh"] <= res_limit)
+            & (dfmerged["completeness"] >= completeness_limit)
         ]
 
-        # one entry per smiles or dcid?
+        # one entry per ligand
         df_final = (
             df_final.sort_values("resolutionLimitHigh", ascending=False)
             .drop_duplicates("Smiles")  # dataCollectionId
@@ -66,7 +67,7 @@ class PanDDAWrapper(Wrapper):
                 row["acronym"],
                 row["Library Barcode"],
                 row["Source Well"],
-                row["visit_number"],
+                int(row["visit_number"]),
             )
             multiplex_path = pathlib.Path(str(row["filePath"]))
             well_dir = (
@@ -101,7 +102,7 @@ class PanDDAWrapper(Wrapper):
         for acr in acronyms:
             pandda_command = f"source /dls/science/groups/i04-1/software/pandda_2_gemmi/act_experimental; \
              conda activate pandda2_ray; \
-             python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=36 --data_dirs={processing_dir}/'analysis/model_building_{acr}' --out_dir={processing_dir}/'analysis/pandda2_{acr}' "
+             python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=48 --data_dirs={processing_dir}/'analysis/model_building_{acr}' --out_dir={processing_dir}/'analysis/pandda2_{acr}'  > pandda2.log "
 
             try:
                 result = subprocess.run(
@@ -124,7 +125,7 @@ class PanDDAWrapper(Wrapper):
             log_file.write(result.stdout)
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(processing_dir)
+        # self.send_attachments_to_ispyb(processing_dir)
 
         self.log.info("PanDDA script finished")
         return True
@@ -163,7 +164,7 @@ class PanDDAWrapper(Wrapper):
             # self.log.info(f"{echo_file} found")
             echo_path = echo_dir / echo_file
             dfecho = pd.read_csv(echo_path)
-            plate_type = echo_file.parts[-1].split("_")[4]  # should change this
+            plate_type = echo_file.parts[-1].split("_")[4]  # change this
             dfecho["Plate Type"] = plate_type
             df = pd.concat([df, dfecho])
 
@@ -194,7 +195,6 @@ class PanDDAWrapper(Wrapper):
         df["ISPyB Well"] = WELL
         df["Experiment ID"] = df["Catalog ID"] + "/" + df["Transfer Volume"].astype(str)
         df = df.rename(columns={"Plate Barcode": "barcode", "ISPyB Well": "location"})
-
         df.location = pd.to_numeric(df.location)
 
         return df

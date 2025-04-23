@@ -248,7 +248,7 @@ class LigandFitParameters(pydantic.BaseModel):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    program_id: int = pydantic.Field(gt=0)
+    # program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
@@ -2403,10 +2403,10 @@ class DLSTrigger(CommonService):
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
-        message: Dict,  # for the delay
+        message: Dict,
         parameters: PanDDAParameters,
         session: sqlalchemy.orm.session.Session,
-        transaction: int,  # for the delay
+        transaction: int,
         **kwargs,
     ):
         """Trigger a pandda job for a fragment screening experiment.
@@ -2442,35 +2442,50 @@ class DLSTrigger(CommonService):
         }
         """
         dcid = parameters.dcid
-        program_id = parameters.program_id
+        # program_id = parameters.program_id
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
+        visit_dir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
+        visit = ispyb_info.get("ispyb_visit", "")
 
-        # visit = ispyb_info.get("ispyb_visit", "")
-        # proposal_code = visit.split("-")[0][0:2]
-        # proposal_number = visit.split("-")[0][2::]
-        visitdir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
-        processing_dir = visitdir / "processing"
-        echodir = processing_dir / "echo"
-        if not echodir.exists():
-            self.log.info(
-                f"No echo directory in {processing_dir}, this is deemed not to be a fragment screening experiment"
-            )
+        proposal_dir = visit_dir.parents[0]
+        visit_number = int(visit.split("-")[1])
+        processing_dir = visit_dir / "processing"
+
+        if (visit_dir / ".frag").exists() or (
+            processing_dir / "echo"
+        ).exists():  # makeshift filter
+            self.log.info(f"Visit {visit} is part of a fragment screening experiment")
+        else:
             return {"success": True}
 
-        for file in processing_dir.iterdir():
-            if "SoakExp" in file.name:
-                echo_file = file
-                break
+        # find SoakExp file
+        def findsoakexp(proposal_dir, visit):
+            for visit_dir in sorted(
+                proposal_dir.iterdir(),
+                key=lambda x: abs(
+                    visit_number - int(pathlib.Path(x).parts[5].split("-")[1])
+                ),
+            ):  # search in this visit and then the nearby visits
+                procdir = visit_dir / "processing"
+                for entry in procdir.iterdir():
+                    if "SoakExp" in entry.name:
+                        print(entry)
+                        df = pd.read_csv(entry)
 
-        if not echo_file:
-            self.log.info(
-                f"Aborting fragment screening analysis. Echo dir {echodir} exists, but no echo file found"
-            )
+                        if "visit_number" in df:  #
+                            if visit in df["visit_number"].unique():
+                                soakexp_file = entry
+                                return soakexp_file
+
+        soakexp_file = findsoakexp(proposal_dir, visit)
+        head_dir = soakexp_file.parents[1]  # the dir with the SoakExp file
+
+        if not soakexp_file:
+            self.log.info("Aborting fragment screening analysis. No echo file found")
             return {"success": True}
 
-        echofilepath = pathlib.Path(processing_dir / echo_file)
-        dfecho = pd.read_csv(echofilepath)
+        dfecho = pd.read_csv(soakexp_file)
 
         # get plate barcodes and corresponding dispensed locations for all plates in frag expt
         plate_barcodes = dfecho["barcode"].unique()
@@ -2505,7 +2520,7 @@ class DLSTrigger(CommonService):
             query = query.with_entities(DataCollection.dataCollectionId)
             dcids.append(np.array(query.all()).flatten())
 
-        dcids = np.concatenate(dcids)
+        dcids = np.concatenate(dcids).tolist()
 
         # Check if there are xia2 multiplex or dimple jobs that were triggered on any new
         # data collections after current job was triggered
@@ -2520,7 +2535,7 @@ class DLSTrigger(CommonService):
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.dataCollectionId > dcid)
             .filter(ProcessingJob.automatic == True)
-            .filter(AutoProcProgram.autoProcProgramId > program_id)
+            # .filter(AutoProcProgram.autoProcProgramId > program_id)
             .filter(
                 or_(
                     AutoProcProgram.processingPrograms
@@ -2570,11 +2585,12 @@ class DLSTrigger(CommonService):
                     == "xia2.multiplex",  # why not all upstream jobs?
                     ProcessingJob.comments
                     == "DIMPLE triggered by automatic xia2.multiplex",
-                ).filter(
-                    or_(
-                        AutoProcProgram.processingStatus is None,
-                        AutoProcProgram.processingStartTime is None,
-                    )
+                )
+            )
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus is None,
+                    AutoProcProgram.processingStartTime is None,
                 )
             )
         )
@@ -2652,7 +2668,7 @@ class DLSTrigger(CommonService):
             .join(BLSession, BLSession.sessionId == Container.sessionId)
             .join(Proposal, Proposal.proposalId == Protein.proposalId)
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(ProcessingJob.automatic == True)  #
+            .filter(ProcessingJob.automatic == True)
             .filter(AutoProcProgram.processingPrograms == "xia2.multiplex")
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
@@ -2675,11 +2691,11 @@ class DLSTrigger(CommonService):
 
         df = pd.read_sql(query.statement, query.session.bind)
         df = df[::3]  # get the overall merging statistics
-        outpath = processing_dir / "ispyb.csv"
+        outpath = head_dir / "processing/ispyb.csv"
         df.to_csv(outpath)  # save for wrapper
 
-        # stop gap just in case pandda job already started somehow, testing
-        min_start_time = datetime.now() - timedelta(hours=24)
+        # stop gap in case pandda job already started somehow
+        min_start_time = datetime.now() - timedelta(hours=12)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -2701,18 +2717,19 @@ class DLSTrigger(CommonService):
         self.log.debug("PanDDA trigger: Starting")
         pandda_parameters = {
             "dcid": parameters.dcid,
-            "processing_directory": processing_dir,
-        }  # anything else?
+            "processing_directory": str(processing_dir),
+            "head_directory": str(head_dir),
+        }
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
-        jp["display_name"] = "pandda"
+        jp["display_name"] = "PanDDA"
         jp["recipe"] = "postprocessing-pandda"
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"pandda trigger: generated JobID {jobid}")
+        self.log.debug(f"PanDDA trigger: generated JobID {jobid}")
 
         for key, value in pandda_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()

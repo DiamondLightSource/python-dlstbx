@@ -319,18 +319,13 @@ class DLSXRayCentering(CommonService):
                         self.log.debug(f"{perm=}")
                         data = [data[p] for p in perm]
 
-                        if sample_bounds:
-                            sample_ids = parameters.msp_sample_ids
-                        else:
-                            sample_ids = parameters.sample_id
-
                         result = dlstbx.util.xray_centering_3d.gridscan3d(
                             data=tuple(data),
                             sample_id=parameters.sample_id,
                             threshold=parameters.threshold,
                             threshold_absolute=parameters.threshold_absolute,
                             plot=False,
-                            multipin_sample_ids=sample_ids,
+                            multipin_sample_ids=parameters.msp_sample_ids,
                             sample_bounds=sample_bounds,
                         )
                         self.log.info(f"3D X-ray centering result: {result}")
@@ -378,7 +373,7 @@ class DLSXRayCentering(CommonService):
                         ),
                         snaked=gridinfo.snaked,
                         orientation=gridinfo.orientation,
-                        multipin_sample_ids=sample_ids,
+                        multipin_sample_ids=parameters.msp_sample_ids,
                         sample_bounds=sample_bounds,
                     )
                     self.log.debug(output)

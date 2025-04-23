@@ -18,6 +18,7 @@ class GridScanResultBase(pydantic.BaseModel):
     max_count: float | None = None
     n_voxels: int | None = None
     total_count: float | None = None
+    sample_id: int | None = None
 
 
 # Only the following items currently are used by GDA

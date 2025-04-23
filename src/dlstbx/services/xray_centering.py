@@ -366,6 +366,7 @@ class DLSXRayCentering(CommonService):
                     )
                     result, output = dlstbx.util.xray_centering.gridscan2d(
                         cd.data,
+                        sample_id=parameters.sample_id,
                         steps=(gridinfo.steps_x, gridinfo.steps_y),
                         box_size_px=(
                             1000 * gridinfo.dx_mm / gridinfo.micronsPerPixelX,
@@ -377,6 +378,8 @@ class DLSXRayCentering(CommonService):
                         ),
                         snaked=gridinfo.snaked,
                         orientation=gridinfo.orientation,
+                        multipin_sample_ids=sample_ids,
+                        sample_bounds=sample_bounds,
                     )
                     self.log.debug(output)
 

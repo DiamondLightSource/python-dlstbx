@@ -45,10 +45,13 @@ class PanDDAWrapper(Wrapper):
 
         # one entry per ligand
         df_final = (
-            df_final.sort_values("resolutionLimitHigh", ascending=False)
-            .drop_duplicates("Smiles")  # dataCollectionId
+            df_final.sort_values("completeness", ascending=False)
+            .drop_duplicates("dataCollectionId")  # dataCollectionId, Smiles
             .sort_index()
         )
+
+        outpath = head_dir / "processing/analysis/datasets_for_pandda.csv"
+        df_final.to_csv(outpath)  # save df
 
         for j in range(len(acronyms)):
             if (
@@ -60,7 +63,7 @@ class PanDDAWrapper(Wrapper):
                     f"Aborting PanDDA processing for {acronyms[j]}. Insufficient number of datsets"
                 )
 
-        # create the directory structure required for PanDDA(2) analysis
+        # create the directory structure required for PanDDA analysis
         for index, row in df_final.iterrows():
             well, acr, library, source_well, vn = (
                 row["location"],
@@ -79,10 +82,12 @@ class PanDDAWrapper(Wrapper):
             compound_dir = well_dir / "compound"
             pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
             shutil.copyfile(
-                multiplex_path / "dimple/final.pdb", well_dir / f"x{well}_dimple.pdb"
+                multiplex_path / "dimple/final.pdb",
+                well_dir / f"{acr}-{vn}-x{well}.dimple.pdb",
             )
             shutil.copyfile(
-                multiplex_path / "dimple/final.mtz", well_dir / f"x{well}_dimple.mtz"
+                multiplex_path / "dimple/final.mtz",
+                well_dir / f"{acr}-{vn}-x{well}.dimple.mtz",
             )
 
             cif_dir = (
@@ -92,17 +97,23 @@ class PanDDAWrapper(Wrapper):
             cif = cif_dir / f"{source_well}" / "ligand.restraints.cif"
 
             if pdb.exists() and cif.exists():
-                shutil.copyfile(pdb, compound_dir / "ligand.pdb")
-                shutil.copyfile(cif, compound_dir / "ligand.cif")
+                shutil.copyfile(pdb, well_dir / "ligand.pdb")
+                shutil.copyfile(cif, well_dir / "ligand.cif")
+                # shutil.copyfile(pdb, compound_dir / "ligand.pdb")
+                # shutil.copyfile(cif, compound_dir / "ligand.cif")
             else:
                 self.log.info(
                     f"No ligand pdb/cif file found for well {well}, ligand library {library}, skipping..."
                 )  # or subprocess acedrg here to create ligand files? acedrg -i {well_dir}/lig.smi -o {well_dir}/lig
 
         for acr in acronyms:
-            pandda_command = f"source /dls/science/groups/i04-1/software/pandda_2_gemmi/act_experimental; \
-             conda activate pandda2_ray; \
-             python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=48 --data_dirs={processing_dir}/'analysis/model_building_{acr}' --out_dir={processing_dir}/'analysis/pandda2_{acr}'  > pandda2.log "
+            pandda_command = f"module load ccp4/7.0.078; \
+             module load pymol/1.8.2.0-py2.7; \
+             pandda.analyse data_dirs={processing_dir}/'analysis/model_building_{acr}/*' pdb_style='*.dimple.pdb' out_dir={processing_dir}/'analysis/pandda_{acr}' cpus=36 low_resolution_completeness=none"
+
+            # pandda2_command = f"source /dls/science/groups/i04-1/software/pandda_2_gemmi/act_experimental; \
+            #  conda activate pandda2_ray; \
+            #  python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/pandda.py --local_cpus=36 --data_dirs={processing_dir}/'analysis/model_building_{acr}' --out_dir={processing_dir}/'analysis/pandda2_{acr}'  > pandda2.log "
 
             try:
                 result = subprocess.run(
@@ -125,32 +136,34 @@ class PanDDAWrapper(Wrapper):
             log_file.write(result.stdout)
 
         self.log.info("Sending results to ISPyB")
-        # self.send_attachments_to_ispyb(processing_dir)
+        self.send_attachments_to_ispyb(processing_dir, acronyms)
 
         self.log.info("PanDDA script finished")
         return True
 
-    def send_attachments_to_ispyb(self, processing_dir):  # change
-        for f in processing_dir.iterdir():
-            if f.stem.endswith("final"):
+    def send_attachments_to_ispyb(self, processing_dir, acronymns):  # change
+        for acr in acronymns:
+            html_dir = (
+                processing_dir / f"analysis/pandda_{acr}/analyses/html_summaries"
+            )  # pandda
+            # log_dir = processing_dir / f"analysis/pandda_{acr}/logs"
+
+            for f in html_dir.iterdir():
                 file_type = "Result"
                 importance_rank = 1
-            elif f.suffix == ".log":
-                file_type = "Log"
-                importance_rank = 2
-            else:
-                continue
-            try:
-                result_dict = {
-                    "file_path": str(processing_dir),
-                    "file_name": f.name,
-                    "file_type": file_type,
-                    "importance_rank": importance_rank,
-                }
-                self.record_result_individual_file(result_dict)
-                self.log.info(f"Uploaded {f.name} as an attachment")
-            except Exception:
-                self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
+                try:
+                    result_dict = {
+                        "file_path": str(processing_dir),
+                        "file_name": f.name,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                    self.record_result_individual_file(result_dict)
+                    self.log.info(f"Uploaded {f.name} as an attachment")
+                except Exception:
+                    self.log.warning(
+                        f"Could not attach {f.name} to ISPyB", exc_info=True
+                    )
 
     def make_dispensing_df(self, processing_dir, table_dir):
         echo_files = []

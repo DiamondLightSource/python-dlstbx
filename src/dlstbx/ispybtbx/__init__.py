@@ -662,7 +662,7 @@ class ispybtbx:
             "diamond_anvil_cell": experiment_type == "Diamond Anvil High Pressure",
         }
 
-    def get_container_info_from_sample_id(
+    def get_pin_info_from_sample_id(
         self, sample_id, session: sqlalchemy.orm.session.Session
     ):
         query = session.query(
@@ -672,25 +672,25 @@ class ispybtbx:
             isa.BLSample.loopType,
         ).filter(isa.BLSample.blSampleId == sample_id)
         result = query.one()
-        container_info = {
+        pin_info = {
             "containerId": result[0],
             "location": result[1],
             "subLocation": result[2],
             "loopType": result[3],
         }
-        return container_info
+        return pin_info
 
-    def get_all_sample_ids_for_multisample_pin(self, container_info, session):
+    def get_all_sample_ids_for_multisample_pin(self, pin_info, session):
         """
         Returns a dictionary with key value pairs of sub_location : sample_id for a multisample pin.
         If no sublocation specified in the BLSample record, returns None.
         """
-        if not container_info["subLocation"]:
+        if not pin_info["subLocation"]:
             return None
 
         query = session.query(isa.BLSample.blSampleId, isa.BLSample.subLocation).filter(
-            isa.BLSample.containerId == container_info["containerId"],
-            isa.BLSample.location == container_info["location"],
+            isa.BLSample.containerId == pin_info["containerId"],
+            isa.BLSample.location == pin_info["location"],
         )
         result = query.all()
         msp_samples = {sub_location: sample_id for sample_id, sub_location in result}
@@ -929,10 +929,10 @@ def ispyb_filter(
     )
 
     if sample_id := parameters["ispyb_dc_info"].get("BLSAMPLEID"):
-        container_info = i.get_container_info_from_sample_id(sample_id, session)
-        parameters["ispyb_container_info"] = container_info
+        pin_info = i.get_pin_info_from_sample_id(sample_id, session)
+        parameters["ispyb_pin_info"] = pin_info
         multisample_pin_sample_ids = i.get_all_sample_ids_for_multisample_pin(
-            container_info, session
+            pin_info, session
         )
         parameters["ispyb_msp_sample_ids"] = multisample_pin_sample_ids
 

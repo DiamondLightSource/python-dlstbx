@@ -51,7 +51,7 @@ def gridscan3d(
     threshold_absolute: float = 5,
     plot: bool = False,
     multipin_sample_ids: dict[int, int] = {},
-    sample_bounds: list[tuple[float, float]] = [],
+    well_limits: list[tuple[float, float]] = [],
 ) -> list[GridScan3DResult]:
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
@@ -68,7 +68,7 @@ def gridscan3d(
 
     Args:
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
-        sample_id: The sample id attributed to the grid_scan. This will likely be the
+        sample_id: The sample id attributed to the grid_scan. This will usually be the
             sample in sublocation 1 in the case of multi-sample pins.
         threshold: mask out values less than this fraction of the maximum data value
                 in the reconstructed 3d grid
@@ -78,8 +78,8 @@ def gridscan3d(
         multipin_sample_ids: Sample_ids for all samples on a multi-sample pin.
                 A dictionary of sample ids with the corresponding sub-locations in the
                 pin as keys.
-        sample_bounds: The upper and lower bounds of each well in the multi-sample pin
-            in units of grid scan boxes.
+        well_limits: The lower and upper limits of the x-coordinate for each well in
+            the multi-sample pin in units of grid scan boxes.
 
     Returns:
         list[GridScan3DResult]
@@ -131,7 +131,7 @@ def gridscan3d(
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
         tagged_sample_id = tag_sample_id(
-            sample_id, multipin_sample_ids, sample_bounds, com
+            sample_id, multipin_sample_ids, well_limits, com
         )
 
         result = GridScan3DResult(

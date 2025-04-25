@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import re
 
 import numpy as np
 import pydantic
@@ -65,14 +66,51 @@ def reshape_grid(
     return data
 
 
-def tag_sample_id(sample_id, multipin_sample_ids, sample_bounds, com):
+def get_well_limits_from_loop_type(
+    loop_type: str, step_size: float
+) -> list[tuple[float, float]]:
+    """
+    Determine the well limits in x in units of grid-scan boxes for multi-sample pins.
+
+    Args:
+    loop_type: String in the format "multipin_<n_wells>x<well_width>+<well_offset>".
+        Strings in other formats will return an empty list.
+    step_size: Grid-scan step size in the x direction in units of um.
+
+    Returns:
+        list[tuple[<lower_limit, <upper_limit>]]
+    """
+
+    well_limits = []
+    if loop_type and loop_type.startswith("multipin"):
+        pattern = r"multipin_(\d+)x(\d+)\+(\d+)"
+        match = re.match(pattern, loop_type)
+        if match:
+            n_wells = int(match.group(1))
+            well_width = int(match.group(2))
+            well_offset = int(match.group(3))
+            well_limits_um = [
+                (
+                    well_offset + well_width * well_num - well_width / 2,
+                    well_offset + well_width * well_num + well_width / 2,
+                )
+                for well_num in range(n_wells)
+            ]
+            well_limits = [
+                (lower_limit / step_size, upper_limit / step_size)
+                for lower_limit, upper_limit in well_limits_um
+            ]
+    return well_limits
+
+
+def tag_sample_id(sample_id, multipin_sample_ids, well_limits, com):
     tagged_sample_id = None
-    if not sample_bounds:
+    if not well_limits:
         tagged_sample_id = sample_id
     else:
         centre_x = com[0]
-        for well, well_bounds in enumerate(sample_bounds, start=1):
-            if centre_x >= well_bounds[0] and centre_x <= well_bounds[1]:
+        for well, limits in enumerate(well_limits, start=1):
+            if centre_x >= limits[0] and centre_x <= limits[1]:
                 tagged_sample_id = multipin_sample_ids[well]
                 break
     return tagged_sample_id
@@ -87,7 +125,7 @@ def gridscan2d(
     snaked: bool,
     orientation: Orientation,
     multipin_sample_ids: dict[int, int] = {},
-    sample_bounds: list[tuple[float, float]] = [],
+    well_limits: list[tuple[float, float]] = [],
 ) -> tuple[GridScan2DResult, str]:
     output = [
         f"steps_x/y: {steps}",
@@ -119,7 +157,7 @@ def gridscan2d(
     # (label == 0), if there are any (i.e. if unique[0] == 0).
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
-    tagged_sample_id = tag_sample_id(sample_id, multipin_sample_ids, sample_bounds, com)
+    tagged_sample_id = tag_sample_id(sample_id, multipin_sample_ids, well_limits, com)
     max_voxel = tuple(
         reversed(scipy.ndimage.maximum_position(threshold, labels == best))
     )

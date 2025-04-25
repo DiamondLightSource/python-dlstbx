@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import pathlib
-import re
 import threading
 import time
 from typing import List, Optional
@@ -180,28 +179,6 @@ class DLSXRayCentering(CommonService):
                     rw.transport.transaction_commit(txn)
                     del self._centering_data[dcid]
 
-    def parse_loop_type(self, loop_type, step_size):
-        sample_bounds = []
-        if loop_type and loop_type.startswith("multipin"):
-            pattern = r"multipin_(\d+)x(\d+)\+(\d+)"
-            match = re.match(pattern, loop_type)
-            if match:
-                n_wells = int(match.group(1))
-                well_width = int(match.group(2))
-                well_offset = int(match.group(3))
-                sample_bounds_um = [
-                    (
-                        well_offset + well_width * well_num - well_width / 2,
-                        well_offset + well_width * well_num + well_width / 2,
-                    )
-                    for well_num in range(n_wells)
-                ]
-                sample_bounds = [
-                    (lower_bound / step_size, upper_bound / step_size)
-                    for lower_bound, upper_bound in sample_bounds_um
-                ]
-        return sample_bounds
-
     def add_pia_result(self, rw, header, message):
         """Process incoming PIA result.
 
@@ -281,7 +258,7 @@ class DLSXRayCentering(CommonService):
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if cd.images_seen == gridinfo.image_count:
-                sample_bounds = self.parse_loop_type(
+                well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
                     parameters.loop_type, gridinfo.dx_mm * 1000
                 )
                 if dcg_dcids:
@@ -326,7 +303,7 @@ class DLSXRayCentering(CommonService):
                             threshold_absolute=parameters.threshold_absolute,
                             plot=False,
                             multipin_sample_ids=parameters.msp_sample_ids,
-                            sample_bounds=sample_bounds,
+                            well_limits=well_limits,
                         )
                         self.log.info(f"3D X-ray centering result: {result}")
 
@@ -374,7 +351,7 @@ class DLSXRayCentering(CommonService):
                         snaked=gridinfo.snaked,
                         orientation=gridinfo.orientation,
                         multipin_sample_ids=parameters.msp_sample_ids,
-                        sample_bounds=sample_bounds,
+                        well_limits=well_limits,
                     )
                     self.log.debug(output)
 

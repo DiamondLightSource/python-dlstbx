@@ -24,6 +24,7 @@ def test_xray_centering():
     ).flatten()
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(14, 11),
         box_size_px=(1.25, 1.25),
         snapshot_offset=(396.2, 241.2),
@@ -71,6 +72,7 @@ def test_xray_centering():
             (6, 7),
             (6, 8),
         ],
+        "sample_id": 12345,
     }
 
     # verify that the results can be serialized to json
@@ -108,6 +110,7 @@ def test_xray_centering_second_example():
 
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(36, 23),
         box_size_px=(17.6678445229682, 17.6678445229682),
         snapshot_offset=(339.919, 182.59),
@@ -141,6 +144,7 @@ def test_xray_centering_second_example():
         "best_image": 351,
         "reflections_in_best_image": 14,
         "best_region": best_region,
+        "sample_id": 12345,
     }
 
 
@@ -150,6 +154,7 @@ def test_vertical_1d():
     # fmt: on
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(1, 80),
         box_size_px=(24.096385542168676, 6.024096385542169),
         snapshot_offset=(446.952, 123.036),
@@ -198,6 +203,7 @@ def test_vertical_1d():
             (57, 0),
             (58, 0),
         ],
+        "sample_id": 12345,
     }
 
 
@@ -207,6 +213,7 @@ def test_vertical_2d():
     # fmt: on
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(5, 6),
         box_size_px=(45.45454545454545, 45.45454545454545),
         snapshot_offset=(339.273, 236.727),
@@ -232,6 +239,7 @@ def test_vertical_2d():
         "best_image": 4,
         "reflections_in_best_image": 54,
         "best_region": [(3, 0), (3, 1), (4, 0), (4, 1)],
+        "sample_id": 12345,
     }
 
 
@@ -239,6 +247,7 @@ def test_blank_scan():
     data = np.zeros((5, 6))
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(5, 6),
         box_size_px=(45.45, 45.45),
         snapshot_offset=(339.273, 236.727),
@@ -264,6 +273,7 @@ def test_blank_scan():
         "best_image": None,
         "reflections_in_best_image": None,
         "best_region": None,
+        "sample_id": None,
     }
 
 
@@ -300,6 +310,7 @@ def test_single_connected_region(data, reflections_in_best_image):
     """
     result, _ = dlstbx.util.xray_centering.gridscan2d(
         data=data,
+        sample_id=12345,
         steps=(10, 10),
         box_size_px=(1, 1),
         snapshot_offset=(0, 0),

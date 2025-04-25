@@ -25,6 +25,7 @@ def test_gridscan3d():
         ]
     )
     # fmt: on
+    sample_id = 12345
 
     steps = (14, 9)
     data = tuple(
@@ -37,7 +38,7 @@ def test_gridscan3d():
         for d in data
     )
 
-    results = dlstbx.util.xray_centering_3d.gridscan3d(data, plot=False)
+    results = dlstbx.util.xray_centering_3d.gridscan3d(data, sample_id, plot=False)
     assert len(results) == 1
     result_d = results[0].model_dump()
     # check that the results are JSON-serializable
@@ -49,4 +50,5 @@ def test_gridscan3d():
         "n_voxels": 20,
         "total_count": 44128.0,
         "bounding_box": ((2, 3, 2), (7, 6, 6)),
+        "sample_id": 12345,
     }

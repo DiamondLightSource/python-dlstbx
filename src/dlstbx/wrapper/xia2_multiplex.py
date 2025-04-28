@@ -271,7 +271,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
-        output_files = [
+        primary_log_files = [
             working_directory / "xia2.multiplex.html",
             working_directory / "xia2.multiplex.log",
         ]
@@ -355,11 +355,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 xtriage_results = dataset.get("xtriage")
                 attachments = []
 
-                for filename in list(base_dir.iterdir()):
-                    if filename not in output_files:
-                        output_files.append(filename)
-
-                for filename in output_files:
+                for filename in set(primary_log_files + list(base_dir.iterdir())):
                     filetype = None
                     if not filename.is_file():
                         continue  # primary log files may not actually exist
@@ -369,16 +365,27 @@ class Xia2MultiplexWrapper(Wrapper):
                             filetype = keep[file_pattern]
                     if filetype is None:
                         continue
+
                     destination = results_directory / filename.name
-                    if filename.as_posix() not in allfiles:
-                        allfiles.append(filename.as_posix())
+                    if (
+                        destination.as_posix() in allfiles
+                        and filename not in primary_log_files
+                    ):
+                        destination = (
+                            results_directory / f"{cluster_prefix}{filename.name}"
+                        )
+
+                    if destination.as_posix() not in allfiles:
                         self.log.debug(f"Copying {filename} to {destination}")
                         shutil.copy(filename, destination)
-                    if pipeline_final_params and is_final_result(filename):
-                        destination = final_directory / filename.name
-                        if filename.as_posix() not in allfiles:
+                        allfiles.append(destination.as_posix())
+
+                    if pipeline_final_params and is_final_result(destination.name):
+                        destination = final_directory / destination.name
+                        if destination not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")
                             shutil.copy(filename, destination)
+                            allfiles.append(destination.as_posix())
 
                     # Files uploaded separately for each cluster
                     if filetype:
@@ -390,7 +397,11 @@ class Xia2MultiplexWrapper(Wrapper):
                                 "importance_rank": (
                                     1
                                     if destination.name.endswith(
-                                        ("scaled.mtz", "xia2.multiplex.html")
+                                        (
+                                            "scaled.mtz",
+                                            "xia2.multiplex.html",
+                                            "xia2.multiplex.log",
+                                        )
                                     )
                                     else 2
                                 ),

@@ -27,16 +27,17 @@ class Xia2MultiplexWrapper(Wrapper):
     name = "xia2.multiplex"
 
     def send_results_to_ispyb(
-        self, z, xtriage_results=None, is_cluster=False, attachments=[]
+        self, z, xtriage_results=None, cluster_num=None, attachments=[]
     ):
         ispyb_command_list = []
 
         # Step 0: For clusters, register new AutoProcProgram record
-        if is_cluster:
+        if cluster_num is not None:
             register_autoproc_prog = {
                 "ispyb_command": "register_processing",
                 "program": "xia2.multiplex",
                 "cmdline": "xia2.multiplex (ap-zoc)",
+                "environment": {"cluster": cluster_num},
                 "store_result": "ispyb_autoprocprogram_id",
             }
             ispyb_command_list.append(register_autoproc_prog)
@@ -70,7 +71,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Step 3: Store integration result, linked to the ScalingID
         # Use pre-registered integration id for 'All data' dataset
-        if is_cluster:
+        if cluster_num is not None:
             integration_id = None
         else:
             integration_id = "$ispyb_integration_id"
@@ -104,7 +105,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 ispyb_command_list.append(upload_attachment)
 
         # Step 5: Register successful processing for cluster jobs
-        if is_cluster:
+        if cluster_num is not None:
             update_autoproc_prog = {
                 "ispyb_command": "update_processing_status",
                 "program_id": "$ispyb_autoprocprogram_id",
@@ -288,11 +289,10 @@ class Xia2MultiplexWrapper(Wrapper):
                     scaled_mtz = working_directory / "scaled.mtz"
                     dimple_symlink = "dimple-xia2.multiplex"
                     cluster_prefix = ""
-                    is_cluster = False
+                    cluster_num = None
                 elif "coordinate cluster" in dataset_name:
                     cluster_num = dataset_name.split(" ")[-1]
                     cluster_prefix = f"coordinate_cluster_{cluster_num}_"
-                    is_cluster = True
                     base_dir = working_directory / f"coordinate_cluster_{cluster_num}"
                     scaled_unmerged_mtz = (
                         base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
@@ -410,7 +410,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 self.send_results_to_ispyb(
                     ispyb_d,
                     xtriage_results=xtriage_results,
-                    is_cluster=is_cluster,
+                    cluster_num=cluster_num,
                     attachments=attachments,
                 )
 

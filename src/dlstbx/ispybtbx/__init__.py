@@ -663,24 +663,29 @@ class ispybtbx:
         }
 
     def get_pin_info_from_sample_id(
-        self, sample_id, session: sqlalchemy.orm.session.Session
-    ):
-        query = session.query(
-            isa.BLSample.containerId,
-            isa.BLSample.location,
-            isa.BLSample.subLocation,
-            isa.BLSample.loopType,
-        ).filter(isa.BLSample.blSampleId == sample_id)
-        result = query.one()
+        self, sample_id: int, session: sqlalchemy.orm.session.Session
+    ) -> dict[str, str | int]:
+        result = (
+            session.query(
+                isa.BLSample.containerId,
+                isa.BLSample.location,
+                isa.BLSample.subLocation,
+                isa.BLSample.loopType,
+            )
+            .filter(isa.BLSample.blSampleId == sample_id)
+            .one()
+        )
         pin_info = {
-            "containerId": result[0],
-            "location": result[1],
-            "subLocation": result[2],
-            "loopType": result[3],
+            "containerId": result.containerId,
+            "location": result.location,
+            "subLocation": result.subLocation,
+            "loopType": result.loopType,
         }
         return pin_info
 
-    def get_all_sample_ids_for_multisample_pin(self, pin_info, session):
+    def get_all_sample_ids_for_multisample_pin(
+        self, pin_info: dict[str, str | int], session: sqlalchemy.orm.session.Session
+    ) -> dict[int, int] | None:
         """
         Returns a dictionary with key value pairs of sub_location : sample_id for a multisample pin.
         If no sublocation specified in the BLSample record, returns None.
@@ -688,14 +693,16 @@ class ispybtbx:
         if not pin_info["subLocation"]:
             return None
 
-        query = session.query(isa.BLSample.blSampleId, isa.BLSample.subLocation).filter(
-            isa.BLSample.containerId == pin_info["containerId"],
-            isa.BLSample.location == pin_info["location"],
+        result = (
+            session.query(isa.BLSample.blSampleId, isa.BLSample.subLocation)
+            .filter(
+                isa.BLSample.containerId == pin_info["containerId"],
+                isa.BLSample.location == pin_info["location"],
+            )
+            .all()
         )
-        result = query.all()
-        msp_samples = {sub_location: sample_id for sample_id, sub_location in result}
 
-        return msp_samples
+        return {sub_location: sample_id for sample_id, sub_location in result}
 
     @staticmethod
     def get_visit_directory_from_image_directory(
@@ -931,10 +938,9 @@ def ispyb_filter(
     if sample_id := parameters["ispyb_dc_info"].get("BLSAMPLEID"):
         pin_info = i.get_pin_info_from_sample_id(sample_id, session)
         parameters["ispyb_pin_info"] = pin_info
-        multisample_pin_sample_ids = i.get_all_sample_ids_for_multisample_pin(
+        parameters["ispyb_msp_sample_ids"] = i.get_all_sample_ids_for_multisample_pin(
             pin_info, session
         )
-        parameters["ispyb_msp_sample_ids"] = multisample_pin_sample_ids
 
     if (
         "ispyb_processing_job" in parameters

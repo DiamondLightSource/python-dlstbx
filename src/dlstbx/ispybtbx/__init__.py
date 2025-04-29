@@ -663,8 +663,11 @@ class ispybtbx:
         }
 
     def get_pin_info_from_sample_id(
-        self, sample_id: int, session: sqlalchemy.orm.session.Session
+        self, sample_id: int | None, session: sqlalchemy.orm.session.Session
     ) -> dict[str, str | int]:
+        if not sample_id:
+            return {}
+
         result = (
             session.query(
                 isa.BLSample.containerId,
@@ -673,7 +676,7 @@ class ispybtbx:
                 isa.BLSample.loopType,
             )
             .filter(isa.BLSample.blSampleId == sample_id)
-            .one()
+            .one_or_none()
         )
         pin_info = {
             "containerId": result.containerId,
@@ -685,13 +688,13 @@ class ispybtbx:
 
     def get_all_sample_ids_for_multisample_pin(
         self, pin_info: dict[str, str | int], session: sqlalchemy.orm.session.Session
-    ) -> dict[int, int] | None:
+    ) -> dict[int, int]:
         """
         Returns a dictionary with key value pairs of sub_location : sample_id for a multisample pin.
         If no sublocation specified in the BLSample record, returns None.
         """
-        if not pin_info["subLocation"]:
-            return None
+        if not pin_info.get("subLocation"):
+            return {}
 
         result = (
             session.query(isa.BLSample.blSampleId, isa.BLSample.subLocation)
@@ -935,12 +938,13 @@ def ispyb_filter(
         dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
     )
 
-    if sample_id := parameters["ispyb_dc_info"].get("BLSAMPLEID"):
-        pin_info = i.get_pin_info_from_sample_id(sample_id, session)
-        parameters["ispyb_pin_info"] = pin_info
-        parameters["ispyb_msp_sample_ids"] = i.get_all_sample_ids_for_multisample_pin(
-            pin_info, session
-        )
+    pin_info = i.get_pin_info_from_sample_id(
+        parameters["ispyb_dc_info"].get("BLSAMPLEID"), session
+    )
+    parameters["ispyb_pin_info"] = pin_info
+    parameters["ispyb_msp_sample_ids"] = i.get_all_sample_ids_for_multisample_pin(
+        pin_info, session
+    )
 
     if (
         "ispyb_processing_job" in parameters

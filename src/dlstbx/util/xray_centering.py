@@ -67,7 +67,7 @@ def reshape_grid(
 
 
 def get_well_limits_from_loop_type(
-    loop_type: str, step_size: float
+    loop_type: str | None, step_size: float
 ) -> list[tuple[float, float]]:
     """
     Determine the well limits in x in units of grid-scan boxes for multi-sample pins.
@@ -103,14 +103,18 @@ def get_well_limits_from_loop_type(
     return well_limits
 
 
-def tag_sample_id(sample_id, multipin_sample_ids, well_limits, com):
+def tag_sample_id(
+    sample_id: int | None,
+    multipin_sample_ids: dict[int, int],
+    well_limits: list[tuple[float, float]],
+    com_x: float,
+) -> int | None:
     tagged_sample_id = None
     if not well_limits:
         tagged_sample_id = sample_id
     else:
-        centre_x = com[0]
         for well, limits in enumerate(well_limits, start=1):
-            if centre_x >= limits[0] and centre_x <= limits[1]:
+            if com_x >= limits[0] and com_x <= limits[1]:
                 tagged_sample_id = multipin_sample_ids[well]
                 break
     return tagged_sample_id
@@ -157,7 +161,9 @@ def gridscan2d(
     # (label == 0), if there are any (i.e. if unique[0] == 0).
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
-    tagged_sample_id = tag_sample_id(sample_id, multipin_sample_ids, well_limits, com)
+    tagged_sample_id = tag_sample_id(
+        sample_id, multipin_sample_ids, well_limits, com[0]
+    )
     max_voxel = tuple(
         reversed(scipy.ndimage.maximum_position(threshold, labels == best))
     )

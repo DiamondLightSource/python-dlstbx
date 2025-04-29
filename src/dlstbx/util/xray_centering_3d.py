@@ -131,7 +131,7 @@ def gridscan3d(
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
         tagged_sample_id = tag_sample_id(
-            sample_id, multipin_sample_ids, well_limits, com
+            sample_id, multipin_sample_ids, well_limits, com[0]
         )
 
         result = GridScan3DResult(

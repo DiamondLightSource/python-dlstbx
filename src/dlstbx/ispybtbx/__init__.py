@@ -11,7 +11,7 @@ import pathlib
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, TypedDict, Union, cast
 
 import gemmi
 import ispyb.sqlalchemy as isa
@@ -72,6 +72,13 @@ def setup_marshmallow_schema(session):
                 },
             )
             setattr(class_, "__marshmallow__", schema_class)
+
+
+class PinInfoDict(TypedDict):
+    loopType: str | None
+    containerId: int | None
+    subLocation: int | None
+    location: int | None
 
 
 class ispybtbx:
@@ -662,6 +669,55 @@ class ispybtbx:
             "diamond_anvil_cell": experiment_type == "Diamond Anvil High Pressure",
         }
 
+    def get_pin_info_from_sample_id(
+        self, sample_id: int | None, session: sqlalchemy.orm.session.Session
+    ) -> PinInfoDict | None:
+        if not sample_id:
+            return None
+
+        result = (
+            session.query(
+                isa.BLSample.containerId,
+                isa.BLSample.location,
+                isa.BLSample.subLocation,
+                isa.BLSample.loopType,
+            )
+            .filter(isa.BLSample.blSampleId == sample_id)
+            .one()
+        )
+        pin_info: PinInfoDict = {
+            "containerId": cast(int | None, result.containerId),
+            "location": cast(int | None, result.location),
+            "subLocation": cast(int | None, result.subLocation),
+            "loopType": cast(str | None, result.loopType),
+        }
+        return pin_info
+
+    def get_all_sample_ids_for_multisample_pin(
+        self,
+        pin_info: PinInfoDict,
+        session: sqlalchemy.orm.session.Session,
+    ) -> dict[int, int]:
+        """
+        Returns a dictionary with key value pairs of sub_location : sample_id for a multisample pin.
+        If no sublocation specified in the BLSample record, returns None.
+        """
+        if pin_info["loopType"] is None or not pin_info["loopType"].startswith(
+            "multipin"
+        ):
+            return {}
+
+        result = (
+            session.query(isa.BLSample.blSampleId, isa.BLSample.subLocation)
+            .filter(
+                isa.BLSample.containerId == pin_info["containerId"],
+                isa.BLSample.location == pin_info["location"],
+            )
+            .all()
+        )
+
+        return {sub_location: sample_id for sample_id, sub_location in result}
+
     @staticmethod
     def get_visit_directory_from_image_directory(
         directory: str | Path | None,
@@ -891,6 +947,14 @@ def ispyb_filter(
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
     parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(
         dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
+    )
+
+    pin_info = i.get_pin_info_from_sample_id(
+        parameters["ispyb_dc_info"].get("BLSAMPLEID"), session
+    )
+    parameters["ispyb_pin_info"] = pin_info or {}
+    parameters["ispyb_msp_sample_ids"] = (
+        i.get_all_sample_ids_for_multisample_pin(pin_info, session) if pin_info else {}
     )
 
     if (

@@ -67,7 +67,7 @@ class Parameters(pydantic.BaseModel):
     latency_log_warning: float = 30
     latency_log_error: float = 300
     beamline: str
-    sample_id: int
+    sample_id: Optional[int] = None
     loop_type: Optional[str] = None
     msp_sample_ids: Optional[dict[int, int]] = {}
     threshold: pydantic.NonNegativeFloat = 0.05

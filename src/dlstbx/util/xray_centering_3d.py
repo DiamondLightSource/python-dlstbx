@@ -46,10 +46,10 @@ class GridScan3DResult(GridScanResultBase):
 
 def gridscan3d(
     data: tuple[np.ndarray, ...],
-    sample_id: int,
     threshold: float = 0.05,
     threshold_absolute: float = 5,
     plot: bool = False,
+    sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
     well_limits: list[tuple[float, float]] = [],
 ) -> list[GridScan3DResult]:
@@ -68,13 +68,13 @@ def gridscan3d(
 
     Args:
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
-        sample_id: The sample id attributed to the grid_scan. This will usually be the
-            sample in sublocation 1 in the case of multi-sample pins.
         threshold: mask out values less than this fraction of the maximum data value
                 in the reconstructed 3d grid
         threshold_absolute: mask out values less than this absolute value in the
                 original grids
         plot: Show interactive debug plots of the grid scan analysis (default=False)
+        sample_id: The sample id attributed to the grid_scan. This will usually be the
+            sample in sublocation 1 in the case of multi-sample pins.
         multipin_sample_ids: Sample_ids for all samples on a multi-sample pin.
                 A dictionary of sample ids with the corresponding sub-locations in the
                 pin as keys.

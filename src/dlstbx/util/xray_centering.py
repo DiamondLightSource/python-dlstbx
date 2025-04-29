@@ -118,12 +118,12 @@ def tag_sample_id(sample_id, multipin_sample_ids, well_limits, com):
 
 def gridscan2d(
     data: np.ndarray,
-    sample_id: int,
     steps: tuple[int, int],
     box_size_px: tuple[float, float],
     snapshot_offset: tuple[float, float],
     snaked: bool,
     orientation: Orientation,
+    sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
     well_limits: list[tuple[float, float]] = [],
 ) -> tuple[GridScan2DResult, str]:

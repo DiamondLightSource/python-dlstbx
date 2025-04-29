@@ -257,172 +257,178 @@ class DLSXRayCentering(CommonService):
             cd.data[message.file_number - 1] = message.n_spots_total
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
-            if cd.images_seen == gridinfo.image_count:
+            if cd.images_seen == gridinfo.image_count and dcg_dcids:
                 well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
                     parameters.loop_type, gridinfo.dx_mm * 1000
                 )
-                if dcg_dcids:
-                    dcids = [dcid]
-                    data = [
-                        dlstbx.util.xray_centering.reshape_grid(
-                            cd.data,
-                            (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
-                            cd.gridinfo.snaked,
-                            cd.gridinfo.orientation,
-                        )
-                    ]
-                    for _dcid in dcg_dcids:
-                        dcids.append(_dcid)
-                        _cd = self._centering_data.get(_dcid)
-                        if not _cd:
-                            break
-                        if _cd.images_seen != _cd.gridinfo.image_count:
-                            break
-                        data.append(
-                            dlstbx.util.xray_centering.reshape_grid(
-                                _cd.data,
-                                (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
-                                not _cd.gridinfo.snaked,  # XXX
-                                _cd.gridinfo.orientation,
-                            )
-                        )
-                    else:
-                        # All results present
-                        self.log.info(
-                            f"All records arrived for X-ray centering on DCIDs {sorted(dcids)}"
-                        )
-                        # Sort the data by dcid
-                        perm = np.argsort(dcids)
-                        self.log.debug(f"{perm=}")
-                        data = [data[p] for p in perm]
 
-                        result = dlstbx.util.xray_centering_3d.gridscan3d(
-                            data=tuple(data),
-                            sample_id=parameters.sample_id,
-                            threshold=parameters.threshold,
-                            threshold_absolute=parameters.threshold_absolute,
-                            plot=False,
-                            multipin_sample_ids=parameters.msp_sample_ids,
-                            well_limits=well_limits,
-                        )
-                        self.log.info(f"3D X-ray centering result: {result}")
-
-                        # Acknowledge all messages
-                        txn = rw.transport.transaction_begin(
-                            subscription_id=header["subscription"]
-                        )
-                        for _dcid in dcg_dcids + [dcid]:
-                            cd = self._centering_data[_dcid]
-                            for h in cd.headers:
-                                rw.transport.ack(h, transaction=txn)
-
-                        # Send results onwards
-                        rw.set_default_channel("success")
-                        rw.send_to(
-                            "success",
-                            {
-                                "results": [r.model_dump() for r in result],
-                                "status": "success",
-                                "type": "3d",
-                            },
-                            transaction=txn,
-                        )
-                        rw.transport.transaction_commit(txn)
-
-                        for _dcid in dcg_dcids + [dcid]:
-                            del self._centering_data[_dcid]
-
-                elif parameters.experiment_type != "Mesh3D":
-                    self.log.info(
-                        "All records arrived for X-ray centering on DCID %d", dcid
-                    )
-                    result, output = dlstbx.util.xray_centering.gridscan2d(
+                dcids = [dcid]
+                data = [
+                    dlstbx.util.xray_centering.reshape_grid(
                         cd.data,
+                        (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
+                        cd.gridinfo.snaked,
+                        cd.gridinfo.orientation,
+                    )
+                ]
+                for _dcid in dcg_dcids:
+                    dcids.append(_dcid)
+                    _cd = self._centering_data.get(_dcid)
+                    if not _cd:
+                        break
+                    if _cd.images_seen != _cd.gridinfo.image_count:
+                        break
+                    data.append(
+                        dlstbx.util.xray_centering.reshape_grid(
+                            _cd.data,
+                            (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
+                            not _cd.gridinfo.snaked,  # XXX
+                            _cd.gridinfo.orientation,
+                        )
+                    )
+                else:
+                    # All results present
+                    self.log.info(
+                        f"All records arrived for X-ray centering on DCIDs {sorted(dcids)}"
+                    )
+                    # Sort the data by dcid
+                    perm = np.argsort(dcids)
+                    self.log.debug(f"{perm=}")
+                    data = [data[p] for p in perm]
+
+                    result = dlstbx.util.xray_centering_3d.gridscan3d(
+                        data=tuple(data),
                         sample_id=parameters.sample_id,
-                        steps=(gridinfo.steps_x, gridinfo.steps_y),
-                        box_size_px=(
-                            1000 * gridinfo.dx_mm / gridinfo.micronsPerPixelX,
-                            1000 * gridinfo.dy_mm / gridinfo.micronsPerPixelY,
-                        ),
-                        snapshot_offset=(
-                            gridinfo.snapshot_offsetXPixel,
-                            gridinfo.snapshot_offsetYPixel,
-                        ),
-                        snaked=gridinfo.snaked,
-                        orientation=gridinfo.orientation,
+                        threshold=parameters.threshold,
+                        threshold_absolute=parameters.threshold_absolute,
+                        plot=False,
                         multipin_sample_ids=parameters.msp_sample_ids,
                         well_limits=well_limits,
                     )
-                    self.log.debug(output)
-
-                    # Write result file
-                    if parameters.output:
-                        self.log.info(
-                            "Writing X-Ray centering results for DCID %d to %s",
-                            dcid,
-                            parameters.output,
-                        )
-                        parameters.output.parent.mkdir(parents=True, exist_ok=True)
-                        parameters.output.write_text(result.model_dump_json())
-                        if parameters.results_symlink:
-                            # Create symbolic link above working directory
-                            dlstbx.util.symlink.create_parent_symlink(
-                                str(parameters.output.parent),
-                                parameters.results_symlink,
-                            )
-
-                    # Write human-readable result file
-                    if parameters.log:
-                        parameters.log.parent.mkdir(parents=True, exist_ok=True)
-                        parameters.log.write_text(output)
-
-                    # Write latency log message
-                    latency = time.time() - cd.last_image_seen_at
-                    if latency >= parameters.latency_log_error:
-                        message_level = logging.ERROR
-                    elif (
-                        parameters.latency_log_warning
-                        <= latency
-                        < parameters.latency_log_error
-                    ):
-                        message_level = logging.WARNING
-                    else:
-                        message_level = logging.INFO
-                    self.log.log(
-                        message_level,
-                        f"X-ray centering completed for DCID {parameters.dcid} with latency of {latency:.2f} seconds",
-                        extra={"xray-centering-latency": latency},
-                    )
-
-                    # Set prometheus metrics
-                    self._prom_metrics.record_metric(
-                        "complete_centering", [f"{parameters.beamline}"]
-                    )
-                    self._prom_metrics.record_metric(
-                        "analysis_latency", [f"{parameters.beamline}"], latency
-                    )
+                    self.log.info(f"3D X-ray centering result: {result}")
 
                     # Acknowledge all messages
                     txn = rw.transport.transaction_begin(
                         subscription_id=header["subscription"]
                     )
-                    for h in cd.headers:
-                        rw.transport.ack(h, transaction=txn)
+                    for _dcid in dcg_dcids + [dcid]:
+                        cd = self._centering_data[_dcid]
+                        for h in cd.headers:
+                            rw.transport.ack(h, transaction=txn)
 
                     # Send results onwards
                     rw.set_default_channel("success")
                     rw.send_to(
                         "success",
                         {
-                            "results": [result.model_dump()],
+                            "results": [r.model_dump() for r in result],
                             "status": "success",
-                            "type": "2d",
+                            "type": "3d",
                         },
                         transaction=txn,
                     )
                     rw.transport.transaction_commit(txn)
 
-                    del self._centering_data[dcid]
+                    for _dcid in dcg_dcids + [dcid]:
+                        del self._centering_data[_dcid]
+
+            elif (
+                cd.images_seen == gridinfo.image_count
+                and parameters.experiment_type != "Mesh3D"
+            ):
+                well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
+                    parameters.loop_type, gridinfo.dx_mm * 1000
+                )
+                self.log.info(
+                    "All records arrived for X-ray centering on DCID %d", dcid
+                )
+                result, output = dlstbx.util.xray_centering.gridscan2d(
+                    cd.data,
+                    sample_id=parameters.sample_id,
+                    steps=(gridinfo.steps_x, gridinfo.steps_y),
+                    box_size_px=(
+                        1000 * gridinfo.dx_mm / gridinfo.micronsPerPixelX,
+                        1000 * gridinfo.dy_mm / gridinfo.micronsPerPixelY,
+                    ),
+                    snapshot_offset=(
+                        gridinfo.snapshot_offsetXPixel,
+                        gridinfo.snapshot_offsetYPixel,
+                    ),
+                    snaked=gridinfo.snaked,
+                    orientation=gridinfo.orientation,
+                    multipin_sample_ids=parameters.msp_sample_ids,
+                    well_limits=well_limits,
+                )
+                self.log.debug(output)
+
+                # Write result file
+                if parameters.output:
+                    self.log.info(
+                        "Writing X-Ray centering results for DCID %d to %s",
+                        dcid,
+                        parameters.output,
+                    )
+                    parameters.output.parent.mkdir(parents=True, exist_ok=True)
+                    parameters.output.write_text(result.model_dump_json())
+                    if parameters.results_symlink:
+                        # Create symbolic link above working directory
+                        dlstbx.util.symlink.create_parent_symlink(
+                            str(parameters.output.parent),
+                            parameters.results_symlink,
+                        )
+
+                # Write human-readable result file
+                if parameters.log:
+                    parameters.log.parent.mkdir(parents=True, exist_ok=True)
+                    parameters.log.write_text(output)
+
+                # Write latency log message
+                latency = time.time() - cd.last_image_seen_at
+                if latency >= parameters.latency_log_error:
+                    message_level = logging.ERROR
+                elif (
+                    parameters.latency_log_warning
+                    <= latency
+                    < parameters.latency_log_error
+                ):
+                    message_level = logging.WARNING
+                else:
+                    message_level = logging.INFO
+                self.log.log(
+                    message_level,
+                    f"X-ray centering completed for DCID {parameters.dcid} with latency of {latency:.2f} seconds",
+                    extra={"xray-centering-latency": latency},
+                )
+
+                # Set prometheus metrics
+                self._prom_metrics.record_metric(
+                    "complete_centering", [f"{parameters.beamline}"]
+                )
+                self._prom_metrics.record_metric(
+                    "analysis_latency", [f"{parameters.beamline}"], latency
+                )
+
+                # Acknowledge all messages
+                txn = rw.transport.transaction_begin(
+                    subscription_id=header["subscription"]
+                )
+                for h in cd.headers:
+                    rw.transport.ack(h, transaction=txn)
+
+                # Send results onwards
+                rw.set_default_channel("success")
+                rw.send_to(
+                    "success",
+                    {
+                        "results": [result.model_dump()],
+                        "status": "success",
+                        "type": "2d",
+                    },
+                    transaction=txn,
+                )
+                rw.transport.transaction_commit(txn)
+
+                del self._centering_data[dcid]
 
         if self._next_garbage_collection < time.time():
             self.garbage_collect()

@@ -38,7 +38,9 @@ def test_gridscan3d():
         for d in data
     )
 
-    results = dlstbx.util.xray_centering_3d.gridscan3d(data, sample_id, plot=False)
+    results = dlstbx.util.xray_centering_3d.gridscan3d(
+        data, sample_id=sample_id, plot=False
+    )
     assert len(results) == 1
     result_d = results[0].model_dump()
     # check that the results are JSON-serializable

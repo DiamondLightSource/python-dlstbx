@@ -380,7 +380,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         shutil.copy(filename, destination)
                         allfiles.append(destination.as_posix())
 
-                    if pipeline_final_params and is_final_result(destination.name):
+                    if pipeline_final_params and is_final_result(destination):
                         destination = final_directory / destination.name
                         if destination not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")

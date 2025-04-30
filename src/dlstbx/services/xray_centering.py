@@ -257,7 +257,7 @@ class DLSXRayCentering(CommonService):
             cd.data[message.file_number - 1] = message.n_spots_total
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
-            if cd.images_seen == gridinfo.image_count and dcg_dcids:
+            if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
                     parameters.loop_type, gridinfo.dx_mm * 1000
                 )
@@ -333,8 +333,8 @@ class DLSXRayCentering(CommonService):
                         del self._centering_data[_dcid]
 
             elif (
-                cd.images_seen == gridinfo.image_count
-                and parameters.experiment_type != "Mesh3D"
+                parameters.experiment_type != "Mesh3D"
+                and cd.images_seen == gridinfo.image_count
             ):
                 well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
                     parameters.loop_type, gridinfo.dx_mm * 1000

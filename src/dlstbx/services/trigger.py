@@ -248,7 +248,7 @@ class LigandFitParameters(pydantic.BaseModel):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    # program_id: int = pydantic.Field(gt=0)
+    program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
@@ -2411,19 +2411,16 @@ class DLSTrigger(CommonService):
     ):
         """Trigger a pandda job for a fragment screening experiment.
 
-        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from
-        DIMPLE, and, for now, requires the keyword 'frag' in a user submitted ligand SMILES code
-        entry to signal this is a fragment screening experiment
+        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from all
+        upstream DIMPLE jobs
 
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
         - target: set this to "pandda"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - comment: a comment to be stored in the ProcessingJob.comment field
-        - scaling_id: scaling id of the data reduction pipeline that triggered dimple
-        given as a list as this is how it is presented in the dimple recipe.
         - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
-        processing jobs to finish before skipping
+        processing PanDDA jobs
         - automatic: boolean value passed to ProcessingJob.automatic field
         - backoff-delay: base delay (in seconds) for exponential backoff in the event
             that one or more xia2-dials processing job is still running or yet to start
@@ -2442,7 +2439,7 @@ class DLSTrigger(CommonService):
         }
         """
         dcid = parameters.dcid
-        # program_id = parameters.program_id
+        program_id = parameters.program_id
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit_dir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
@@ -2535,11 +2532,11 @@ class DLSTrigger(CommonService):
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.dataCollectionId > dcid)
             .filter(ProcessingJob.automatic == True)
-            # .filter(AutoProcProgram.autoProcProgramId > program_id)
+            .filter(AutoProcProgram.autoProcProgramId > program_id)
             .filter(
                 or_(
                     AutoProcProgram.processingPrograms
-                    == "xia2.multiplex",  # why not all upstream jobs, include xia2 dials also?
+                    == "xia2.multiplex",  # include xia2 dials also?
                     ProcessingJob.comments
                     == "DIMPLE triggered by automatic xia2.multiplex",
                 )
@@ -2547,7 +2544,7 @@ class DLSTrigger(CommonService):
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
         )
         # Abort triggering multiplex if we have xia2 multiplex or dimple running on any subsequent
-        # data collection in all sample groups
+        # related data collection
         if triggered_processing_job := query.first():
             self.log.info(
                 f"Aborting pandda trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
@@ -2582,7 +2579,7 @@ class DLSTrigger(CommonService):
             .filter(
                 or_(
                     AutoProcProgram.processingPrograms
-                    == "xia2.multiplex",  # why not all upstream jobs?
+                    == "xia2.multiplex",  # include xia2.dials also?
                     ProcessingJob.comments
                     == "DIMPLE triggered by automatic xia2.multiplex",
                 )
@@ -2672,7 +2669,6 @@ class DLSTrigger(CommonService):
             .filter(AutoProcProgram.processingPrograms == "xia2.multiplex")
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(AutoProcProgramAttachment.fileName == "scaled.mtz")
-            # .filter(ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex")
         )
 
         query = query.with_entities(
@@ -2695,24 +2691,24 @@ class DLSTrigger(CommonService):
         df.to_csv(outpath)  # save for wrapper
 
         # stop gap in case pandda job already started somehow
-        min_start_time = datetime.now() - timedelta(hours=12)
-        query = (
-            (
-                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
-                    ProcessingJob,
-                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-                )
-            )
-            .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(AutoProcProgram.processingPrograms == "pandda")
-            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
-        )
+        # min_start_time = datetime.now() - timedelta(hours=12)
+        # query = (
+        #     (
+        #         session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+        #             ProcessingJob,
+        #             ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+        #         )
+        #     )
+        #     .filter(ProcessingJob.dataCollectionId.in_(dcids))
+        #     .filter(AutoProcProgram.processingPrograms == "pandda")
+        #     .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        # )
 
-        if triggered_processing_job := query.first():
-            self.log.info(
-                f"Aborting pandda trigger for dcid {dcid} as pandda job has been started for dcid {triggered_processing_job.dataCollectionId}"
-            )
-            return {"success": True}
+        # if triggered_processing_job := query.first():
+        #     self.log.info(
+        #         f"Aborting pandda trigger for dcid {dcid} as pandda job has been started for dcid {triggered_processing_job.dataCollectionId}"
+        #     )
+        #     return {"success": True}
 
         self.log.debug("PanDDA trigger: Starting")
         pandda_parameters = {

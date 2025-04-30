@@ -1326,7 +1326,12 @@ class DLSTrigger(CommonService):
             )
 
         try:
-            big_ep_params = BigEPParams(**parameter_map.get(app.processingPrograms, {}))
+            big_ep_params = BigEPParams(
+                **ChainMapWithReplacement(
+                    parameter_map.get(app.processingPrograms, {}),
+                    substitutions=rw.environment,
+                )
+            )
         except pydantic.ValidationError as e:
             self.log.error("big_ep trigger called with invalid parameters: %s", e)
             return False

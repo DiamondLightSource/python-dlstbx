@@ -71,7 +71,7 @@ class S3EchoUploader(CommonService):
             )
         except S3Error:
             self.log.exception(
-                f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3_upload'])}"
+                f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
             )
             rw.send_to("failure", message, transaction=txn)
         else:

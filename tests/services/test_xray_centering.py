@@ -62,6 +62,7 @@ def test_xray_centering(mocker, tmp_path):
         "output": tmp_path / "Dials5AResults.json",
         "log": tmp_path / "Dials5AResults.txt",
         "beamline": "i03",
+        "sample_id": 3351191,
     }
     gridinfo = {
         "orientation": "horizontal",
@@ -112,6 +113,7 @@ def test_xray_centering(mocker, tmp_path):
         "message": "ok",
         "n_voxels": 14,
         "reflections_in_best_image": 249,
+        "sample_id": 3351191,
         "snapshot_offset": mock.ANY,
         "status": "ok",
         "steps": mock.ANY,
@@ -187,6 +189,7 @@ def test_xray_centering_3d(mocker):
         "dcg_dcids": [],
         "experiment_type": "Mesh3D",
         "beamline": "i03",
+        "sample_id": 2077076,
     }
 
     gridinfo = {
@@ -251,6 +254,7 @@ def test_xray_centering_3d(mocker):
                     "total_count": 2460.0,
                     "centre_of_mass": mock.ANY,
                     "bounding_box": ((2, 4, 3), (7, 5, 5)),
+                    "sample_id": 2077076,
                 },
             ],
             "status": "success",

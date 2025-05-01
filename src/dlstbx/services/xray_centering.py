@@ -67,6 +67,9 @@ class Parameters(pydantic.BaseModel):
     latency_log_warning: float = 30
     latency_log_error: float = 300
     beamline: str
+    sample_id: Optional[int] = None
+    loop_type: Optional[str] = None
+    msp_sample_ids: Optional[dict[int, int]] = {}
     threshold: pydantic.NonNegativeFloat = 0.05
     threshold_absolute: pydantic.NonNegativeFloat = 5
 
@@ -255,6 +258,10 @@ class DLSXRayCentering(CommonService):
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
+                well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
+                    parameters.loop_type, gridinfo.dx_mm * 1000
+                )
+
                 dcids = [dcid]
                 data = [
                     dlstbx.util.xray_centering.reshape_grid(
@@ -291,9 +298,12 @@ class DLSXRayCentering(CommonService):
 
                     result = dlstbx.util.xray_centering_3d.gridscan3d(
                         data=tuple(data),
+                        sample_id=parameters.sample_id,
                         threshold=parameters.threshold,
                         threshold_absolute=parameters.threshold_absolute,
                         plot=False,
+                        multipin_sample_ids=parameters.msp_sample_ids,
+                        well_limits=well_limits,
                     )
                     self.log.info(f"3D X-ray centering result: {result}")
 
@@ -326,11 +336,15 @@ class DLSXRayCentering(CommonService):
                 parameters.experiment_type != "Mesh3D"
                 and cd.images_seen == gridinfo.image_count
             ):
+                well_limits = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
+                    parameters.loop_type, gridinfo.dx_mm * 1000
+                )
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )
                 result, output = dlstbx.util.xray_centering.gridscan2d(
                     cd.data,
+                    sample_id=parameters.sample_id,
                     steps=(gridinfo.steps_x, gridinfo.steps_y),
                     box_size_px=(
                         1000 * gridinfo.dx_mm / gridinfo.micronsPerPixelX,
@@ -342,6 +356,8 @@ class DLSXRayCentering(CommonService):
                     ),
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
+                    multipin_sample_ids=parameters.msp_sample_ids,
+                    well_limits=well_limits,
                 )
                 self.log.debug(output)
 
@@ -357,7 +373,8 @@ class DLSXRayCentering(CommonService):
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
-                            str(parameters.output.parent), parameters.results_symlink
+                            str(parameters.output.parent),
+                            parameters.results_symlink,
                         )
 
                 # Write human-readable result file

@@ -24,6 +24,7 @@ def test_xray_centering():
     ).flatten()
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(14, 11),
         box_size_px=(1.25, 1.25),
         snapshot_offset=(396.2, 241.2),
@@ -71,6 +72,7 @@ def test_xray_centering():
             (6, 7),
             (6, 8),
         ],
+        "sample_id": 12345,
     }
 
     # verify that the results can be serialized to json
@@ -108,6 +110,7 @@ def test_xray_centering_second_example():
 
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(36, 23),
         box_size_px=(17.6678445229682, 17.6678445229682),
         snapshot_offset=(339.919, 182.59),
@@ -141,6 +144,7 @@ def test_xray_centering_second_example():
         "best_image": 351,
         "reflections_in_best_image": 14,
         "best_region": best_region,
+        "sample_id": 12345,
     }
 
 
@@ -150,6 +154,7 @@ def test_vertical_1d():
     # fmt: on
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(1, 80),
         box_size_px=(24.096385542168676, 6.024096385542169),
         snapshot_offset=(446.952, 123.036),
@@ -198,6 +203,7 @@ def test_vertical_1d():
             (57, 0),
             (58, 0),
         ],
+        "sample_id": 12345,
     }
 
 
@@ -207,6 +213,7 @@ def test_vertical_2d():
     # fmt: on
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(5, 6),
         box_size_px=(45.45454545454545, 45.45454545454545),
         snapshot_offset=(339.273, 236.727),
@@ -232,6 +239,7 @@ def test_vertical_2d():
         "best_image": 4,
         "reflections_in_best_image": 54,
         "best_region": [(3, 0), (3, 1), (4, 0), (4, 1)],
+        "sample_id": 12345,
     }
 
 
@@ -239,6 +247,7 @@ def test_blank_scan():
     data = np.zeros((5, 6))
     results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
+        sample_id=12345,
         steps=(5, 6),
         box_size_px=(45.45, 45.45),
         snapshot_offset=(339.273, 236.727),
@@ -264,6 +273,7 @@ def test_blank_scan():
         "best_image": None,
         "reflections_in_best_image": None,
         "best_region": None,
+        "sample_id": None,
     }
 
 
@@ -300,6 +310,7 @@ def test_single_connected_region(data, reflections_in_best_image):
     """
     result, _ = dlstbx.util.xray_centering.gridscan2d(
         data=data,
+        sample_id=12345,
         steps=(10, 10),
         box_size_px=(1, 1),
         snapshot_offset=(0, 0),
@@ -317,61 +328,125 @@ def test_single_connected_region(data, reflections_in_best_image):
     assert result.centre_y == result.centre_y_box == 5
 
 
-EXPECTED_OUTPUT_COL_MAJOR = (np.array([
-    [1, 5, 9],
-    [2, 6, 10],
-    [3, 7, 11],
-    [4, 8, 12]
-]))
+# fmt: off
+EXPECTED_OUTPUT_COL_MAJOR = np.array([[1, 5, 9], [2, 6, 10], [3, 7, 11], [4, 8, 12]])
 
-GRID_INPUT_ROW_MAJOR_SNAKED_L_TO_R_FIRST = (np.array([
+GRID_INPUT_ROW_MAJOR_SNAKED_L_TO_R_FIRST = np.array([
     1, 2, 3, 4,
     8, 7, 6, 5,
     9, 10, 11, 12,
-]))
-GRID_INPUT_ROW_MAJOR_SNAKED_R_TO_L_FIRST = (np.array([
+])
+GRID_INPUT_ROW_MAJOR_SNAKED_R_TO_L_FIRST = np.array([
     4, 3, 2, 1,
     5, 6, 7, 8,
     12, 11, 10, 9,
-]))
-GRID_INPUT_ROW_MAJOR_NOT_SNAKED_L_TO_R = (np.array([
+])
+GRID_INPUT_ROW_MAJOR_NOT_SNAKED_L_TO_R = np.array([
     1, 2, 3, 4,
     5, 6, 7, 8,
     9, 10, 11, 12,
-]))
-GRID_INPUT_COL_MAJOR_NOT_SNAKED = (np.array([
-    1, 5, 9,
-    2, 6, 10,
-    3, 7, 11,
-    4, 8, 12
-]))
-GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST = (np.array([
-    1, 5, 9,
-    10, 6, 2,
-    3, 7, 11,
-    12, 8, 4
- ]))
+])
+GRID_INPUT_COL_MAJOR_NOT_SNAKED = np.array([1, 5, 9, 2, 6, 10, 3, 7, 11, 4, 8, 12])
+GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST = np.array(
+    [1, 5, 9, 10, 6, 2, 3, 7, 11, 12, 8, 4]
+)
+# fmt: on
 
-@pytest.mark.parametrize("data_in, expected_data, steps, snaked, orientation",
-                         [
-                             [GRID_INPUT_ROW_MAJOR_SNAKED_L_TO_R_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True, dlstbx.util.xray_centering.Orientation.HORIZONTAL],
-                             [GRID_INPUT_ROW_MAJOR_NOT_SNAKED_L_TO_R, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), False, 
-                              dlstbx.util.xray_centering.Orientation.HORIZONTAL],
-                             # -ve direction first snaking causes the axis to be flipped,
-                             # is there anything that uses/relies on this?
-                             # [GRID_INPUT_ROW_MAJOR_SNAKED_R_TO_L_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True, 
-                             # dlstbx.util.xray_centering.Orientation.HORIZONTAL],
-                             [GRID_INPUT_COL_MAJOR_NOT_SNAKED, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), False,
-                             dlstbx.util.xray_centering.Orientation.VERTICAL],
-                             [GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True,
-                             dlstbx.util.xray_centering.Orientation.VERTICAL],
-                          ]
-                         )
-def test_reshape_grid(
-        data_in, expected_data, steps, snaked, orientation
-):
+
+@pytest.mark.parametrize(
+    "data_in, expected_data, steps, snaked, orientation",
+    [
+        [
+            GRID_INPUT_ROW_MAJOR_SNAKED_L_TO_R_FIRST,
+            EXPECTED_OUTPUT_COL_MAJOR,
+            (4, 3),
+            True,
+            dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+        ],
+        [
+            GRID_INPUT_ROW_MAJOR_NOT_SNAKED_L_TO_R,
+            EXPECTED_OUTPUT_COL_MAJOR,
+            (4, 3),
+            False,
+            dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+        ],
+        # -ve direction first snaking causes the axis to be flipped,
+        # is there anything that uses/relies on this?
+        # [GRID_INPUT_ROW_MAJOR_SNAKED_R_TO_L_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True,
+        # dlstbx.util.xray_centering.Orientation.HORIZONTAL],
+        [
+            GRID_INPUT_COL_MAJOR_NOT_SNAKED,
+            EXPECTED_OUTPUT_COL_MAJOR,
+            (4, 3),
+            False,
+            dlstbx.util.xray_centering.Orientation.VERTICAL,
+        ],
+        [
+            GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST,
+            EXPECTED_OUTPUT_COL_MAJOR,
+            (4, 3),
+            True,
+            dlstbx.util.xray_centering.Orientation.VERTICAL,
+        ],
+    ],
+)
+def test_reshape_grid(data_in, expected_data, steps, snaked, orientation):
     # old_data_in = data_in.copy()
-    data_out = dlstbx.util.xray_centering.reshape_grid(data_in, steps, snaked=snaked, orientation=orientation)
+    data_out = dlstbx.util.xray_centering.reshape_grid(
+        data_in, steps, snaked=snaked, orientation=orientation
+    )
     assert np.all(data_out == expected_data), f"{data_out} != {expected_data}"
     # The current operation of the gridscan processing relies on this mutation of the input
     # assert np.all(data_in == old_data_in), f"{data_in} != {old_data_in}"
+
+
+@pytest.mark.parametrize(
+    "com_x, well_limits, expected_result, error_message",
+    [
+        (
+            440,
+            [(20, 420), (420, 820), (820, 1220)],
+            2222,
+            "Wrong sample number assigned, expected 2222",
+        ),  # Test normal multi-pin result
+        (
+            1500,
+            [(20, 420), (420, 820), (820, 1220)],
+            None,
+            "Expected assigned sample to be None",
+        ),  # Test sample out of range of all limits
+        (
+            45,
+            [],
+            123456,
+            "Wrong sample number assigned, expected 123456",
+        ),  # Test no well_limits (i.e. standard pin)
+    ],
+)
+def test_tag_sample_id(com_x, well_limits, expected_result, error_message):
+    sample_id = 123456
+    multipin_sample_ids = {1: 1111, 2: 2222, 3: 3333}
+    result = dlstbx.util.xray_centering.tag_sample_id(
+        sample_id, multipin_sample_ids, well_limits, com_x
+    )
+    assert result == expected_result, error_message
+
+
+@pytest.mark.parametrize(
+    "loop_type, expected_result",
+    [
+        (
+            "multipin_5x400+220",
+            [(1.0, 21.0), (21.0, 41.0), (41.0, 61.0), (61.0, 81.0), (81.0, 101.0)],
+        ),  # Test multipin in correct format
+        (None, []),  # Test no looptype
+        ("multipin_5_400_220", []),  # Test string in wrong format
+        ("random_string", []),  # Test any other pin type
+    ],
+)
+def test_get_well_limits_from_loop_type(loop_type, expected_result):
+    step_size = 20
+    result = dlstbx.util.xray_centering.get_well_limits_from_loop_type(
+        loop_type, step_size
+    )
+    assert result == expected_result, "Wrong well limits returned"

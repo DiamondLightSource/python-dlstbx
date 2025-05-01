@@ -2310,13 +2310,13 @@ class DLSTrigger(CommonService):
         Example recipe parameters:
         { "target": "ligand_fit",
             "dcid": 123456,
-            "program_id": 123456,
             "pdb": "/path/to/pdb",
             "mtz": "/path/to/mtz"
             "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
             "pipeline": "phenix_pipeline",
             "automatic": true,
             "comment": "Ligand_fit triggered by xia2 dials",
+            "scaling_id": [123456],
             "min_cc_keep": 0.7,
             "timeout-minutes": 115
 
@@ -2430,9 +2430,10 @@ class DLSTrigger(CommonService):
         Example recipe parameters:
         { "target": "pandda",
             "dcid": 123456,
+            "program_id": 123456,
             "automatic": true,
             "comment": "pandda triggered by dimple",
-            "timeout-minutes": 115,
+            "timeout-minutes": 360,
             "backoff-delay": 8, # default
             "backoff-max-try": 10, # default
             "backoff-multiplier": 2, # default

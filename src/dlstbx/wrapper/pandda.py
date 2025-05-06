@@ -46,18 +46,12 @@ class PanDDAWrapper(Wrapper):
             & (dfmerged["completeness"] >= completeness_limit)
         ]
 
-        df_final = (
-            df_final.sort_values("resolutionLimitHigh", ascending=False)  # completeness
-            .drop_duplicates("Smiles")  # dataCollectionId
-            .sort_index()
-        )
-
         missing_ligands = np.setdiff1d(
             dfmerged["Smiles"].unique().tolist(), df_final["Smiles"].unique().tolist()
         )  # the missing ligands
 
         self.log.info(
-            f"There are {len(missing_ligands)} fragments for which the data does not meet the required resolution and completeness criteria, excluding these from PanDDA analysis & writing them to csv format"
+            f"There are {len(missing_ligands)} fragments for which the data does not meet the required resolution and completeness criteria, excluding these from PanDDA analysis"
         )
 
         df_missing = dfmerged[dfmerged["Smiles"].isin(missing_ligands)]
@@ -73,7 +67,13 @@ class PanDDAWrapper(Wrapper):
 
         # self.log.info(f"Found {len(df_apo)} apo datasets of sufficient quality")
 
-        df_final = pd.concat([df_final.dropna(), df_apo])  # append apo datasets
+        df_final = (
+            df_final.sort_values("resolutionLimitHigh", ascending=False)  # completeness
+            .drop_duplicates("Smiles")  # dataCollectionId
+            .sort_index()
+        )
+
+        df_final = pd.concat([df_final.dropna(), df_apo])  # append the apo datasets
 
         outpath = processing_dir / "analysis/datasets_for_pandda.csv"
         df_final.to_csv(outpath)  # save df

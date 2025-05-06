@@ -8,6 +8,7 @@ import subprocess
 
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from iotbx.reflection_file_reader import any_reflection_file
 
 from dlstbx.wrapper import Wrapper
@@ -48,7 +49,7 @@ class PanDDAWrapper(Wrapper):
 
         missing_ligands = np.setdiff1d(
             dfmerged["Smiles"].unique().tolist(), df_final["Smiles"].unique().tolist()
-        )  # the missing ligands
+        )
 
         self.log.info(
             f"There are {len(missing_ligands)} fragments for which the data does not meet the required resolution and completeness criteria, excluding these from PanDDA analysis"
@@ -64,6 +65,8 @@ class PanDDAWrapper(Wrapper):
             .drop_duplicates("dataCollectionId")
             .sort_index()
         )
+
+        apo_locations = df_apo["location"].tolist()
 
         # self.log.info(f"Found {len(df_apo)} apo datasets of sufficient quality")
 
@@ -97,6 +100,8 @@ class PanDDAWrapper(Wrapper):
                 row["Source Well"],
                 int(row["visit_number"]),
             )
+            if well in apo_locations:  # or if no smiles
+                acr = "APO" + acr
             multiplex_path = pathlib.Path(str(row["filePath"]))
             well_dir = (
                 processing_dir
@@ -121,7 +126,9 @@ class PanDDAWrapper(Wrapper):
             pdb = cif_dir / f"{source_well}" / "ligand.xyz.pdb"
             cif = cif_dir / f"{source_well}" / "ligand.restraints.cif"
 
-            if pdb.exists() and cif.exists():
+            if well in apo_locations:
+                continue
+            elif pdb.exists() and cif.exists():
                 shutil.copyfile(pdb, well_dir / "ligand.pdb")
                 shutil.copyfile(cif, well_dir / "ligand.cif")
                 shutil.copyfile(pdb, compound_dir / "ligand.pdb")
@@ -129,11 +136,16 @@ class PanDDAWrapper(Wrapper):
             else:
                 self.log.info(
                     f"No ligand pdb/cif file found for location {well}, ligand library {library}, skipping..."
-                )  # or subprocess acedrg here to create ligand files? acedrg -i {well_dir}/lig.smi -o {well_dir}/lig
+                )
+                # os.system(f"acedrg -i {well_dir/ "lig.smi"}  -o {well_dir / "lig"}")
+                # subprocess acedrg here?
 
         # PanDDA pre-run
         self.log.info("Running PanDDA pre-run")
-        pandda_dir = processing_dir / f"analysis/pandda_{acr}"
+        pandda_dir = (
+            processing_dir
+            / f"analysis/pandda_{acr}_{datetime.today().strftime('%Y-%m-%d')}"
+        )
 
         pandda_command = f"module load ccp4/7.0.078; \
             module load pymol/1.8.2.0-py2.7; \
@@ -195,8 +207,8 @@ class PanDDAWrapper(Wrapper):
         apo_model = pdb.replace(".pdb", "_real_space_refined_000.pdb")
 
         for dir in (processing_dir / f"analysis/model_building_{acr}").iterdir():
-            regex = "final.dimple"
-            prefix = dir.parts[-1] + f".{regex}"
+            regex = ".final.dimple"
+            prefix = dir.parts[-1] + f"{regex}"
             mtz_file = f"{dir}/scaled.mtz"
             dimple_command = f"module load ccp4; \
             dimple {mtz_file} {apo_model} {dir} --hklout={prefix}.mtz --xyzout={prefix}.pdb "

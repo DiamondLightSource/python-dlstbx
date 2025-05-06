@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 
+import numpy as np
 import pandas as pd
 from iotbx.reflection_file_reader import any_reflection_file
 
@@ -37,7 +38,7 @@ class PanDDAWrapper(Wrapper):
         # entries with smiles but no dcid, record these! also dcid but no smiles
 
         acronyms = dfmerged[dfmerged["acronym"].notna()]["acronym"].unique()
-        acr = acronyms[0]  # assume 1 target
+        acr = acronyms[0]  # assume 1 target for now
 
         # filter multiplex data based on resolution/completeness limits & select best multiplex dataset
         df_final = dfmerged[
@@ -50,6 +51,29 @@ class PanDDAWrapper(Wrapper):
             .drop_duplicates("Smiles")  # dataCollectionId
             .sort_index()
         )
+
+        missing_ligands = np.setdiff1d(
+            dfmerged["Smiles"].unique().tolist(), df_final["Smiles"].unique().tolist()
+        )  # the missing ligands
+
+        self.log.info(
+            f"There are {len(missing_ligands)} fragments for which the data does not meet the required resolution and completeness criteria, excluding these from PanDDA analysis & writing them to csv format"
+        )
+
+        df_missing = dfmerged[dfmerged["Smiles"].isin(missing_ligands)]
+        df_missing.to_csv(processing_dir / "analysis/missing_ligands.csv")
+
+        # Apo datasets are considered to be those with a dcid but no smiles
+        df_apo = (
+            df_final[df_final["Smiles"].isna()]
+            .sort_values("resolutionLimitHigh", ascending=False)
+            .drop_duplicates("dataCollectionId")
+            .sort_index()
+        )
+
+        # self.log.info(f"Found {len(df_apo)} apo datasets of sufficient quality")
+
+        df_final = pd.concat([df_final.dropna(), df_apo])  # append apo datasets
 
         outpath = processing_dir / "analysis/datasets_for_pandda.csv"
         df_final.to_csv(outpath)  # save df
@@ -218,7 +242,7 @@ class PanDDAWrapper(Wrapper):
             return False
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(processing_dir)
+        self.send_attachments_to_ispyb(processing_dir, acr)
 
         self.log.info("PanDDA pipeline finished")
         return True
@@ -335,8 +359,8 @@ class PanDDAWrapper(Wrapper):
         os.system(cmd)
         return resolution, outfile
 
-    def send_attachments_to_ispyb(self, processing_dir):  # fix
-        html_dir = processing_dir / f"analysis/pandda_Mac1/analyses/html_summaries"
+    def send_attachments_to_ispyb(self, processing_dir, acronym):  # fix
+        html_dir = processing_dir / f"analysis/pandda_{acronym}/analyses/html_summaries"
         # log_dir = processing_dir / f"analysis/pandda_{acr}/logs"
 
         for f in html_dir.iterdir():

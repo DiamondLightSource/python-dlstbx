@@ -109,6 +109,25 @@ def tag_sample_id(
     well_limits: list[tuple[float, float]],
     com_x: float,
 ) -> int | None:
+    """
+    Tag the sample_id associated with the x-ray centre. For multi-sample pins, uses the x
+    coordinate and the multipin dimensions to determine which well and therefore which
+    sample the centre belongs to. For single sample pins, returns the sample_id
+    associated with the grid scan. Returns None if no sample_id no well_limits provided
+    or if the centre is out of range of all provided well limits.
+
+    Args:
+        sample_id (int | None): The sample ID associated with the grid scan.
+        multipin_sample_ids (dict[int, int]): A dictionary mapping well numbers to
+            sample IDs.
+        well_limits (list[tuple[float, float]]): A list of tuples representing the
+            x-coordinate limits for each well in a multisample pin.
+        com_x (float): The x-coordinate of the centre of mass of the crystal.
+
+    Returns:
+        int | None: The tagged sample ID based on the x-coordinate and well limits,
+            or the original sample ID if no well limits are provided.
+    """
     tagged_sample_id = None
     if not well_limits:
         tagged_sample_id = sample_id

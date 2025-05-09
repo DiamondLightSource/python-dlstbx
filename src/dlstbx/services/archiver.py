@@ -37,7 +37,7 @@ class Dropfile:
 
         self._dataset = ET.SubElement(investigation, "dataset")
         ET.SubElement(self._dataset, "name").text = datasetname
-        ET.SubElement(self._dataset, "dataset_type").text = "EXPERIMENT_RAW"
+        ET.SubElement(self._dataset, "dataset_type").text = "raw"
         ET.SubElement(self._dataset, "description").text = "unknown"
 
     def add(self, filename):

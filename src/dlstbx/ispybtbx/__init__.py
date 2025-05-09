@@ -700,7 +700,7 @@ class ispybtbx:
     ) -> dict[int, int]:
         """
         Returns a dictionary with key value pairs of sub_location : sample_id for a multisample pin.
-        If no sublocation specified in the BLSample record, returns None.
+        If looptype not specified or doesn't start with multipin, returns empty.
         """
         if pin_info["loopType"] is None or not pin_info["loopType"].startswith(
             "multipin"

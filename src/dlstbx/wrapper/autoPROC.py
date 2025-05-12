@@ -342,7 +342,7 @@ class autoPROCWrapper(Wrapper):
         APSC = autoproc_xml.get("AutoProcScalingContainer", {})
         if isinstance(APSC, list):
             # For multiple sweeps autoPROC duplicates this container
-            APSC = APSC[0]
+            APSC = APSC[-1]
         if "AutoProcScalingStatistics" in APSC:
             insert_scaling: dict[str, Any] = {
                 "ispyb_command": "insert_scaling",

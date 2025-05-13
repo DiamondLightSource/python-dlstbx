@@ -70,7 +70,7 @@ class Parameters(pydantic.BaseModel):
     sample_id: Optional[int] = None
     loop_type: Optional[str] = None
     msp_sample_ids: Optional[dict[int, int]] = {}
-    threshold: pydantic.NonNegativeFloat = 0.5
+    threshold: pydantic.NonNegativeFloat = 0.25
     threshold_absolute: pydantic.NonNegativeFloat = 0
 
 

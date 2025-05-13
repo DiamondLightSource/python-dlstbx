@@ -100,6 +100,7 @@ class XrayCentringResult(BaseModel):
     bounding_box: (
         tuple[Coordinate2D, Coordinate2D] | tuple[Coordinate3D, Coordinate3D] | None
     ) = None
+    sample_id: int | None
 
 
 class XrayCentring(BaseModel):

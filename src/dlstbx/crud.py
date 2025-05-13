@@ -399,6 +399,7 @@ def insert_xray_centring(
             boundingBoxMaxX=bb[1][0] if bb else None,
             boundingBoxMaxY=bb[1][1] if bb else None,
             boundingBoxMaxZ=bb[1][2] if bb and is_3d else None,  # type: ignore
+            blSampleId=result.sample_id,
         )
         session.add(db_result)
     session.commit()

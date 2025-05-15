@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
 import shutil
 import subprocess
 from shutil import ignore_patterns
+
+import molviewspec as mvs
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
@@ -32,6 +35,9 @@ class LigandFitWrapper(Wrapper):
         CC = self.pull_CC_from_log(pipeline_directory)
         for f in pipeline_directory.iterdir():
             if f.stem.endswith("final") and CC >= min_cc_keep:
+                file_type = "Result"
+                importance_rank = 1
+            elif f.suffix == ".html":
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".log":
@@ -91,10 +97,13 @@ class LigandFitWrapper(Wrapper):
         with open(working_directory / "LIG.smi", "w") as smi_file:
             smi_file.write(smiles)
 
-        if pipeline == "phenix":
-            phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
-        elif pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand_code={ligand_code}
+        pipeline_directory = working_directory / "pipeline_1"
+
+        # if pipeline == "phenix":
+        #     phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
+        if pipeline == "phenix_pipeline":
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8; \
+                               phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} labels=2FOFCWT,PH2FOFCWT"
 
         try:
             result = subprocess.run(
@@ -116,16 +125,16 @@ class LigandFitWrapper(Wrapper):
         with open(working_directory / "ligand_fit.log", "w") as log_file:
             log_file.write(result.stdout)
 
+        out_pdb = str(pipeline_directory / "LIG_final.pdb")
+        out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
+        self.generate_html_visualisation(out_pdb, out_map, pipeline_directory)
+
         shutil.copytree(
             working_directory,
             results_directory,
             dirs_exist_ok=True,
             ignore=ignore_patterns(".*"),
         )
-
-        pipeline_directory = (
-            results_directory / "pipeline_1"
-        )  # for pipeline = phenix_pipeline only
 
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -147,3 +156,52 @@ class LigandFitWrapper(Wrapper):
                 f"Ligand_fitting pipeline finished but ligand fitting CC ({CC}) did not meet quality threshold ({min_cc_keep})"
             )
             return False
+
+    def generate_html_visualisation(self, pdb_file, map_file, outdir):
+        builder = mvs.create_builder()
+
+        structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
+        structure.component(selector="polymer").representation().color(
+            custom=dict(molstar_use_default_coloring=True)
+        )
+        structure.component(selector="ligand").focus().representation(
+            type="ball_and_stick"
+        ).color(custom={"molstar_color_theme_name": "element-symbol"})
+
+        ccp4 = builder.download(url=map_file).parse(format="map")
+        ccp4.volume().representation(
+            type="isosurface",
+            relative_isovalue=1.5,
+            show_wireframe=True,
+            show_faces=False,
+        ).color(color="blue").opacity(opacity=0.1)
+
+        with open(pdb_file) as f:
+            cif_data = f.read()
+
+        with open(map_file, mode="rb") as f:
+            map_data = f.read()
+
+        # add a label? needs chain and res id of the ligand
+        # residue = mvs.ComponentExpression(label_asym_id="A_1", label_seq_id=170)
+
+        # whole = structure.component()
+        # (whole.representation()
+        # .color(color="red", selector=mvs.ComponentExpression(label_asym_id="A_1", label_seq_id=170))
+        # )
+        # # label the residues with custom text & focus it
+        # (structure
+        # .component(selector=residue).label(text="CC = 0.8")
+        # .focus()
+        # )
+
+        state = builder.get_state()
+        iframe_html = mvs.molstar_widgets.molstar_html(
+            state, data={pdb_file: cif_data, map_file: map_data}
+        )
+        html_string = json.dumps(iframe_html)
+        html_string = html_string[1:-1]  # remove quotes
+        clean_html = html_string.encode("utf-8").decode("unicode_escape")
+
+        with open(outdir / "ligand_fit.html", "w", encoding="utf-8") as f:
+            f.write(clean_html)

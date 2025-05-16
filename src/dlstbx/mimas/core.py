@@ -275,7 +275,6 @@ def handle_rotation_end(
     if scenario.beamline == "i02-1":
         xia2_dials_beamline_extra_params = (
             *XIA2_DIALS_COPPER_RINGS_PARAMS,
-            mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
             mimas.MimasISPyBParameter(key="failover", value="true"),
         )
 

@@ -46,8 +46,8 @@ class GridScan3DResult(GridScanResultBase):
 
 def gridscan3d(
     data: tuple[np.ndarray, ...],
-    threshold: float = 0.05,
-    threshold_absolute: float = 5,
+    threshold: float = 0.25,
+    threshold_absolute: float = 0,
     plot: bool = False,
     sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},

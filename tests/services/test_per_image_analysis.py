@@ -57,9 +57,8 @@ def test_per_image_analysis_cbf(dials_data, mocker):
     send_to.assert_called_with(
         "result",
         {
-            **{
-                k: mock.ANY
-                for k in (
+            **dict.fromkeys(
+                (
                     "d_min_distl_method_1",
                     "d_min_distl_method_2",
                     "estimated_d_min",
@@ -69,8 +68,9 @@ def test_per_image_analysis_cbf(dials_data, mocker):
                     "noisiness_method_1",
                     "noisiness_method_2",
                     "total_intensity",
-                )
-            },
+                ),
+                mock.ANY,
+            ),
             "file": image.strpath,
             "file-number": 1,
             "file-pattern-index": 7,
@@ -104,9 +104,8 @@ def test_per_image_analysis_h5(dials_data, mocker):
     send_to.assert_called_with(
         "result",
         {
-            **{
-                k: mock.ANY
-                for k in (
+            **dict.fromkeys(
+                (
                     "d_min_distl_method_1",
                     "d_min_distl_method_2",
                     "estimated_d_min",
@@ -116,8 +115,9 @@ def test_per_image_analysis_h5(dials_data, mocker):
                     "noisiness_method_1",
                     "noisiness_method_2",
                     "total_intensity",
-                )
-            },
+                ),
+                mock.ANY,
+            ),
             "file": image.strpath,
             "file-number": 3,
         },

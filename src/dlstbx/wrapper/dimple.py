@@ -34,9 +34,9 @@ class DimpleWrapper(Wrapper):
         log.read(log_file)
 
         scaling_id = self.params.get("scaling_id", [])
-        assert (
-            len(scaling_id) == 1
-        ), f"Exactly one scaling id must be provided: {scaling_id}"
+        assert len(scaling_id) == 1, (
+            f"Exactly one scaling id must be provided: {scaling_id}"
+        )
         scaling_id = scaling_id[0]
         program_id = self.params.get("program_id")
         self.log.debug(
@@ -91,13 +91,13 @@ class DimpleWrapper(Wrapper):
             log_file: (schemas.AttachmentFileType.LOG, 2),
         }
         result_files.update(
-            {
-                log_file: (schemas.AttachmentFileType.LOG, 2)
-                for log_file in itertools.chain(
+            dict.fromkeys(
+                itertools.chain(
                     self.results_directory.glob("[0-9]*-find-blobs.log"),
                     self.results_directory.glob("[0-9]*-refmac5_restr.log"),
-                )
-            }
+                ),
+                (schemas.AttachmentFileType.LOG, 2),
+            )
         )
         attachments = [
             schemas.Attachment(

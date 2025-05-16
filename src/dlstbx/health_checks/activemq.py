@@ -69,11 +69,11 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
 
 def _format_number(n):
     if n > 3000000000:
-        return f"{n/1000000000:.1f}G"
+        return f"{n / 1000000000:.1f}G"
     elif n > 3000000:
-        return f"{n/1000000:.1f}M"
+        return f"{n / 1000000:.1f}M"
     elif n > 3000:
-        return f"{n/1000:.1f}K"
+        return f"{n / 1000:.1f}K"
     else:
         return n
 

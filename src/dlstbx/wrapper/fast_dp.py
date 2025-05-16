@@ -191,7 +191,7 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
         if success:
             command = [
                 "xia2.report",
-                f"log_include={str(working_directory / "fast_dp.log")}",
+                f"log_include={str(working_directory / 'fast_dp.log')}",
                 "prefix=fast_dp",
                 "title=fast_dp",
                 "fast_dp_unmerged.mtz",

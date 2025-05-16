@@ -1720,9 +1720,12 @@ class DLSTrigger(CommonService):
                         f"Expected to find an even number of data files for appid {app.autoProcProgramId} (found {len(attachments)})"
                     )
                     continue
-                if len(attachments) == 2:
-                    dcids.append(dc.dataCollectionId)
-                    data_files.append(attachments)
+                if len(attachments) != 2:
+                    f"Skipping xia2.multiplex trigger: Found {len(attachments)} attachments, expected only two for dcid={dcid} group={group}"
+                    continue
+
+                dcids.append(dc.dataCollectionId)
+                data_files.append(attachments)
 
             if not any(data_files):
                 self.log.info(

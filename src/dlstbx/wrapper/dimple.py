@@ -231,9 +231,12 @@ class DimpleWrapper(Wrapper):
             ]
         )
 
-        if self.params.get("create_symlink"):
+        symlink = self.params.get("create_symlink")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(self.working_directory), self.params["create_symlink"]
+                os.fspath(self.working_directory), symlink
             )
 
         self.log.info("command: %s", " ".join(map(str, command)))
@@ -259,11 +262,11 @@ class DimpleWrapper(Wrapper):
 
         self.log.info(f"Copying DIMPLE results to {self.results_directory}")
         self.results_directory.mkdir(parents=True, exist_ok=True)
-        if self.params.get("create_symlink"):
+        if symlink:
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(self.results_directory), self.params["create_symlink"]
+                os.fspath(self.results_directory), symlink
             )
-            mtzsymlink = mtz.parent / self.params["create_symlink"]
+            mtzsymlink = mtz.parent / symlink
             if not mtzsymlink.exists():
                 deltapath = os.path.relpath(self.results_directory, mtz.parent)
                 os.symlink(deltapath, mtzsymlink)
@@ -278,9 +281,7 @@ class DimpleWrapper(Wrapper):
             self.final_directory = pathlib.Path(pipeine_final_params["path"])
             self.final_directory.mkdir(parents=True, exist_ok=True)
             if self.params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    self.final_directory, self.params["create_symlink"]
-                )
+                dlstbx.util.symlink.create_parent_symlink(self.final_directory, symlink)
 
         # Replace tmp working_directory with results_directory in coot scripts
         filenames = [

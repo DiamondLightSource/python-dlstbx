@@ -1,3 +1,49 @@
+"""
+# Candygram: A sweeter dispatch
+
+For libtbx-based DIALS installs, generate executable scripts that behave
+somewhat like libtbx dispatchers, for packages that otherwise rely on
+entry_points.console_scripts being able to interact with dials/cctbx.
+
+Usage:
+
+    libtbx.python "/path/to/candygram.py" zocalo dials dlstbx [.....]
+
+## Background
+
+At some point after DIALS 3.21 but before DIALS 3.22, libtbx removed the
+functionality that generated libtbx-style dispatchers for other
+installed python packages with registered libtbx.dispatcher.script entry
+points. This includes dlstbx (as well as pytest, which we explicitly
+registered). So, before, running libtbx.refresh would cause a copy of
+each of the dlstbx console_scripts to have an entry in build/bin that
+had a libtbx-style dispatcher which:
+
+    a) Set up the PYTHONPATH to point to the modules/ modules (e.g.
+       dials).
+    b) Set up libtbx-specific environment variables to find libtbx.env.
+    c) Set LD_LIBRARY_PATH to build/lib for libtbx-built libraries.
+
+Because libtbx deliberately does not install python packages for modules
+in conda_base, this meant that anything outside of the libtbx_refresh.py
+system couldn't import dials/dxtbx/anything else in cctbx.
+
+## The Solution
+
+For every module passed to candygram:
+  - Python scripts with hardcoded interpreter paths are written to
+    build/bin for every console_scripts entry. These properly set the
+    libtbx environment (e.g. LIBTBX_DISPATCHER_NAME) but otherwise are
+    close to the usual pip console_scripts template.
+  - Update the site configuration to know what LIBTBX_BUILD is.
+  - Write a .pth file pointer to site-packages that points to all of the
+    extra PYTHONPATH that libtbx dispatchers normally set.
+  - Uses patchelf to rewrite the library RPATH for every library in
+    build/lib. This is so that they can find each other, because they
+    are built without correct relative entries and the old libtbx
+    dispatchers masked this by setting LD_LIBRARY_PATH.
+"""
+
 from __future__ import annotations
 
 import importlib.metadata
@@ -20,7 +66,8 @@ except ModuleNotFoundError:
     pass
 
 KNOWN_PATCHELF = shutil.which("patchelf") or "/dls_sw/apps/patchelf/0.17.2/bin/patchelf"
-assert Path(KNOWN_PATCHELF).is_file()
+if not Path(KNOWN_PATCHELF).is_file():
+    sys.exit("Error: Must have patchelf tool installed to run")
 
 parser = ArgumentParser(
     description="Regenerate sweeter dispatchers for console_scripts and other executables."

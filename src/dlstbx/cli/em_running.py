@@ -47,7 +47,7 @@ def run():
         last_number = "05"
     else:
         last_year = run_year
-        last_number = f"{run_number-1:02d}"
+        last_number = f"{run_number - 1:02d}"
     last_run = f"{last_year}-{last_number}"
 
     with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:

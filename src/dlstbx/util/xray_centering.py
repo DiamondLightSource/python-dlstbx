@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import re
 
 import numpy as np
 import pydantic
@@ -18,6 +19,7 @@ class GridScanResultBase(pydantic.BaseModel):
     max_count: float | None = None
     n_voxels: int | None = None
     total_count: float | None = None
+    sample_id: int | None = None
 
 
 # Only the following items currently are used by GDA
@@ -64,6 +66,79 @@ def reshape_grid(
     return data
 
 
+def get_well_limits_from_loop_type(
+    loop_type: str | None, step_size: float
+) -> list[tuple[float, float]]:
+    """
+    Determine the well limits in x in units of grid-scan boxes for multi-sample pins.
+
+    Args:
+    loop_type: String in the format "multipin_<n_wells>x<well_width>+<well_offset>".
+        Strings in other formats will return an empty list.
+    step_size: Grid-scan step size in the x direction in units of um.
+
+    Returns:
+        list[tuple[<lower_limit, <upper_limit>]]
+    """
+
+    well_limits = []
+    if loop_type and loop_type.startswith("multipin"):
+        pattern = r"multipin_(\d+)x(\d+)\+(\d+)"
+        match = re.match(pattern, loop_type)
+        if match:
+            n_wells = int(match.group(1))
+            well_width = int(match.group(2))
+            well_offset = int(match.group(3))
+            well_limits_um = [
+                (
+                    well_offset + well_width * well_num - well_width / 2,
+                    well_offset + well_width * well_num + well_width / 2,
+                )
+                for well_num in range(n_wells)
+            ]
+            well_limits = [
+                (lower_limit / step_size, upper_limit / step_size)
+                for lower_limit, upper_limit in well_limits_um
+            ]
+    return well_limits
+
+
+def tag_sample_id(
+    sample_id: int | None,
+    multipin_sample_ids: dict[int, int],
+    well_limits: list[tuple[float, float]],
+    com_x: float,
+) -> int | None:
+    """
+    Tag the sample_id associated with the x-ray centre. For multi-sample pins, uses the x
+    coordinate and the multipin dimensions to determine which well and therefore which
+    sample the centre belongs to. For single sample pins, returns the sample_id
+    associated with the grid scan. Returns None if no sample_id no well_limits provided
+    or if the centre is out of range of all provided well limits.
+
+    Args:
+        sample_id (int | None): The sample ID associated with the grid scan.
+        multipin_sample_ids (dict[int, int]): A dictionary mapping well numbers to
+            sample IDs.
+        well_limits (list[tuple[float, float]]): A list of tuples representing the
+            x-coordinate limits for each well in a multisample pin.
+        com_x (float): The x-coordinate of the centre of mass of the crystal.
+
+    Returns:
+        int | None: The tagged sample ID based on the x-coordinate and well limits,
+            or the original sample ID if no well limits are provided.
+    """
+    tagged_sample_id = None
+    if not well_limits:
+        tagged_sample_id = sample_id
+    else:
+        for well, limits in enumerate(well_limits, start=1):
+            if com_x >= limits[0] and com_x <= limits[1]:
+                tagged_sample_id = multipin_sample_ids[well]
+                break
+    return tagged_sample_id
+
+
 def gridscan2d(
     data: np.ndarray,
     steps: tuple[int, int],
@@ -71,6 +146,9 @@ def gridscan2d(
     snapshot_offset: tuple[float, float],
     snaked: bool,
     orientation: Orientation,
+    sample_id: int | None = None,
+    multipin_sample_ids: dict[int, int] = {},
+    well_limits: list[tuple[float, float]] = [],
 ) -> tuple[GridScan2DResult, str]:
     output = [
         f"steps_x/y: {steps}",
@@ -102,6 +180,9 @@ def gridscan2d(
     # (label == 0), if there are any (i.e. if unique[0] == 0).
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
+    tagged_sample_id = tag_sample_id(
+        sample_id, multipin_sample_ids, well_limits, com[0]
+    )
     max_voxel = tuple(
         reversed(scipy.ndimage.maximum_position(threshold, labels == best))
     )
@@ -134,4 +215,5 @@ def gridscan2d(
         best_region=best_region,
         best_image=best_image,
         reflections_in_best_image=maximum_spots,
+        sample_id=tagged_sample_id,
     ), "\n".join(output)

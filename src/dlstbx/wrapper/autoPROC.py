@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import time
 import xml.etree.ElementTree
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
@@ -341,7 +342,7 @@ class autoPROCWrapper(Wrapper):
         APSC = autoproc_xml.get("AutoProcScalingContainer", {})
         if isinstance(APSC, list):
             # For multiple sweeps autoPROC duplicates this container
-            APSC = APSC[0]
+            APSC = APSC[-1]
         if "AutoProcScalingStatistics" in APSC:
             insert_scaling: dict[str, Any] = {
                 "ispyb_command": "insert_scaling",
@@ -622,6 +623,20 @@ class autoPROCWrapper(Wrapper):
                 os.fspath(results_directory), params["create_symlink"]
             )
 
+        if pipeine_final_params := params.get("pipeline-final", []):
+            final_directory = Path(pipeine_final_params["path"]) / "autoPROC"
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params["create_symlink"]
+                )
+
+            def is_final_result(final_file: Path) -> bool:
+                return any(
+                    fnmatch(str(final_file.name), patt)
+                    for patt in pipeine_final_params["patterns"]
+                )
+
         copy_extensions = {
             ".cif",
             ".dat",
@@ -634,7 +649,12 @@ class autoPROCWrapper(Wrapper):
             ".sca",
             ".stats",
         }
-        keep = {"summary.tar.gz": "result", "iotbx-merging-stats.json": "graph"}
+        keep = {
+            "summary.tar.gz": "result",
+            "summary.html": "log",
+            "report.pdf": "log",
+            "iotbx-merging-stats.json": "graph",
+        }
         if autoproc_xml:
             for entry in autoproc_xml.get("AutoProcProgramContainer", {}).get(
                 "AutoProcProgramAttachment", []
@@ -645,6 +665,7 @@ class autoPROCWrapper(Wrapper):
         else:
             success = False
         if staraniso_xml:
+            keep["report_staraniso.pdf"] = "log"
             for entry in staraniso_xml.get("AutoProcProgramContainer", {}).get(
                 "AutoProcProgramAttachment", []
             ):
@@ -666,6 +687,9 @@ class autoPROCWrapper(Wrapper):
             destination = results_directory / filename.name
             self.log.debug(f"Copying {filename} to {destination}")
             shutil.copy2(filename, destination, follow_symlinks=False)
+            if pipeine_final_params and is_final_result(filename):
+                destination = final_directory / filename.name
+                shutil.copy2(filename, destination)
 
             # Fix symlinks to point to a file in the processing directory
             if destination.is_symlink():

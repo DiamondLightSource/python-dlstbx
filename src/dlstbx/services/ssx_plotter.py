@@ -57,9 +57,9 @@ class Payload(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def check_files_expected_or_images_expected(cls, values):
-        assert isinstance(
-            values, Payload
-        ), f"Expected values to be passed to validator a Payload class object, instead received: {type(values)}"
+        assert isinstance(values, Payload), (
+            f"Expected values to be passed to validator a Payload class object, instead received: {type(values)}"
+        )
         if values.files_expected is None and values.images_expected is None:
             raise ValueError("Either files-expected or images-expected must be defined")
         return values

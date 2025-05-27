@@ -82,7 +82,7 @@ class MetalIdWrapper(Wrapper):
         blobs = []
         for n_peak, peak in enumerate(peak_data, start=1):
             self.log.info(
-                f"Adding blob {n_peak} to ispyb results - Density: {peak["electron_density"]}, rmsd: {peak["rmsd"]}, xyz: {peak["xyz"]}"
+                f"Adding blob {n_peak} to ispyb results - Density: {peak['electron_density']}, rmsd: {peak['rmsd']}, xyz: {peak['xyz']}"
             )
             blobs.append(
                 schemas.Blob(

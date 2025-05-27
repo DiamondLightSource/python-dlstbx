@@ -53,6 +53,7 @@ class DimpleParameters(pydantic.BaseModel):
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    symlink: str = pydantic.Field(default="")
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -401,10 +402,12 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
+
         dimple_parameters: dict[str, list[Any]] = {
-            "data": [os.fspath(parameters.mtz)],
+            "data": [parameters.mtz.as_posix()],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
+            "create_symlink": [parameters.symlink],
         }
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -654,9 +657,11 @@ class DLSTrigger(CommonService):
             .options(
                 contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                 joinedload(ProcessingJob.ProcessingJobParameters),
-                Load(DataCollection)
-                .load_only("dataCollectionId", "wavelength")
-                .raiseload("*"),
+                Load(DataCollection).load_only(
+                    DataCollection.dataCollectionId,
+                    DataCollection.wavelength,
+                    raiseload=True,
+                ),
             )
             .populate_existing()
         )
@@ -1324,7 +1329,12 @@ class DLSTrigger(CommonService):
             )
 
         try:
-            big_ep_params = BigEPParams(**parameter_map.get(app.processingPrograms, {}))
+            big_ep_params = BigEPParams(
+                **ChainMapWithReplacement(
+                    parameter_map.get(app.processingPrograms, {}),
+                    substitutions=rw.environment,
+                )
+            )
         except pydantic.ValidationError as e:
             self.log.error("big_ep trigger called with invalid parameters: %s", e)
             return False
@@ -1669,9 +1679,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -1724,9 +1736,12 @@ class DLSTrigger(CommonService):
                         f"Expected to find an even number of data files for appid {app.autoProcProgramId} (found {len(attachments)})"
                     )
                     continue
-                if len(attachments) == 2:
-                    dcids.append(dc.dataCollectionId)
-                    data_files.append(attachments)
+                if len(attachments) != 2:
+                    f"Skipping xia2.multiplex trigger: Found {len(attachments)} attachments, expected only two for dcid={dcid} group={group}"
+                    continue
+
+                dcids.append(dc.dataCollectionId)
+                data_files.append(attachments)
 
             if not any(data_files):
                 self.log.info(
@@ -1774,14 +1789,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():
@@ -2006,9 +2020,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -2099,14 +2115,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():

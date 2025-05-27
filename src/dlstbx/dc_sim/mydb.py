@@ -31,46 +31,46 @@ class DB:
 
 def retrieve_datacollection(db_session, sessionid, path, prefix, run_number):
     records_to_collect = (
-        "BLSAMPLEID",
-        "FOCALSPOTSIZEATSAMPLEX",
-        "FOCALSPOTSIZEATSAMPLEY",
-        "axisEnd",
-        "axisRange",
-        "axisStart",
-        "beamSizeAtSampleX",
-        "beamSizeAtSampleY",
-        "chiStart",
-        "comments",
-        "dataCollectionGroupId",
-        "dataCollectionId",
-        "detectorDistance",
-        "exposureTime",
-        "fileTemplate",
-        "flux",
-        "imageSuffix",
-        "kappaStart",
-        "numberOfImages",
-        "numberOfPasses",
-        "omegaStart",
-        "overlap",
-        "phiStart",
-        "printableForReport",
-        "resolution",
-        "rotationAxis",
-        "runStatus",
-        "slitGapHorizontal",
-        "slitGapVertical",
-        "startImageNumber",
-        "synchrotronMode",
-        "transmission",
-        "undulatorGap1",
-        "wavelength",
-        "xBeam",
-        "xtalSnapshotFullPath1",
-        "xtalSnapshotFullPath2",
-        "xtalSnapshotFullPath3",
-        "xtalSnapshotFullPath4",
-        "yBeam",
+        DataCollection.BLSAMPLEID,
+        DataCollection.FOCALSPOTSIZEATSAMPLEX,
+        DataCollection.FOCALSPOTSIZEATSAMPLEY,
+        DataCollection.axisEnd,
+        DataCollection.axisRange,
+        DataCollection.axisStart,
+        DataCollection.beamSizeAtSampleX,
+        DataCollection.beamSizeAtSampleY,
+        DataCollection.chiStart,
+        DataCollection.comments,
+        DataCollection.dataCollectionGroupId,
+        DataCollection.dataCollectionId,
+        DataCollection.detectorDistance,
+        DataCollection.exposureTime,
+        DataCollection.fileTemplate,
+        DataCollection.flux,
+        DataCollection.imageSuffix,
+        DataCollection.kappaStart,
+        DataCollection.numberOfImages,
+        DataCollection.numberOfPasses,
+        DataCollection.omegaStart,
+        DataCollection.overlap,
+        DataCollection.phiStart,
+        DataCollection.printableForReport,
+        DataCollection.resolution,
+        DataCollection.rotationAxis,
+        DataCollection.runStatus,
+        DataCollection.slitGapHorizontal,
+        DataCollection.slitGapVertical,
+        DataCollection.startImageNumber,
+        DataCollection.synchrotronMode,
+        DataCollection.transmission,
+        DataCollection.undulatorGap1,
+        DataCollection.wavelength,
+        DataCollection.xBeam,
+        DataCollection.xtalSnapshotFullPath1,
+        DataCollection.xtalSnapshotFullPath2,
+        DataCollection.xtalSnapshotFullPath3,
+        DataCollection.xtalSnapshotFullPath4,
+        DataCollection.yBeam,
     )
 
     query = (
@@ -93,8 +93,12 @@ def retrieve_sessionid(db_session, visit):
     query = (
         db_session.query(BLSession, Proposal)
         .options(
-            Load(BLSession).load_only("sessionId", "visit_number", "proposalId"),
-            Load(Proposal).load_only("proposalId", "proposalCode", "proposalNumber"),
+            Load(BLSession).load_only(
+                BLSession.sessionId, BLSession.visit_number, BLSession.proposalId
+            ),
+            Load(Proposal).load_only(
+                Proposal.proposalId, Proposal.proposalCode, Proposal.proposalNumber
+            ),
         )
         .join(
             Proposal,
@@ -121,13 +125,13 @@ def retrieve_sessionid(db_session, visit):
 
 def retrieve_dc_from_dcid(db_session, dcid):
     records_to_collect = (
-        "BLSAMPLEID",
-        "dataCollectionGroupId",
-        "dataCollectionId",
-        "dataCollectionNumber",
-        "imageDirectory",
-        "imagePrefix",
-        "imageSuffix",
+        DataCollection.BLSAMPLEID,
+        DataCollection.dataCollectionGroupId,
+        DataCollection.dataCollectionId,
+        DataCollection.dataCollectionNumber,
+        DataCollection.imageDirectory,
+        DataCollection.imagePrefix,
+        DataCollection.imageSuffix,
     )
 
     query = (
@@ -143,13 +147,13 @@ def retrieve_dc_from_dcid(db_session, dcid):
 
 def retrieve_dcs_from_dcg(db_session, dcg):
     records_to_collect = (
-        "BLSAMPLEID",
-        "dataCollectionGroupId",
-        "dataCollectionId",
-        "dataCollectionNumber",
-        "imageDirectory",
-        "imagePrefix",
-        "imageSuffix",
+        DataCollection.BLSAMPLEID,
+        DataCollection.dataCollectionGroupId,
+        DataCollection.dataCollectionId,
+        DataCollection.dataCollectionNumber,
+        DataCollection.imageDirectory,
+        DataCollection.imagePrefix,
+        DataCollection.imageSuffix,
     )
 
     query = (

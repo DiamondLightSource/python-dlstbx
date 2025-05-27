@@ -92,7 +92,7 @@ def _check_quota_for_user(
             notices.append(
                 (
                     report_level(inodes_used_int, inodes_allowed_int),
-                    f"{inodes_used} of {inodes_allowed} inodes used on {volume}/{subvolume} ({100*inodes_used_int/inodes_allowed_int:.1f}% of quota)",
+                    f"{inodes_used} of {inodes_allowed} inodes used on {volume}/{subvolume} ({100 * inodes_used_int / inodes_allowed_int:.1f}% of quota)",
                 )
             )
         if space_allowed != "-":
@@ -101,7 +101,7 @@ def _check_quota_for_user(
             notices.append(
                 (
                     report_level(space_used_num, space_allowed_num),
-                    f"{space_used} of {space_allowed} used on {volume}/{subvolume} ({100*space_used_num/space_allowed_num:.1f}% of quota)",
+                    f"{space_used} of {space_allowed} used on {volume}/{subvolume} ({100 * space_used_num / space_allowed_num:.1f}% of quota)",
                 )
             )
     max_notice_level = max(n[0] for n in notices)

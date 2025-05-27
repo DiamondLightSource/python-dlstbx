@@ -8,7 +8,7 @@ from typing import Tuple
 import numpy as np
 import scipy.ndimage
 
-from dlstbx.util.xray_centering import GridScanResultBase
+from dlstbx.util.xray_centering import GridScanResultBase, tag_sample_id
 
 logger = logging.getLogger(__name__)
 
@@ -18,23 +18,24 @@ Coordinate = tuple[int, int, int]
 
 class GridScan3DResult(GridScanResultBase):
     """
-        Represents a single gridscan result, corresponding to a diffracting centre.
+    Represents a single gridscan result, corresponding to a diffracting centre.
 
-        Coordinates expressed are in terms of grid boxes, with the centre of the box
-        lying on half-integer coordinates.
+    Coordinates expressed are in terms of grid boxes, with the centre of the box
+    lying on half-integer coordinates.
 
-        Attributes:
-             centre_of_mass: The position of the centre of mass of the crystal, for a
-             crystal of size (1, 1, 1) this will be on half-integer coordinates
-             max_voxel: Position of the maximum voxel, on integer coordinates!!!
-             max_count: max count achieved in a single voxel for the crystal
-             n_voxels: Number of voxels in the diffracting centre
-             total_count: Total of above-threshold spot counts in the labelled voxels
-             bounding_box: The rectangular prism that bounds the crystal, expressed
-                as the volume of whole boxes as a half-open range i.e such that
-                p1 = (x1, y1, z1) <= p < p2 = (x2, y2, z2) and
-                p2 - p1 gives the dimensions in whole voxels.
+    Attributes:
+         centre_of_mass: The position of the centre of mass of the crystal, for a
+         crystal of size (1, 1, 1) this will be on half-integer coordinates
+         max_voxel: Position of the maximum voxel, on integer coordinates!!!
+         max_count: max count achieved in a single voxel for the crystal
+         n_voxels: Number of voxels in the diffracting centre
+         total_count: Total of above-threshold spot counts in the labelled voxels
+         bounding_box: The rectangular prism that bounds the crystal, expressed
+            as the volume of whole boxes as a half-open range i.e such that
+            p1 = (x1, y1, z1) <= p < p2 = (x2, y2, z2) and
+            p2 - p1 gives the dimensions in whole voxels.
     """
+
     centre_of_mass: Tuple[float, ...]
     max_voxel: Tuple[int, ...]
     max_count: float
@@ -45,9 +46,12 @@ class GridScan3DResult(GridScanResultBase):
 
 def gridscan3d(
     data: tuple[np.ndarray, ...],
-    threshold: float = 0.05,
-    threshold_absolute: float = 5,
+    threshold: float = 0.25,
+    threshold_absolute: float = 0,
     plot: bool = False,
+    sample_id: int | None = None,
+    multipin_sample_ids: dict[int, int] = {},
+    well_limits: list[tuple[float, float]] = [],
 ) -> list[GridScan3DResult]:
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
@@ -65,10 +69,17 @@ def gridscan3d(
     Args:
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
         threshold: mask out values less than this fraction of the maximum data value
-                   in the reconstructed 3d grid
+                in the reconstructed 3d grid
         threshold_absolute: mask out values less than this absolute value in the
-                            original grids
+                original grids
         plot: Show interactive debug plots of the grid scan analysis (default=False)
+        sample_id: The sample id attributed to the grid_scan. This will usually be the
+            sample in sublocation 1 in the case of multi-sample pins.
+        multipin_sample_ids: Sample_ids for all samples on a multi-sample pin.
+                A dictionary of sample ids with the corresponding sub-locations in the
+                pin as keys.
+        well_limits: The lower and upper limits of the x-coordinate for each well in
+            the multi-sample pin in units of grid scan boxes.
 
     Returns:
         list[GridScan3DResult]
@@ -119,6 +130,10 @@ def gridscan3d(
         )
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
+        tagged_sample_id = tag_sample_id(
+            sample_id, multipin_sample_ids, well_limits, com[0]
+        )
+
         result = GridScan3DResult(
             centre_of_mass=com,
             max_voxel=max_voxel,
@@ -126,6 +141,7 @@ def gridscan3d(
             n_voxels=n_voxels,
             total_count=total_count,
             bounding_box=bounding_box,
+            sample_id=tagged_sample_id,
         )
         results.append(result)
 

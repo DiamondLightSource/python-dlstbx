@@ -1025,8 +1025,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
         self.log.debug(
-            f"Inserting phasing results for scaling_id={scaling_id}\n"
-            f"{phasing_results}"
+            f"Inserting phasing results for scaling_id={scaling_id}\n{phasing_results}"
         )
 
         try:

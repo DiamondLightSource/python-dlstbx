@@ -77,7 +77,7 @@ def run():
             .filter(DataCollection.dataCollectionId == args.dcid)
             .one()
         )
-        dc_info = dict(dc)
+        dc_info = dict(dc._mapping)
 
         is_serial = any(
             ("Serial" in el) or ("SSX" in el)

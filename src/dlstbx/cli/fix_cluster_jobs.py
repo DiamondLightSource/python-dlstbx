@@ -132,9 +132,9 @@ for clustername, cluster in clusters.items():
         with tqdm(desc="requeueing failed jobs", total=len(error_db)) as bar:
             for j in error_db:
                 resub = cluster.qresub(j, ["-h", "u"])
-                assert (
-                    not resub.returncode and not resub["timeout"]
-                ), f"Could not requeue job {j}: {resub.stderr or resub.stdout}"
+                assert not resub.returncode and not resub["timeout"], (
+                    f"Could not requeue job {j}: {resub.stderr or resub.stdout}"
+                )
                 resubmission_id = re.search(
                     "Your job(?:-array)? ([0-9]+)[ .]", resub.stdout
                 )

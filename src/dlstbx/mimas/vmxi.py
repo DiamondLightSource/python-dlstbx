@@ -60,6 +60,8 @@ def handle_vmxi_rotation_scan(
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="vmxi-per-image-analysis"
         ),
+        # mmcif-gen
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="processing-mmcif-gen"),
         # fast_dp
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,

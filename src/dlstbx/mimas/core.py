@@ -96,22 +96,13 @@ def handle_eiger_start_i03_gridscan(
 def handle_eiger_end_i03_and_i03_only(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> list[mimas.MimasISPyBJobInvocation | mimas.MimasRecipeInvocation]:
+) -> list[mimas.MimasRecipeInvocation]:
     recipe = (
         "per-image-analysis-gridscan-i03-no-really"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
         else "per-image-analysis-rotation-swmr"
     )
-    recipes: list[mimas.MimasISPyBJobInvocation | mimas.MimasRecipeInvocation] = [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-    ]
-    if scenario.dcclass is mimas.MimasDCClass.ROTATION:
-        recipes.append(
-            mimas.MimasRecipeInvocation(
-                DCID=scenario.DCID, recipe="processing-mmcif-gen"
-            )
-        )
-    return recipes
+    return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 
 
 @mimas.match_specification(
@@ -221,6 +212,11 @@ def handle_rotation_end(
             recipe=f"processing-rlv{suffix}",
         ),
     ]
+
+    # mmcif-gen
+    tasks.append(
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="processing-mmcif-gen")
+    )
 
     ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
     extra_params: List[ParamTuple] = [()]

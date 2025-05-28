@@ -117,8 +117,10 @@ class Xia2SsxWrapper(Wrapper):
             if pdb_file:
                 try:
                     pdb_inp = iotbx.pdb.input(str(pdb_file))
-                except OSError as e:
-                    self.log.warning(e, exc_info=True)
+                # If the file is not found, an OSError will be raised. But if iotbx fails to parse the file,
+                # there are many possible exceptions, so be generous.
+                except Exception as e:
+                    self.log.warning(f"Warning: Could not read PDB file {str(pdb_file)}: {e}")
                     continue
                 crystal_symmetry = pdb_inp.crystal_symmetry()
                 unit_cell = crystal_symmetry.unit_cell().parameters()

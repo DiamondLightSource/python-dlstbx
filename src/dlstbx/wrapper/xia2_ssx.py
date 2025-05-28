@@ -102,7 +102,7 @@ class Xia2SsxWrapper(Wrapper):
             command.append(f"dose_series_repeat={params.dose_series_repeat}")
         return command
 
-    def get_uc_sg_from_pdb(self, params: Xia2SsxParams):
+    def get_uc_sg_from_pdb(self, params: Xia2SsxParams) -> tuple[tuple[float, float, float, float, float, float], str] | None:
         for pdb in params.reference_pdb:
             strname = str(pdb)
             pdb_file = None

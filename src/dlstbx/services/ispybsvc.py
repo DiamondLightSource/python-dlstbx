@@ -369,8 +369,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
             return False
 
-    def get_pipeline_id(self, program, upstream_source):
-
+    def get_pipeline_id(self, program: str, upstream_source: str) -> int:
         if upstream_source:
             program = f"{program}/{upstream_source}"
 
@@ -386,7 +385,6 @@ class DLSISPyB(EM_Mixin, CommonService):
             "MrBUMP": 11,
             "big_ep/xds": 12,
             "big_ep/dials": 13,
-            "big_ep": 14,
         }
         pipeline_id = pipelineid_dict[f"{program}"]
 

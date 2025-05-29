@@ -332,6 +332,7 @@ def test_vmxi_gridscan(get_zocalo_commands):
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-ssx-eiger --display='xia2.ssx' --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",

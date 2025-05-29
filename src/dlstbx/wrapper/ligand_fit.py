@@ -103,7 +103,7 @@ class LigandFitWrapper(Wrapper):
         #     phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
         if pipeline == "phenix_pipeline":
             phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8; \
-                               phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} labels=2FOFCWT,PH2FOFCWT"
+                               phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' labels=2FOFCWT,PH2FOFCWT"
 
         try:
             result = subprocess.run(

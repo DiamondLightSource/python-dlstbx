@@ -376,7 +376,13 @@ class DLSTrigger(CommonService):
         }
         """
 
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+        if parameters.experiment_type not in (
+            "OSC",
+            "SAD",
+            "MAD",
+            "Helical",
+            "Metal ID",
+        ):
             self.log.info(
                 f"Skipping dimple trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -1035,7 +1041,13 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+        if parameters.experiment_type not in (
+            "OSC",
+            "SAD",
+            "MAD",
+            "Helical",
+            "Metal ID",
+        ):
             self.log.info(
                 f"Skipping fast_ep trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -1107,7 +1119,7 @@ class DLSTrigger(CommonService):
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
 
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD"):
+        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Metal ID"):
             self.log.info(
                 f"Skipping mrbump trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -1262,7 +1274,13 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+        if parameters.experiment_type not in (
+            "OSC",
+            "SAD",
+            "MAD",
+            "Helical",
+            "Metal ID",
+        ):
             self.log.info(
                 f"Skipping big_ep trigger: experiment type {parameters.experiment_type} not supported"
             )

@@ -137,60 +137,22 @@ class AlignCrystalWrapper(Wrapper):
         pattern = params["image_pattern"]
         first = int(params["image_first"])
         last = int(params["image_last"])
-        image_files = [
-            os.path.join(params["image_directory"], pattern % i)
-            for i in range(first, last + 1)
-        ]
+        if pattern.endswith(".cbf"):
+            image_files = [
+                os.path.join(params["image_directory"], pattern % i)
+                for i in range(first, last + 1)
+            ]
+        else:
+            image_files = [os.path.join(params["image_directory"], pattern)]
 
         command = ["dlstbx.align_crystal"] + image_files
 
         return command
 
-    def hdf5_to_cbf(self):
-        params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join("image-tmp")
-        tmpdir.ensure(dir=True)
-        master_h5 = os.path.join(params["image_directory"], params["image_template"])
-        prefix = params["image_template"].split("master.h5")[0]
-        params["image_pattern"] = prefix + "%04d.cbf"
-        params["image_template"] = prefix + "####.cbf"
-        self.log.info("Image pattern: %s", params["image_pattern"])
-        self.log.info("Image template: %s", params["image_template"])
-        self.log.info(
-            "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
-        )
-        result = procrunner.run(
-            ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
-            working_directory=tmpdir.strpath,
-            timeout=params.get("timeout", 3600),
-        )
-        self.log.info("command: %s", " ".join(result["command"]))
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            self.log.info(
-                "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
-            )
-        else:
-            self.log.error(
-                "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
-        params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir.strpath
-        return success
-
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-
-        if params["image_template"].endswith(".h5"):
-            if not self.hdf5_to_cbf():
-                return False
 
         command = self.construct_commandline(params)
 

@@ -9,6 +9,9 @@ import subprocess
 from shutil import ignore_patterns
 
 import molviewspec as mvs
+from iotbx import pdb
+from rdkit import Chem
+from rdkit.Chem import Draw
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
@@ -38,6 +41,12 @@ class LigandFitWrapper(Wrapper):
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".html":
+                file_type = "Result"
+                importance_rank = 1
+            elif f.suffix == ".png":
+                file_type = "Result"
+                importance_rank = 1
+            elif f.suffix == ".json":
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".log":
@@ -103,7 +112,7 @@ class LigandFitWrapper(Wrapper):
         #     phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
         if pipeline == "phenix_pipeline":
             phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8; \
-                               phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' labels=2FOFCWT,PH2FOFCWT"
+                               phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
 
         try:
             result = subprocess.run(
@@ -127,7 +136,17 @@ class LigandFitWrapper(Wrapper):
 
         out_pdb = str(pipeline_directory / "LIG_final.pdb")
         out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
-        self.generate_html_visualisation(out_pdb, out_map, pipeline_directory)
+
+        CC = self.pull_CC_from_log(pipeline_directory)
+        self.generate_smiles_png(smiles, pipeline_directory)
+        self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, CC=CC)
+        data = [
+            ["Ligand_fit pipeline", "SMILES code", "Fitting CC"],
+            ["phenix.ligand_pipeline", f"{smiles}", f"{CC}"],
+        ]
+
+        with open(pipeline_directory / "ligandfit_results.json", "w") as f:
+            json.dump(data, f)
 
         shutil.copytree(
             working_directory,
@@ -147,7 +166,6 @@ class LigandFitWrapper(Wrapper):
         self.log.info("Sending results to ISPyB")
         self.send_attachments_to_ispyb(pipeline_directory, min_cc_keep)
 
-        CC = self.pull_CC_from_log(pipeline_directory)
         if CC >= min_cc_keep:
             self.log.info("Ligand_fitting pipeline finished successfully")
             return True
@@ -157,7 +175,12 @@ class LigandFitWrapper(Wrapper):
             )
             return False
 
-    def generate_html_visualisation(self, pdb_file, map_file, outdir):
+    def generate_smiles_png(self, smiles, outdir):
+        mol = Chem.MolFromSmiles(smiles)
+        img = Draw.MolToImage(mol, size=(450, 450))
+        img.save(f"{outdir}/SMILES.png")
+
+    def generate_html_visualisation(self, pdb_file, map_file, outdir, CC):
         builder = mvs.create_builder()
 
         structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
@@ -182,18 +205,13 @@ class LigandFitWrapper(Wrapper):
         with open(map_file, mode="rb") as f:
             map_data = f.read()
 
-        # add a label? needs chain and res id of the ligand
-        # residue = mvs.ComponentExpression(label_asym_id="A_1", label_seq_id=170)
+        # add a label
+        info = self.get_chain_and_residue_numbers(pdb_file, "LIG")
+        resid = info[0][1]
+        residue = mvs.ComponentExpression(label_seq_id=resid)
 
-        # whole = structure.component()
-        # (whole.representation()
-        # .color(color="red", selector=mvs.ComponentExpression(label_asym_id="A_1", label_seq_id=170))
-        # )
-        # # label the residues with custom text & focus it
-        # (structure
-        # .component(selector=residue).label(text="CC = 0.8")
-        # .focus()
-        # )
+        # label the residue with custom text
+        (structure.component(selector=residue).label(text=f"CC = {round(CC, 2)}"))
 
         state = builder.get_state()
         iframe_html = mvs.molstar_widgets.molstar_html(
@@ -205,3 +223,18 @@ class LigandFitWrapper(Wrapper):
 
         with open(outdir / "ligand_fit.html", "w", encoding="utf-8") as f:
             f.write(clean_html)
+
+    def get_chain_and_residue_numbers(self, pdb_file_path, target_residue_name):
+        """
+        Finds (chain ID, residue number) for a given residue name in a PDB file.
+        """
+        pdb_hierarchy = pdb.input(file_name=pdb_file_path).construct_hierarchy()
+
+        results = [
+            (res.parent().id.strip(), f"{res.resseq.strip()}{res.icode.strip() or ''}")
+            for res in pdb_hierarchy.residue_groups()
+            for ag in res.atom_groups()
+            if ag.resname.strip() == target_residue_name
+        ]
+
+        return results

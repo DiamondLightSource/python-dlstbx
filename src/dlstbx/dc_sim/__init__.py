@@ -437,8 +437,19 @@ def _simulate(
                 src = os.path.join(_src_dir, src_fname)
                 target = os.path.join(_dest_dir, dest_fname)
                 log.info(f"(filesystem) Copy file {src} to {target}")
-                copy_via_temp_file(src, target)
+                try:
+                    copy_via_temp_file(src, target)
+                except FileNotFoundError:
+                    log.error(
+                        f"Error running dc_sim - source file {src} does not exist."
+                    )
+                    raise FileNotFoundError()
         elif filetemplate.endswith(".h5"):
+            if not os.path.isfile(filetemplate):
+                log.error(
+                    f"Error running dc_sim - source file {filetemplate} does not exist."
+                )
+                raise FileNotFoundError()
             files = []
             src_prefix = ""
             if _src_prefix is not None:

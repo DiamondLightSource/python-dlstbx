@@ -369,11 +369,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
             return False
 
-    def get_pipeline_id(self, program: str, upstream_source: str | None) -> int:
+    def get_pipeline_id(self, program: str, upstream_source: str | None) -> int | None:
         if upstream_source:
             program = f"{program}/{upstream_source}"
 
-        return {
+        pipelineid_dict = {
             "fast_dp": 3,
             "xia2.multiplex": 5,
             "xia2 dials": 6,
@@ -385,7 +385,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             "MrBUMP": 11,
             "big_ep/xds": 12,
             "big_ep/dials": 13,
-        }[program]
+        }
+
+        pipeline_id = pipelineid_dict.get(f"{program}")
+
+        return pipeline_id
 
     def do_update_program_name(self, parameters, **kwargs):
         program_id = parameters("program_id")

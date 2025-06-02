@@ -83,6 +83,9 @@ def submit_to_slurm(
             "USER=gda2"
         ]
 
+    if api.user_name != "gda2":
+        params.account = api.user_name
+
     logger.debug(f"Submitting script to Slurm:\n{script}")
     jdm_params = {
         "account": params.account,

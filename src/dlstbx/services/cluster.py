@@ -55,7 +55,6 @@ def submit_to_slurm(
     recipewrapper: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
-
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)
@@ -216,6 +215,22 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
+
+        if not self._environment["live"]:
+            active_envs = self.config.active_environments
+            if len(active_envs) == 1:
+                active_env = active_envs[0]
+                if isinstance(params.commands, str):
+                    params.commands = [params.commands]
+                _updated_commands = []
+                for _command in params.commands:
+                    if "dlstbx.wrap" in _command and "-e" not in _command.split():
+                        wrap_cmd = f"dlstbx.wrap -e {active_env}"
+                        if active_env == "devrmq":
+                            wrap_cmd += f" --rabbithost='{self.transport.defaults['--rabbit-host']}'"
+                        _command.replace("dlstbx.wrap", wrap_cmd, 1)
+                    _updated_commands.append(_command)
+                params.commands = _updated_commands
 
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)

@@ -132,6 +132,7 @@ class BigEPParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     spacegroup: Optional[str] = None
     recipe: Optional[str] = None
+    upstream_source: Optional[str] = None
 
     @pydantic.field_validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -157,6 +158,7 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     recipe: Optional[str] = None
+    upstream_source: Optional[str] = None
 
 
 class FastEPParameters(pydantic.BaseModel):
@@ -1242,6 +1244,7 @@ class DLSTrigger(CommonService):
             "path_ext": parameters.path_ext,
             "shelxc_path": os.fspath(parameters.shelxc_path),
             "fast_ep_path": os.fspath(parameters.fast_ep_path),
+            "upstream_source": parameters.upstream_source,
         }
 
         for key, value in big_ep_parameters.items():
@@ -1379,6 +1382,7 @@ class DLSTrigger(CommonService):
             "program_id": parameters.program_id,
             "data": os.fspath(big_ep_params.data),
             "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
+            "upstream_source": parameters.upstream_source,
         }
 
         for key, value in big_ep_parameters.items():
@@ -1550,8 +1554,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups

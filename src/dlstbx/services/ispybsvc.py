@@ -327,6 +327,8 @@ class DLSISPyB(EM_Mixin, CommonService):
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
+        upstream_source = parameters("upstream_source") or ""
+        processingpipelineid = self.get_pipeline_id(program, upstream_source)
         if isinstance(environment, dict):
             environment = ", ".join(
                 f"{key}={value}" for key, value in environment.items()
@@ -342,27 +344,48 @@ class DLSISPyB(EM_Mixin, CommonService):
                 name=program,
                 command=cmdline,
                 environment=environment,
+                pipeline_id=processingpipelineid,
             )
             self.log.info(
-                "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' with result '%s'.",
+                "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' with result '%s'.",
                 program,
                 rpid,
                 cmdline,
                 environment,
+                processingpipelineid,
                 result,
             )
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
-                "Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
+                "Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' caused exception '%s'.",
                 program,
                 rpid,
                 cmdline,
                 environment,
+                processingpipelineid,
                 e,
                 exc_info=True,
             )
             return False
+
+    def get_pipeline_id(self, program: str, upstream_source: str | None) -> int:
+        if upstream_source:
+            program = f"{program}/{upstream_source}"
+
+        return {
+            "fast_dp": 3,
+            "xia2.multiplex": 5,
+            "xia2 dials": 6,
+            "xia2 dials (multi)": 6,
+            "xia2 3dii": 7,  # xds
+            "autoPROC": 8,
+            "fast_ep": 9,
+            "dimple": 10,
+            "MrBUMP": 11,
+            "big_ep/xds": 12,
+            "big_ep/dials": 13,
+        }[program]
 
     def do_update_program_name(self, parameters, **kwargs):
         program_id = parameters("program_id")

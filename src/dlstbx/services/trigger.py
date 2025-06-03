@@ -232,6 +232,7 @@ class LigandFitParameters(pydantic.BaseModel):
     mtz: pathlib.Path
     pipeline: str
     smiles: str
+    protein_info: Optional[ProteinInfo] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
@@ -1524,8 +1525,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2343,12 +2348,17 @@ class DLSTrigger(CommonService):
 
         self.log.debug("Ligand_fit trigger: Starting")
 
+        acronym = parameters.protein_info.acronym
+        if not acronym:
+            acronym = "Protein"
+
         ligand_fit_parameters = {
             "dcid": parameters.dcid,
             "pdb": str(parameters.pdb),
             "mtz": str(parameters.mtz),
             "smiles": parameters.smiles,
             "pipeline": parameters.pipeline,
+            "acronym": acronym,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()

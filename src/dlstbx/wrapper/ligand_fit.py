@@ -138,8 +138,12 @@ class LigandFitWrapper(Wrapper):
         out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
 
         CC = self.pull_CC_from_log(pipeline_directory)
+        acr = params.get("acronym")
+
         self.generate_smiles_png(smiles, pipeline_directory)
-        self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, CC=CC)
+        self.generate_html_visualisation(
+            out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr
+        )
         data = [
             ["Ligand_fit pipeline", "SMILES code", "Fitting CC"],
             ["phenix.ligand_pipeline", f"{smiles}", f"{CC}"],
@@ -180,61 +184,113 @@ class LigandFitWrapper(Wrapper):
         img = Draw.MolToImage(mol, size=(450, 450))
         img.save(f"{outdir}/SMILES.png")
 
-    def generate_html_visualisation(self, pdb_file, map_file, outdir, CC):
-        builder = mvs.create_builder()
 
-        structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
-        structure.component(selector="polymer").representation().color(
-            custom=dict(molstar_use_default_coloring=True)
-        )
-        structure.component(selector="ligand").focus().representation(
-            type="ball_and_stick"
-        ).color(custom={"molstar_color_theme_name": "element-symbol"})
+def generate_html_visualisation(pdb_file, map_file, outdir, acr, smiles, cc):
+    # generate html with multiple snapshots
+    builder = mvs.create_builder()
+    structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
+    structure.component(selector="polymer").representation(
+        type="surface", size_factor=0.7
+    ).opacity(opacity=0.6).color(color="#EEC4EE")
+    structure.component(selector="polymer").representation().opacity(opacity=0.6).color(
+        color="grey"
+    )
+    structure.component(selector="ligand").representation(type="ball_and_stick").color(
+        custom={"molstar_color_theme_name": "element-symbol"}
+    )
+    structure.component(selector="ligand").representation(type="surface").opacity(
+        opacity=0.1
+    ).color(custom={"molstar_color_theme_name": "element-symbol"})
 
-        ccp4 = builder.download(url=map_file).parse(format="map")
-        ccp4.volume().representation(
-            type="isosurface",
-            relative_isovalue=1.5,
-            show_wireframe=True,
-            show_faces=False,
-        ).color(color="blue").opacity(opacity=0.1)
+    ccp4 = builder.download(url=map_file).parse(format="map")
+    ccp4.volume().representation(
+        type="isosurface",
+        relative_isovalue=1.5,
+        show_wireframe=True,
+        show_faces=False,
+    ).color(color="blue").opacity(opacity=0.25)
 
-        with open(pdb_file) as f:
-            cif_data = f.read()
+    snapshot1 = builder.get_snapshot(
+        title="Main View",
+        description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
+        transition_duration_ms=2000,
+        linger_duration_ms=5000,
+    )
 
-        with open(map_file, mode="rb") as f:
-            map_data = f.read()
+    # snapshot 2
+    builder = mvs.create_builder()
+    structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
+    structure.component(selector="polymer").representation(
+        type="surface", size_factor=0.7
+    ).opacity(opacity=0.5).color(color="#D8BFD8")
+    structure.component(selector="polymer").representation().opacity(opacity=0.6).color(
+        color="grey"
+    )
+    structure.component(selector="ligand").focus().representation(
+        type="ball_and_stick"
+    ).color(custom={"molstar_color_theme_name": "element-symbol"})
 
-        # add a label
-        info = self.get_chain_and_residue_numbers(pdb_file, "LIG")
-        resid = info[0][1]
-        residue = mvs.ComponentExpression(label_seq_id=resid)
+    ccp4 = builder.download(url=map_file).parse(format="map")
+    ccp4.volume().representation(
+        type="isosurface",
+        relative_isovalue=1.5,
+        show_wireframe=True,
+        show_faces=False,
+    ).color(color="blue").opacity(opacity=0.25)
 
-        # label the residue with custom text
-        (structure.component(selector=residue).label(text=f"CC = {round(CC, 2)}"))
+    # add a label
+    info = get_chain_and_residue_numbers(pdb_file, "LIG")
+    resid = info[0][1]
+    residue = mvs.ComponentExpression(label_seq_id=resid)
+    (
+        structure.component(
+            selector=residue,
+            custom={
+                "molstar_show_non_covalent_interactions": True,
+                "molstar_non_covalent_interactions_radius_ang": 5.0,
+            },
+        ).label(text=f"CC = {cc}")
+    )
 
-        state = builder.get_state()
-        iframe_html = mvs.molstar_widgets.molstar_html(
-            state, data={pdb_file: cif_data, map_file: map_data}
-        )
-        html_string = json.dumps(iframe_html)
-        html_string = html_string[1:-1]  # remove quotes
-        clean_html = html_string.encode("utf-8").decode("unicode_escape")
+    snapshot2 = builder.get_snapshot(
+        title="Focus View",
+        description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
+        transition_duration_ms=2000,
+        linger_duration_ms=5000,
+    )
 
-        with open(outdir / "ligand_fit.html", "w", encoding="utf-8") as f:
-            f.write(clean_html)
+    states = mvs.States(
+        snapshots=[snapshot1, snapshot2],
+        metadata=mvs.GlobalMetadata(description="Ligand_fit Results"),
+    )
 
-    def get_chain_and_residue_numbers(self, pdb_file_path, target_residue_name):
-        """
-        Finds (chain ID, residue number) for a given residue name in a PDB file.
-        """
-        pdb_hierarchy = pdb.input(file_name=pdb_file_path).construct_hierarchy()
+    with open(pdb_file) as f:
+        pdb_data = f.read()
 
-        results = [
-            (res.parent().id.strip(), f"{res.resseq.strip()}{res.icode.strip() or ''}")
-            for res in pdb_hierarchy.residue_groups()
-            for ag in res.atom_groups()
-            if ag.resname.strip() == target_residue_name
-        ]
+    with open(map_file, mode="rb") as f:
+        map_data = f.read()
 
-        return results
+    html = mvs.molstar_widgets.molstar_html(
+        states,
+        data={pdb_file: pdb_data, map_file: map_data},
+        ui="stories",
+    )
+
+    with open(outdir / "ligand_fit.html", "w") as f:
+        f.write(html)
+
+
+def get_chain_and_residue_numbers(pdb_file_path, target_residue_name):
+    """
+    Finds (chain ID, residue number) for a given residue name in a PDB file.
+    """
+    pdb_hierarchy = pdb.input(file_name=pdb_file_path).construct_hierarchy()
+
+    results = [
+        (res.parent().id.strip(), f"{res.resseq.strip()}{res.icode.strip() or ''}")
+        for res in pdb_hierarchy.residue_groups()
+        for ag in res.atom_groups()
+        if ag.resname.strip() == target_residue_name
+    ]
+
+    return results

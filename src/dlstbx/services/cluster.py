@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import pathlib
+import re
 from typing import Optional
 
 import pkg_resources
@@ -185,6 +186,38 @@ class DLSCluster(CommonService):
             )
         return True
 
+    def modify_commands_to_environment(
+        self,
+        commands: str | list[str],
+        active_envs: list[str],
+        dials_dev_command: str | None,
+        rabbit_host: str | None,
+    ) -> str | list[str]:
+        if len(active_envs) == 1:
+            active_env = active_envs[0]
+            if isinstance(commands, str):
+                commands = [commands]
+            _updated_commands = []
+            dials_replace_patterns = [
+                r"\bmodule load dials/latest\b",
+                r"\bmodule load dials/nightly\b",
+                r"module load dials\b(?!/)",
+            ]
+            combined_pattern = "|".join(dials_replace_patterns)
+            for _command in commands:
+                if dials_dev_command and (
+                    match := re.search(combined_pattern, _command)
+                ):
+                    _command = _command.replace(match.group(), dials_dev_command)
+                if "dlstbx.wrap" in _command and "-e" not in _command.split():
+                    wrap_cmd = f"dlstbx.wrap -e {active_env}"
+                    if active_env == "devrmq":
+                        wrap_cmd += f" --rabbithost={rabbit_host}"
+                    _command = _command.replace("dlstbx.wrap", wrap_cmd, 1)
+                _updated_commands.append(_command)
+            commands = _updated_commands
+        return commands
+
     @staticmethod
     def _recursive_mkdir(path):
         try:
@@ -219,21 +252,20 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        if not self._environment["live"]:
+        is_live_zocalo = self._environment["live"]
+
+        if not is_live_zocalo:
             active_envs = self.config.active_environments
-            if len(active_envs) == 1:
-                active_env = active_envs[0]
-                if isinstance(params.commands, str):
-                    params.commands = [params.commands]
-                _updated_commands = []
-                for _command in params.commands:
-                    if "dlstbx.wrap" in _command and "-e" not in _command.split():
-                        wrap_cmd = f"dlstbx.wrap -e {active_env}"
-                        if active_env == "devrmq":
-                            wrap_cmd += f" --rabbithost='{self.transport.defaults['--rabbit-host']}'"
-                        _command.replace("dlstbx.wrap", wrap_cmd, 1)
-                    _updated_commands.append(_command)
-                params.commands = _updated_commands
+            dials_dev = (
+                self.config._plugin_configurations["dials-dev"]
+                if "dials-dev" in self.config._plugin_configurations
+                else {}
+            )
+            dials_dev_command = dials_dev.get("dials-command")
+            rabbit_host = self.transport.defaults.get("--rabbit-host")
+            params.commands = self.modify_commands_to_environment(
+                params.commands, active_envs, dials_dev_command, rabbit_host
+            )
 
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)

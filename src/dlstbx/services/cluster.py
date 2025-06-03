@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import errno
+import getpass
 import json
 import logging
 import math
@@ -212,7 +213,7 @@ class DLSCluster(CommonService):
                 if "dlstbx.wrap" in _command and "-e" not in _command.split():
                     wrap_cmd = f"dlstbx.wrap -e {active_env}"
                     if active_env == "devrmq":
-                        wrap_cmd += f" --rabbithost={rabbit_host}"
+                        wrap_cmd += f" --rabbit-host={rabbit_host}"
                     _command = _command.replace("dlstbx.wrap", wrap_cmd, 1)
                 _updated_commands.append(_command)
             commands = _updated_commands
@@ -305,9 +306,11 @@ class DLSCluster(CommonService):
                     rw.environment, fh, sort_keys=True, indent=2, separators=(",", ": ")
                 )
         if "recipewrapper" in parameters:
-            recipewrapper = parameters["recipewrapper"]
+            recipewrapper = self.set_user_tmp_directory(
+                pathlib.Path(parameters["recipewrapper"])
+            )
             try:
-                self._recursive_mkdir(os.path.dirname(recipewrapper))
+                recipewrapper.parent.mkdir(parents=True, exist_ok=True)
             except OSError as e:
                 if e.errno == errno.ENOENT:
                     self.log.error(
@@ -320,7 +323,9 @@ class DLSCluster(CommonService):
                 self._transport.nack(header)
                 return
             self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
-            params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
+            params.commands = params.commands.replace(
+                "$RECIPEWRAP", recipewrapper.as_posix()
+            )
             with open(recipewrapper, "w") as fh:
                 json.dump(
                     {
@@ -344,6 +349,7 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
         working_directory = pathlib.Path(parameters["workingdir"])
+        working_directory = self.set_user_tmp_directory(working_directory)
         try:
             working_directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -380,3 +386,16 @@ class DLSCluster(CommonService):
         self.log.info(
             f"Submitted job {jobnumber} to '{params.scheduler}' on partition '{params.partition}'"
         )
+
+    def set_user_tmp_directory(self, working_directory):
+        if (
+            getpass.getuser() != "gda2"
+            and working_directory.parts[:4] == pathlib.Path("/dls/tmp/zocalo").parts
+        ):
+            working_directory_parts = list(working_directory.parts)
+            working_directory_parts.insert(3, getpass.getuser())
+            working_directory = pathlib.Path(*working_directory_parts)
+            self.log.debug(
+                f"Service not running as gda2 and trying to create directory in /dls/tmp/zocalo, using {working_directory} instead"
+            )
+        return working_directory

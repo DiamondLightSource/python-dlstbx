@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 from datetime import datetime, timedelta
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
@@ -19,6 +20,7 @@ from ispyb.sqlalchemy import (
     AutoProcProgram,
     AutoProcProgramAttachment,
     AutoProcScaling,
+    AutoProcScalingHasInt,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -49,7 +51,7 @@ class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
-    mtz: pathlib.Path
+    mtz: pathlib.Path | Dict[str, pathlib.Path]
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -80,7 +82,7 @@ class MrBumpParameters(pydantic.BaseModel):
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
     protein_info: Optional[ProteinInfo] = None
-    hklin: pathlib.Path
+    hklin: pathlib.Path | Dict[str, pathlib.Path]
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -127,12 +129,14 @@ class BigEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
-    program_id: int = pydantic.Field(gt=0)
+    scaling_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     spacegroup: Optional[str] = None
     recipe: Optional[str] = None
     upstream_source: Optional[str] = None
+    data: Optional[str] = None
+    scaled_unmerged_mtz: Optional[str] = None
 
     @pydantic.field_validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -408,9 +412,58 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
+        if isinstance(parameters.mtz, dict):
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            for _, program_name, filepath, filename in attachments:
+                if filename == str(parameters.mtz.get(program_name)):
+                    datafile = pathlib.Path(filepath) / filename
+                    break
+            else:
+                self.log.error(
+                    "Skipping dimple trigger: No input data files found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
+        elif isinstance(parameters.mtz, pathlib.Path):
+            datafile = parameters.mtz.as_posix()
+        else:
+            self.log.error(
+                "Skipping dimple trigger: Invalid input data type path %s",
+                type(parameters.mtz),
+            )
+            return {"success": True}
 
         dimple_parameters: dict[str, list[Any]] = {
-            "data": [parameters.mtz.as_posix()],
+            "data": [os.fspath(datafile)],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
             "create_symlink": [parameters.symlink],
@@ -1131,6 +1184,56 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
+        if isinstance(parameters.hklin, dict):
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            for _, program_name, filepath, filename in attachments:
+                if filename == str(parameters.hklin.get(program_name)):
+                    hklin = pathlib.Path(filepath) / filename
+                    break
+            else:
+                self.log.error(
+                    "Skipping mrbump trigger: No input data files found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
+        elif isinstance(parameters.hklin, pathlib.Path):
+            hklin = parameters.hklin
+        else:
+            self.log.error(
+                "Skipping mrbump trigger: Invalid input data type %s",
+                type(parameters.hklin),
+            )
+            return {"success": True}
+
         jobids = []
 
         all_pdb_files = set()
@@ -1149,7 +1252,7 @@ class DLSTrigger(CommonService):
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
 
             mrbump_parameters = {
-                "hklin": os.fspath(parameters.hklin),
+                "hklin": os.fspath(hklin),
                 "scaling_id": parameters.scaling_id,
             }
             if pdb_files:
@@ -1277,6 +1380,15 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
+        bigep_path_ext = {
+            "autoPROC": "autoPROC/ap-run",
+            "autoPROC+STARANISO": "autoPROC-STARANISO/ap-run",
+            "xia2 3dii": "xia2/3dii-run",
+            "xia2 dials": "xia2/dials-run",
+            "xia2 3dii (multi)": "multi-xia2/3dii",
+            "xia2 dials (multi)": "multi-xia2/dials",
+            "xia2.multiplex": "xia2.multiplex",
+        }
         if parameters.experiment_type not in (
             "OSC",
             "SAD",
@@ -1308,66 +1420,86 @@ class DLSTrigger(CommonService):
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        query = (
-            session.query(AutoProcProgram)
-            .join(
-                AutoProcIntegration,
-                AutoProcIntegration.autoProcProgramId
-                == AutoProcProgram.autoProcProgramId,
-            )
-            .join(
-                DataCollection,
-                DataCollection.dataCollectionId == AutoProcIntegration.dataCollectionId,
-            )
-            .filter(DataCollection.dataCollectionId == dcid)
-            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
-        )
-
-        app = query.first()
-        if not app:
-            self.log.error(
-                f"big_ep trigger failed: appid = {parameters.program_id} not found for dcid = {dcid}"
-            )
-            return False
-        if (
-            parameters.automatic
-            and blsession.beamLineName == "i23"
-            and "multi" not in app.processingPrograms
-        ):
-            self.log.info(
-                f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
-            )
-            return {"success": True}
-
         class BigEPParams(pydantic.BaseModel):
+            program_id: int = pydantic.Field(gt=0)
             data: pathlib.Path
             scaled_unmerged_mtz: pathlib.Path
             path_ext: str = pydantic.Field(
                 default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
             )
 
-        try:
+        if parameters.scaling_id:
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.autoProcProgramId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            big_ep_params = {}
+            for app in attachments:
+                if (
+                    parameters.automatic
+                    and blsession.beamLineName == "i23"
+                    and "multi" not in app.processingPrograms
+                ):
+                    self.log.info(
+                        f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
+                    )
+                    return {"success": True}
+                big_ep_params["program_id"] = app.autoProcProgramId
+                try:
+                    big_ep_params["path_ext"] = bigep_path_ext[app.processingPrograms]
+                except Exception:
+                    pass
+
+                for input_file in ("data", "scaled_unmerged_mtz"):
+                    processing_params = parameter_map.get(app.processingPrograms, {})
+                    input_filename = getattr(
+                        parameters, input_file
+                    ) or processing_params.get(input_file)
+                    if pathlib.Path(input_filename).is_file():
+                        big_ep_params[input_file] = pathlib.Path(input_filename)
+                    elif re.search(input_filename, app.fileName):
+                        big_ep_params[input_file] = (
+                            pathlib.Path(app.filePath) / app.fileName
+                        )
             big_ep_params = BigEPParams(
                 **ChainMapWithReplacement(
-                    parameter_map.get(app.processingPrograms, {}),
+                    big_ep_params,
                     substitutions=rw.environment,
                 )
             )
-        except pydantic.ValidationError as e:
-            self.log.error("big_ep trigger called with invalid parameters: %s", e)
+        else:
+            self.log.error("big_ep trigger failed: No scaling_id value specified")
             return False
 
-        for inp_file in (big_ep_params.data, big_ep_params.scaled_unmerged_mtz):
-            if not inp_file.is_file():
-                self.log.info(
-                    f"Skipping big_ep trigger: input file {inp_file} not found."
-                )
-                return {"success": True}
-
-        path_ext = big_ep_params.path_ext
-        spacegroup = parameters.spacegroup
-        if spacegroup:
-            path_ext += "-" + spacegroup
+        if parameters.spacegroup:
+            big_ep_params.path_ext += "-" + parameters.spacegroup
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
@@ -1378,10 +1510,18 @@ class DLSTrigger(CommonService):
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 
+        pattern_scaled_unmerged = str(
+            getattr(parameters, "scaled_unmerged_mtz")
+            or processing_params.get("scaled_unmerged_mtz")
+        )
         big_ep_parameters = {
-            "program_id": parameters.program_id,
-            "data": os.fspath(big_ep_params.data),
-            "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
+            "program_id": big_ep_params.program_id,
+            "scaling_id": parameters.scaling_id,
+            "data": str(big_ep_params.data.resolve()),
+            "scaled_unmerged_mtz": str(
+                big_ep_params.scaled_unmerged_mtz.resolve().parent
+                / pattern_scaled_unmerged
+            ),
             "upstream_source": parameters.upstream_source,
         }
 
@@ -1398,11 +1538,11 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "program_id": parameters.program_id,
-                "data": os.fspath(big_ep_params.data),
-                "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
-                "path_ext": path_ext,
-                "force": False,
+                "scaling_id": parameters.scaling_id,
+                "data": big_ep_parameters["data"],
+                "scaled_unmerged_mtz": big_ep_parameters["scaled_unmerged_mtz"],
+                "path_ext": big_ep_params.path_ext,
+                "force": not parameters.automatic or False,
             },
             "recipes": [],
         }
@@ -1554,12 +1694,8 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(
-                            AutoProcProgram.autoProcProgramId > program_id
-                        )  # noqa E711
-                        .filter(
-                            AutoProcProgram.recordTimeStamp > min_start_time
-                        )  # noqa E711
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups

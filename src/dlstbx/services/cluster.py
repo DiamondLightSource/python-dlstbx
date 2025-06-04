@@ -84,7 +84,7 @@ def submit_to_slurm(
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
             "USER=gda2"
         ]
-
+    # Account needs to be set to the user name if not running as gda2
     if api.user_name != "gda2":
         params.account = api.user_name
 

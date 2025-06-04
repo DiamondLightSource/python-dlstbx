@@ -306,9 +306,11 @@ class DLSCluster(CommonService):
                     rw.environment, fh, sort_keys=True, indent=2, separators=(",", ": ")
                 )
         if "recipewrapper" in parameters:
-            recipewrapper = self.set_user_tmp_directory(
-                pathlib.Path(parameters["recipewrapper"])
-            )
+            # Replace zocalo tmp with user tmp if not running in live zocalo
+            if not is_live_zocalo:
+                recipewrapper = self.replace_zocalo_tmp_with_user_tmp(
+                    pathlib.Path(parameters["recipewrapper"])
+                )
             try:
                 recipewrapper.parent.mkdir(parents=True, exist_ok=True)
             except OSError as e:
@@ -348,8 +350,10 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
-        working_directory = pathlib.Path(parameters["workingdir"])
-        working_directory = self.set_user_tmp_directory(working_directory)
+        # Replace zocalo tmp with user tmp if not running in live zocalo
+        if not is_live_zocalo:
+            working_directory = pathlib.Path(parameters["workingdir"])
+            working_directory = self.replace_zocalo_tmp_with_user_tmp(working_directory)
         try:
             working_directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -387,7 +391,8 @@ class DLSCluster(CommonService):
             f"Submitted job {jobnumber} to '{params.scheduler}' on partition '{params.partition}'"
         )
 
-    def set_user_tmp_directory(self, working_directory):
+    def replace_zocalo_tmp_with_user_tmp(self, working_directory):
+        """Replace the zocalo tmp directory with the user tmp directory if not running running as gda2"""
         if (
             getpass.getuser() != "gda2"
             and working_directory.parts[:4] == pathlib.Path("/dls/tmp/zocalo").parts
@@ -396,6 +401,6 @@ class DLSCluster(CommonService):
             working_directory_parts.insert(3, getpass.getuser())
             working_directory = pathlib.Path(*working_directory_parts)
             self.log.debug(
-                f"Service not running as gda2 and trying to create directory in /dls/tmp/zocalo, using {working_directory} instead"
+                f"Cluster service not running as gda2 and trying to create directory in /dls/tmp/zocalo, using {working_directory} instead"
             )
         return working_directory

@@ -31,6 +31,7 @@ from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
+from dlstbx.crud import get_protein_for_dcid
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
@@ -1525,12 +1526,8 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(
-                            AutoProcProgram.autoProcProgramId > program_id
-                        )  # noqa E711
-                        .filter(
-                            AutoProcProgram.recordTimeStamp > min_start_time
-                        )  # noqa E711
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2348,9 +2345,7 @@ class DLSTrigger(CommonService):
 
         self.log.debug("Ligand_fit trigger: Starting")
 
-        acronym = parameters.protein_info.acronym
-        if not acronym:
-            acronym = "Protein"
+        acronym = get_protein_for_dcid(parameters.dcid, session).acronym
 
         ligand_fit_parameters = {
             "dcid": parameters.dcid,

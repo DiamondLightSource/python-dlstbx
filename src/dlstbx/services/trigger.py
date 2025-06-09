@@ -156,6 +156,7 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     shelxc_path: pathlib.Path
     fast_ep_path: pathlib.Path
     program_id: int = pydantic.Field(gt=0)
+    scaling_id: int = pydantic.Field(gt=0)
     path_ext: Optional[str] = pydantic.Field(
         default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
     )
@@ -1340,9 +1341,17 @@ class DLSTrigger(CommonService):
                 "big_ep_launcher trigger failed: Invalid program_id specified"
             )
             return False
+        try:
+            scaling_id = parameters.scaling_id
+        except (TypeError, ValueError):
+            self.log.error(
+                "big_ep_launcher trigger failed: Invalid scaling_id specified"
+            )
+            return False
         big_ep_parameters = {
             "pipeline": parameters.pipeline,
             "program_id": program_id,
+            "scaling_id": scaling_id,
             "data": os.fspath(parameters.data),
             "path_ext": parameters.path_ext,
             "shelxc_path": os.fspath(parameters.shelxc_path),

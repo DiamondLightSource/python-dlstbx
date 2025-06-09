@@ -417,7 +417,6 @@ def test_vmxm_rotation(get_zocalo_commands):
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"zocalo.go -r processing-rlv-eiger {dcid}",
-        f"zocalo.go -r processing-mmcif-gen {dcid}",
     }
 
 

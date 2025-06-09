@@ -214,9 +214,12 @@ def handle_rotation_end(
     ]
 
     # mmcif-gen
-    tasks.append(
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="processing-mmcif-gen")
-    )
+    if scenario.beamline != "i02-1":
+        tasks.append(
+            mimas.MimasRecipeInvocation(
+                DCID=scenario.DCID, recipe="processing-mmcif-gen"
+            )
+        )
 
     ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
     extra_params: List[ParamTuple] = [()]

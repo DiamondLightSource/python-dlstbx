@@ -1493,10 +1493,11 @@ class DLSTrigger(CommonService):
                     ) or processing_params.get(input_file)
                     if pathlib.Path(input_filename).is_file():
                         big_ep_params[input_file] = pathlib.Path(input_filename)
-                    elif re.search(input_filename, app.fileName):
-                        big_ep_params[input_file] = (
-                            pathlib.Path(app.filePath) / app.fileName
-                        )
+                    else:
+                        input_filename = pathlib.Path(app.filePath) / input_filename
+                        app_file = pathlib.Path(app.filePath) / app.fileName
+                        if re.search(str(input_filename), str(app_file)):
+                            big_ep_params[input_file] = app_file
             big_ep_params = BigEPParams(
                 **ChainMapWithReplacement(
                     big_ep_params,

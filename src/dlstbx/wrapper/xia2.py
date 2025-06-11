@@ -266,7 +266,7 @@ class Xia2Wrapper(Wrapper):
 
         return success
 
-    def report(self, working_directory: Path, params: dict, success: bool):
+    def report(self, working_directory: Path, params: dict, success: bool) -> bool:
         working_directory = working_directory / params["program_name"]
         if not working_directory.is_dir():
             self.log.error(f"xia2 working directory {working_directory} not found.")
@@ -279,10 +279,12 @@ class Xia2Wrapper(Wrapper):
                 results_directory, params["create_symlink"]
             )
 
+        final_directory: Path | None = None
         if pipeine_final_params := params.get("pipeline-final", []):
             final_directory = (
                 Path(pipeine_final_params["path"]) / params["program_name"]
             )
+            assert final_directory
             final_directory.mkdir(parents=True, exist_ok=True)
             if params.get("create_symlink"):
                 dlstbx.util.symlink.create_parent_symlink(
@@ -314,6 +316,7 @@ class Xia2Wrapper(Wrapper):
                 self.log.debug(f"Copying {f} to results directory")
                 shutil.copy(f, results_directory)
                 if pipeine_final_params and is_final_result(f):
+                    assert final_directory
                     shutil.copy(f, final_directory)
                     allfiles.append(str(final_directory / f.name))
                 else:
@@ -356,6 +359,7 @@ class Xia2Wrapper(Wrapper):
                     file_type = "log"
                 result_file_path = str(result_file.parent)
                 if pipeine_final_params and is_final_result(result_file):
+                    assert final_directory
                     shutil.copy(result_file, final_directory)
                     result_file_path = str(final_directory)
                 self.record_result_individual_file(
@@ -385,6 +389,7 @@ class Xia2Wrapper(Wrapper):
                     file_type = "log"
                 result_file_path = str(result_file.parent)
                 if pipeine_final_params and is_final_result(result_file):
+                    assert final_directory
                     shutil.copy(result_file, final_directory)
                     result_file_path = str(final_directory)
                 self.record_result_individual_file(

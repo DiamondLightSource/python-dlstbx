@@ -665,8 +665,6 @@ class autoPROCWrapper(Wrapper):
                 keep[entry["fileName"]] = {"log": "log"}.get(
                     entry["fileType"].lower(), "result"
                 )
-        else:
-            success = False
         if staraniso_xml:
             keep["report_staraniso.pdf"] = "log"
             for entry in staraniso_xml.get("AutoProcProgramContainer", {}).get(
@@ -677,7 +675,6 @@ class autoPROCWrapper(Wrapper):
                 )
         for filename in working_directory.glob("staraniso*ell"):
             keep[filename.name] = "result"
-        allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
         for filename in working_directory.iterdir():
@@ -740,11 +737,6 @@ class autoPROCWrapper(Wrapper):
                         importance_rank,
                     )
                 )
-                allfiles.append(os.fspath(destination))
-        if allfiles:
-            self.record_result_all_files({"filelist": allfiles})
-        else:
-            success = False
 
         # Calculate the resolution at which the mean merged I/sig(I) = 2
         # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104

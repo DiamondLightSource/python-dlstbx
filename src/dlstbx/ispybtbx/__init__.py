@@ -640,12 +640,16 @@ class ispybtbx:
     def dc_info_is_grid_scan(self, dc_info):
         return bool(dc_info.get("gridinfo"))
 
-    def dc_info_is_screening(self, dc_info):
+    def dc_info_is_screening(
+        self, dc_info: dict[str, Any], experiment_type: str | None
+    ) -> bool | None:
         if dc_info.get("numberOfImages") is None:
             return None
         if dc_info["numberOfImages"] == 1:
             return True
         if dc_info["numberOfImages"] > 1 and dc_info["overlap"] != 0.0:
+            return True
+        if experiment_type == "Characterization":
             return True
         return False
 
@@ -659,7 +663,7 @@ class ispybtbx:
     def classify_dc(self, dc_info, experiment_type: str | None):
         return {
             "grid": self.dc_info_is_grid_scan(dc_info),
-            "screen": self.dc_info_is_screening(dc_info)
+            "screen": self.dc_info_is_screening(dc_info, experiment_type)
             and not (
                 experiment_type == "Serial Fixed" or experiment_type == "Serial Jet"
             ),

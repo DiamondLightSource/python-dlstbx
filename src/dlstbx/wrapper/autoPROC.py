@@ -463,7 +463,10 @@ class autoPROCWrapper(Wrapper):
             len(ispyb_command_list),
             str(ispyb_command_list),
         )
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        self.recwrap.send_to(
+            "ispyb" if success else "result-files",
+            {"ispyb_command_list": ispyb_command_list},
+        )
         return success
 
     def setup(self, working_directory: Path, params: dict):

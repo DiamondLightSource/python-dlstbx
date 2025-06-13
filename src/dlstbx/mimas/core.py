@@ -31,7 +31,7 @@ is_serial_jet = DCClassSpecification(mimas.MimasDCClass.SERIAL_JET)
 is_serial = is_serial_fixed | is_serial_jet
 is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
-
+is_characterization = DCClassSpecification(mimas.MimasDCClass.CHARACTERIZATION)
 
 XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(
@@ -170,6 +170,17 @@ def handle_eiger_screening(
     ]
 
 
+@mimas.match_specification(is_characterization & is_end & is_mx_beamline & ~is_vmxi)
+def handle_characterization(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> List[mimas.Invocation]:
+    tasks: List[mimas.Invocation] = [
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-align-crystal")
+    ]
+    return tasks
+
+
 @mimas.match_specification(
     is_pilatus & is_screening & is_end & is_mx_beamline & ~is_vmxi
 )
@@ -196,7 +207,9 @@ def has_related_data_collections(scenario: mimas.MimasScenario):
     )
 
 
-@mimas.match_specification(is_rotation & is_end & is_mx_beamline & ~is_vmxi)
+@mimas.match_specification(
+    is_rotation | is_characterization & is_end & is_mx_beamline & ~is_vmxi
+)
 def handle_rotation_end(
     scenario: mimas.MimasScenario,
     zc: zocalo.configuration.Configuration,

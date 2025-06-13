@@ -160,6 +160,7 @@ health_checks = [
 ]
 
 mimas_scenario_handlers = [
+    "characterization = dlstbx.mimas.core:handle_characterization",
     "eiger_screening = dlstbx.mimas.core:handle_eiger_screening",
     "eiger_serial_end = dlstbx.mimas.ssx:handle_eiger_serial_end",
     "eiger_serial_start = dlstbx.mimas.ssx:handle_eiger_serial_start",

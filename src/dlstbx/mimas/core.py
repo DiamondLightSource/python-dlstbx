@@ -208,7 +208,7 @@ def has_related_data_collections(scenario: mimas.MimasScenario):
 
 
 @mimas.match_specification(
-    is_rotation | is_characterization & is_end & is_mx_beamline & ~is_vmxi
+    (is_rotation | is_characterization) & is_end & is_mx_beamline & ~is_vmxi
 )
 def handle_rotation_end(
     scenario: mimas.MimasScenario,

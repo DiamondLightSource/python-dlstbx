@@ -527,14 +527,11 @@ class BigEPWrapper(Wrapper):
                 create_parent_symlink(final_directory, f"{pipeline}-{upstream}")
 
         self.log.debug("Registering results files in ISPyB")
-        result_files = [
-            (str(results_directory / "big_ep_model_ispyb.json"), "Result", 2),
-        ]
-
+        result_files = []
         mdl_dict = get_map_model_from_json(results_directory, self.log)
         for key, mdl_file in mdl_dict.items():
-            if key in ("pdb", "map", "mtz") and Path(mdl_file).is_file():
-                result_files.append((mdl_file, "Result", 1))
+            if key in ("pdb", "map", "mtz", "json") and Path(mdl_file).is_file():
+                result_files.append((mdl_file, "Result", 2 if key == "json" else 1))
 
         for pipeline_logfile in params.get("log_files", []):
             if Path(pipeline_logfile).is_file():

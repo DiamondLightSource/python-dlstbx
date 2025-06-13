@@ -393,6 +393,7 @@ def get_map_model_from_json(json_path, logger):
                     msg_json["mapcc"], msg_json["mapcc_dmin"]
                 ),
             },
+            "json": abs_json_path,
         }
     except Exception:
         logger.warning(f"Cannot get model data file in {json_path}", exc_info=True)

@@ -233,12 +233,10 @@ class LigandFitParameters(pydantic.BaseModel):
     mtz: pathlib.Path
     pipeline: str
     smiles: str
-    protein_info: Optional[ProteinInfo] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
     min_cc_keep: float = pydantic.Field(default=0.7)
-    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
 
 
 class DLSTrigger(CommonService):
@@ -2312,14 +2310,12 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        protein_id = parameters.protein_id
+        protein_info = get_protein_for_dcid(parameters.dcid, session)
+        protein_id = protein_info.proteinId
+        proposal_id = protein_info.proposalId
 
-        query = (
-            session.query(Protein, Proposal).join(
-                Proposal, Proposal.proposalId == Protein.proposalId
-            )
-        ).filter(Protein.proteinId == protein_id)
-        protein, proposal = query.first()
+        query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
+        proposal = query.first()
 
         if proposal.proposalCode not in {"mx", "cm", "nt"}:
             self.log.debug(
@@ -2335,7 +2331,7 @@ class DLSTrigger(CommonService):
 
         scaling_id = parameters.scaling_id[0]
 
-        # Get data collection information for all collections in dcids
+        # Get data collection information
         query = (
             (
                 session.query(AutoProcProgram)
@@ -2360,7 +2356,7 @@ class DLSTrigger(CommonService):
 
         self.log.debug("Ligand_fit trigger: Starting")
 
-        acronym = get_protein_for_dcid(parameters.dcid, session).acronym
+        acronym = protein_info.acronym
 
         ligand_fit_parameters = {
             "dcid": parameters.dcid,

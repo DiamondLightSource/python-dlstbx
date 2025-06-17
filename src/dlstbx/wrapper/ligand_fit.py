@@ -8,11 +8,11 @@ import shutil
 import subprocess
 from shutil import ignore_patterns
 
-import molviewspec as mvs
+# import molviewspec as mvs
 from iotbx import pdb
-from rdkit import Chem
-from rdkit.Chem import Draw
 
+# from rdkit import Chem
+# from rdkit.Chem import Draw
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
@@ -111,8 +111,7 @@ class LigandFitWrapper(Wrapper):
         # if pipeline == "phenix":
         #     phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
         if pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8; \
-                               phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"
 
         try:
             result = subprocess.run(
@@ -122,7 +121,7 @@ class LigandFitWrapper(Wrapper):
                 text=True,
                 cwd=working_directory,
                 check=True,
-                timeout=params.get("timeout") * 60,
+                timeout=params.get("timeout-minutes") * 60,
             )
 
         except subprocess.CalledProcessError as e:
@@ -134,16 +133,37 @@ class LigandFitWrapper(Wrapper):
         with open(working_directory / "ligand_fit.log", "w") as log_file:
             log_file.write(result.stdout)
 
-        out_pdb = str(pipeline_directory / "LIG_final.pdb")
-        out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
-
         CC = self.pull_CC_from_log(pipeline_directory)
-        acr = params.get("acronym")
 
-        self.generate_smiles_png(smiles, pipeline_directory)
-        self.generate_html_visualisation(
-            out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr
-        )
+        if CC >= min_cc_keep:
+            os.system(
+                f"phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
+            )
+            out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
+            out_pdb = str(pipeline_directory / "LIG_final.pdb")
+            acr = params.get("acronym")
+
+            mvs_command = f"module load molviewspec; \
+                            gen_html.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
+
+            try:
+                result = subprocess.run(
+                    mvs_command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=working_directory,
+                    check=True,
+                )
+
+            except subprocess.CalledProcessError as e:
+                self.log.error(f"Ligand_fit process '{mvs_command}' failed")
+                self.log.info(e.stdout)
+                self.log.error(e.stderr)
+
+        # self.generate_smiles_png(smiles, pipeline_directory)
+        # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)
+
         data = [
             ["Ligand_fit pipeline", "SMILES code", "Fitting CC"],
             ["phenix.ligand_pipeline", f"{smiles}", f"{CC}"],
@@ -179,105 +199,105 @@ class LigandFitWrapper(Wrapper):
             )
             return False
 
-    def generate_smiles_png(self, smiles, outdir):
-        mol = Chem.MolFromSmiles(smiles)
-        img = Draw.MolToImage(mol, size=(450, 450))
-        img.save(f"{outdir}/SMILES.png")
+    # def generate_smiles_png(self, smiles, outdir):
+    #     mol = Chem.MolFromSmiles(smiles)
+    #     img = Draw.MolToImage(mol, size=(450, 450))
+    #     img.save(f"{outdir}/SMILES.png")
 
 
-def generate_html_visualisation(pdb_file, map_file, outdir, acr, smiles, cc):
-    # generate html with multiple snapshots
-    builder = mvs.create_builder()
-    structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
-    structure.component(selector="polymer").representation(
-        type="surface", size_factor=0.7
-    ).opacity(opacity=0.6).color(color="#EEC4EE")
-    structure.component(selector="polymer").representation().opacity(opacity=0.6).color(
-        color="grey"
-    )
-    structure.component(selector="ligand").representation(type="ball_and_stick").color(
-        custom={"molstar_color_theme_name": "element-symbol"}
-    )
-    structure.component(selector="ligand").representation(type="surface").opacity(
-        opacity=0.1
-    ).color(custom={"molstar_color_theme_name": "element-symbol"})
+# def generate_html_visualisation(pdb_file, map_file, outdir, acr, smiles, cc):
+#     # generate html with multiple snapshots
+#     builder = mvs.create_builder()
+#     structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
+#     structure.component(selector="polymer").representation(
+#         type="surface", size_factor=0.7
+#     ).opacity(opacity=0.6).color(color="#EEC4EE")
+#     structure.component(selector="polymer").representation().opacity(opacity=0.6).color(
+#         color="grey"
+#     )
+#     structure.component(selector="ligand").representation(type="ball_and_stick").color(
+#         custom={"molstar_color_theme_name": "element-symbol"}
+#     )
+#     structure.component(selector="ligand").representation(type="surface").opacity(
+#         opacity=0.1
+#     ).color(custom={"molstar_color_theme_name": "element-symbol"})
 
-    ccp4 = builder.download(url=map_file).parse(format="map")
-    ccp4.volume().representation(
-        type="isosurface",
-        relative_isovalue=1.5,
-        show_wireframe=True,
-        show_faces=False,
-    ).color(color="blue").opacity(opacity=0.25)
+#     ccp4 = builder.download(url=map_file).parse(format="map")
+#     ccp4.volume().representation(
+#         type="isosurface",
+#         relative_isovalue=1.5,
+#         show_wireframe=True,
+#         show_faces=False,
+#     ).color(color="blue").opacity(opacity=0.25)
 
-    snapshot1 = builder.get_snapshot(
-        title="Main View",
-        description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
-        transition_duration_ms=2000,
-        linger_duration_ms=5000,
-    )
+#     snapshot1 = builder.get_snapshot(
+#         title="Main View",
+#         description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
+#         transition_duration_ms=2000,
+#         linger_duration_ms=5000,
+#     )
 
-    # snapshot 2
-    builder = mvs.create_builder()
-    structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
-    structure.component(selector="polymer").representation(
-        type="surface", size_factor=0.7
-    ).opacity(opacity=0.5).color(color="#D8BFD8")
-    structure.component(selector="polymer").representation().opacity(opacity=0.6).color(
-        color="grey"
-    )
-    structure.component(selector="ligand").focus().representation(
-        type="ball_and_stick"
-    ).color(custom={"molstar_color_theme_name": "element-symbol"})
+#     # snapshot 2
+#     builder = mvs.create_builder()
+#     structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
+#     structure.component(selector="polymer").representation(
+#         type="surface", size_factor=0.7
+#     ).opacity(opacity=0.5).color(color="#D8BFD8")
+#     structure.component(selector="polymer").representation().opacity(opacity=0.6).color(
+#         color="grey"
+#     )
+#     structure.component(selector="ligand").focus().representation(
+#         type="ball_and_stick"
+#     ).color(custom={"molstar_color_theme_name": "element-symbol"})
 
-    ccp4 = builder.download(url=map_file).parse(format="map")
-    ccp4.volume().representation(
-        type="isosurface",
-        relative_isovalue=1.5,
-        show_wireframe=True,
-        show_faces=False,
-    ).color(color="blue").opacity(opacity=0.25)
+#     ccp4 = builder.download(url=map_file).parse(format="map")
+#     ccp4.volume().representation(
+#         type="isosurface",
+#         relative_isovalue=1.5,
+#         show_wireframe=True,
+#         show_faces=False,
+#     ).color(color="blue").opacity(opacity=0.25)
 
-    # add a label
-    info = get_chain_and_residue_numbers(pdb_file, "LIG")
-    resid = info[0][1]
-    residue = mvs.ComponentExpression(label_seq_id=resid)
-    (
-        structure.component(
-            selector=residue,
-            custom={
-                "molstar_show_non_covalent_interactions": True,
-                "molstar_non_covalent_interactions_radius_ang": 5.0,
-            },
-        ).label(text=f"CC = {cc}")
-    )
+#     # add a label
+#     info = get_chain_and_residue_numbers(pdb_file, "LIG")
+#     resid = info[0][1]
+#     residue = mvs.ComponentExpression(label_seq_id=resid)
+#     (
+#         structure.component(
+#             selector=residue,
+#             custom={
+#                 "molstar_show_non_covalent_interactions": True,
+#                 "molstar_non_covalent_interactions_radius_ang": 5.0,
+#             },
+#         ).label(text=f"CC = {cc}")
+#     )
 
-    snapshot2 = builder.get_snapshot(
-        title="Focus View",
-        description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
-        transition_duration_ms=2000,
-        linger_duration_ms=5000,
-    )
+#     snapshot2 = builder.get_snapshot(
+#         title="Focus View",
+#         description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
+#         transition_duration_ms=2000,
+#         linger_duration_ms=5000,
+#     )
 
-    states = mvs.States(
-        snapshots=[snapshot1, snapshot2],
-        metadata=mvs.GlobalMetadata(description="Ligand_fit Results"),
-    )
+#     states = mvs.States(
+#         snapshots=[snapshot1, snapshot2],
+#         metadata=mvs.GlobalMetadata(description="Ligand_fit Results"),
+#     )
 
-    with open(pdb_file) as f:
-        pdb_data = f.read()
+#     with open(pdb_file) as f:
+#         pdb_data = f.read()
 
-    with open(map_file, mode="rb") as f:
-        map_data = f.read()
+#     with open(map_file, mode="rb") as f:
+#         map_data = f.read()
 
-    html = mvs.molstar_widgets.molstar_html(
-        states,
-        data={pdb_file: pdb_data, map_file: map_data},
-        ui="stories",
-    )
+#     html = mvs.molstar_widgets.molstar_html(
+#         states,
+#         data={pdb_file: pdb_data, map_file: map_data},
+#         ui="stories",
+#     )
 
-    with open(outdir / "ligand_fit.html", "w") as f:
-        f.write(html)
+#     with open(outdir / "ligand_fit.html", "w") as f:
+#         f.write(html)
 
 
 def get_chain_and_residue_numbers(pdb_file_path, target_residue_name):

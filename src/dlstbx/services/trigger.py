@@ -2312,6 +2312,21 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        protein_id = parameters.protein_id
+
+        query = (
+            session.query(Protein, Proposal).join(
+                Proposal, Proposal.proposalId == Protein.proposalId
+            )
+        ).filter(Protein.proteinId == protein_id)
+        protein, proposal = query.first()
+
+        if proposal.proposalCode not in {"mx", "cm", "nt"}:
+            self.log.debug(
+                f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
+            )
+            return {"success": True}
+
         if len(parameters.scaling_id) != 1:
             self.log.info(
                 f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"

@@ -35,6 +35,8 @@ class S3EchoUploader(CommonService):
         """
         self.log.info(f"{S3EchoUploader._service_name} starting")
 
+        self._message_delay = 5
+
         workflows.recipe.wrap_subscribe(
             self._transport,
             "s3echo.upload",
@@ -61,24 +63,60 @@ class S3EchoUploader(CommonService):
 
         params = rw.recipe_step["parameters"]
         minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
-        try:
-            s3_urls = get_presigned_urls(
-                minio_client,
-                params["bucket"],
-                params["rpid"],
-                rw.environment["s3echo_upload"].values(),
-                self.log,
-            )
-        except S3Error as err:
-            self.log.exception(
-                f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
-            )
-            rw.send_to("failure", message, transaction=txn)
-            raise err
-        else:
-            rw.environment["s3_urls"] = s3_urls
-            rw.send_to("success", message, transaction=txn)
 
+        # We have a list of files to upload set in recipe environment and we receive
+        # a list of already uploaded files via message. To find which files still
+        # need to be uploaded to S3 Echo we pattern match filenames of all files
+        # set in environment to list of uploaded file names in the message that
+        # are prefixed with processingjobid value.
+        s3echo_upload_files = rw.environment.get("s3echo_upload", {})
+        upload_file_list = s3echo_upload_files.keys()
+        if s3_urls := message.get("s3_urls", {}) if isinstance(message, dict) else {}:
+            upload_file_list = {
+                file_name
+                for file_name in s3echo_upload_files
+                if all(file_name not in upload_name for upload_name in s3_urls)
+            }
+
+        try:
+            filename = next(iter(upload_file_list))
+            filepath = s3echo_upload_files.get(filename)
+        except StopIteration:
+            self.log.exception(
+                f"No more files to upload to S3 bucket {params['bucket']} after receiving following file list:\n{s3_urls}"
+            )
+            rw.send_to("success", message, transaction=txn)
+        else:
+            try:
+                upload_s3_url = get_presigned_urls(
+                    minio_client,
+                    params["bucket"],
+                    params["rpid"],
+                    [
+                        filepath,
+                    ],
+                    self.log,
+                )
+            except S3Error as err:
+                self.log.exception(
+                    f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
+                )
+                rw.send_to("failure", message, transaction=txn)
+                raise err
+            else:
+                # If all files have been uploaded, we add dictionary with uploaded file info to the
+                # recipe environment and send it to success channel. Otherwise, we upload a single file,
+                # add it to the dictionary of uploaded files and checkpoint message containing it.
+                s3_urls.update(upload_s3_url)
+                if len(s3_urls) < len(s3echo_upload_files):
+                    rw.checkpoint(
+                        {"s3_urls": s3_urls},
+                        delay=self._message_delay,
+                        transaction=txn,
+                    )
+                else:
+                    rw.environment["s3_urls"] = s3_urls
+                    rw.send_to("success", "Finished processing", transaction=txn)
         # Commit transaction
         rw.transport.transaction_commit(txn)
 

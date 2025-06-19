@@ -33,6 +33,7 @@ from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
+from dlstbx.crud import get_protein_for_dcid
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
@@ -244,7 +245,6 @@ class LigandFitParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     scaling_id: list[int]
     min_cc_keep: float = pydantic.Field(default=0.7)
-    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
 
 
 class DLSTrigger(CommonService):
@@ -2493,6 +2493,19 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        protein_info = get_protein_for_dcid(parameters.dcid, session)
+        protein_id = protein_info.proteinId
+        proposal_id = protein_info.proposalId
+
+        query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
+        proposal = query.first()
+
+        if proposal.proposalCode not in {"mx", "cm", "nt"}:
+            self.log.debug(
+                f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
+            )
+            return {"success": True}
+
         if len(parameters.scaling_id) != 1:
             self.log.info(
                 f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"
@@ -2501,7 +2514,7 @@ class DLSTrigger(CommonService):
 
         scaling_id = parameters.scaling_id[0]
 
-        # Get data collection information for all collections in dcids
+        # Get data collection information
         query = (
             (
                 session.query(AutoProcProgram)
@@ -2526,12 +2539,15 @@ class DLSTrigger(CommonService):
 
         self.log.debug("Ligand_fit trigger: Starting")
 
+        acronym = protein_info.acronym
+
         ligand_fit_parameters = {
             "dcid": parameters.dcid,
             "pdb": str(parameters.pdb),
             "mtz": str(parameters.mtz),
             "smiles": parameters.smiles,
             "pipeline": parameters.pipeline,
+            "acronym": acronym,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()

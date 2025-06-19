@@ -141,7 +141,7 @@ class LigandFitWrapper(Wrapper):
             )
             out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
             out_pdb = str(pipeline_directory / "LIG_final.pdb")
-            acr = params.get("acronym")
+            acr = params.get("acronym", "Protein")
 
             mvs_command = f"module load molviewspec; \
                             gen_html.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"

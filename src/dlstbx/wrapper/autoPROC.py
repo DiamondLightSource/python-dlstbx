@@ -654,6 +654,7 @@ class autoPROCWrapper(Wrapper):
         }
         keep = {
             "summary.tar.gz": "result",
+            "aimless_unmerged.mtz": "result",
             "summary.html": "log",
             "report.pdf": "log",
             "iotbx-merging-stats.json": "graph",

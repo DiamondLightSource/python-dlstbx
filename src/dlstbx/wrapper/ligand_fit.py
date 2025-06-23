@@ -30,9 +30,9 @@ class LigandFitWrapper(Wrapper):
             if text in line:
                 llist.append(line)
         file_read.close()
-        mystring = llist[0]
-        CC = float(re.findall(r"\d+\.\d+", mystring)[0])
-        return CC
+        match = re.search(r"CC\s*=\s*([0-9.]+)", llist[-1])
+        cc = float(match.group(1))
+        return cc
 
     def send_attachments_to_ispyb(self, pipeline_directory, min_cc_keep):
         CC = self.pull_CC_from_log(pipeline_directory)
@@ -137,13 +137,13 @@ class LigandFitWrapper(Wrapper):
 
         if CC >= min_cc_keep:
             os.system(
-                f"phenix.mtz2map {pipeline_directory/'LIG_final.mtz'} {pipeline_directory/'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
+                f"phenix.mtz2map {pipeline_directory / 'LIG_final.mtz'} {pipeline_directory / 'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
             )
             out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
             out_pdb = str(pipeline_directory / "LIG_final.pdb")
             acr = params.get("acronym", "Protein")
 
-            mvs_command = f"module load molviewspec; \
+            mvs_command = f"source /etc/profile.d/modules.sh; module load molviewspec; \
                             gen_html.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
 
             try:

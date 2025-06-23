@@ -720,8 +720,8 @@ class autoPROCWrapper(Wrapper):
                     )
                 )
             else:
-                if keep_as == "log":
-                    # also record log files for staraniso
+                if (keep_as == "log") or ("unmerged" in filename.name):
+                    # also record log and umnerged data files for staraniso
                     anisofiles.append(
                         (
                             destination.name,

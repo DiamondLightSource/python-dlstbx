@@ -663,6 +663,7 @@ class ispybtbx:
             and not (
                 experiment_type == "Serial Fixed" or experiment_type == "Serial Jet"
             ),
+            "characterization": experiment_type == "Characterization",
             "rotation": self.dc_info_is_rotation_scan(dc_info),
             "serial_fixed": experiment_type == "Serial Fixed",
             "serial_jet": experiment_type == "Serial Jet",

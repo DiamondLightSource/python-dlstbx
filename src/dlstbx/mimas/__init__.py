@@ -14,7 +14,7 @@ from dlstbx.mimas.specification import BaseSpecification
 
 MimasDCClass = enum.Enum(
     "MimasDCClass",
-    "DIAMOND_ANVIL_CELL GRIDSCAN ROTATION SCREENING SERIAL_FIXED SERIAL_JET UNDEFINED",
+    "CHARACTERIZATION DIAMOND_ANVIL_CELL GRIDSCAN ROTATION SCREENING SERIAL_FIXED SERIAL_JET UNDEFINED",
 )
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")

@@ -79,6 +79,8 @@ class DLSMimas(CommonService):
                 dc_class_mimas = mimas.MimasDCClass.SERIAL_JET
             elif dc_class["grid"]:
                 dc_class_mimas = mimas.MimasDCClass.GRIDSCAN
+            elif dc_class["characterization"]:
+                dc_class_mimas = mimas.MimasDCClass.CHARACTERIZATION
             elif dc_class["screen"]:
                 dc_class_mimas = mimas.MimasDCClass.SCREENING
             elif dc_class["diamond_anvil_cell"]:

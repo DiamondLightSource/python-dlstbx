@@ -29,9 +29,11 @@ is_gridscan = DCClassSpecification(mimas.MimasDCClass.GRIDSCAN)
 is_serial_fixed = DCClassSpecification(mimas.MimasDCClass.SERIAL_FIXED)
 is_serial_jet = DCClassSpecification(mimas.MimasDCClass.SERIAL_JET)
 is_serial = is_serial_fixed | is_serial_jet
-is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
+is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION) | DCClassSpecification(
+    mimas.MimasDCClass.CHARACTERIZATION
+)
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
-
+is_characterization = DCClassSpecification(mimas.MimasDCClass.CHARACTERIZATION)
 
 XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(
@@ -168,6 +170,17 @@ def handle_eiger_screening(
             "strategy-edna-eiger",
         )
     ]
+
+
+@mimas.match_specification(is_characterization & is_end & is_mx_beamline & ~is_vmxi)
+def handle_characterization(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> List[mimas.Invocation]:
+    tasks: List[mimas.Invocation] = [
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-align-crystal")
+    ]
+    return tasks
 
 
 @mimas.match_specification(

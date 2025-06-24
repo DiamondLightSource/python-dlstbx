@@ -10,9 +10,9 @@ from shutil import ignore_patterns
 
 # import molviewspec as mvs
 from iotbx import pdb
+from rdkit import Chem
+from rdkit.Chem import Draw
 
-# from rdkit import Chem
-# from rdkit.Chem import Draw
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
@@ -161,7 +161,7 @@ class LigandFitWrapper(Wrapper):
                 self.log.info(e.stdout)
                 self.log.error(e.stderr)
 
-        # self.generate_smiles_png(smiles, pipeline_directory)
+        self.generate_smiles_png(smiles, pipeline_directory)
         # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)
 
         data = [
@@ -199,10 +199,10 @@ class LigandFitWrapper(Wrapper):
             )
             return False
 
-    # def generate_smiles_png(self, smiles, outdir):
-    #     mol = Chem.MolFromSmiles(smiles)
-    #     img = Draw.MolToImage(mol, size=(450, 450))
-    #     img.save(f"{outdir}/SMILES.png")
+    def generate_smiles_png(self, smiles, outdir):
+        mol = Chem.MolFromSmiles(smiles)
+        img = Draw.MolToImage(mol, size=(450, 450))
+        img.save(f"{outdir}/SMILES.png")
 
 
 # def generate_html_visualisation(pdb_file, map_file, outdir, acr, smiles, cc):

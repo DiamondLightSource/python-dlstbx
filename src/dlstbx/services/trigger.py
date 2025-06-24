@@ -2546,17 +2546,20 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
-        protein_id = protein_info.proteinId
-        proposal_id = protein_info.proposalId
 
-        query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
-        proposal = query.first()
+        protein_id = getattr(protein_info, "proteinId", None)
+        proposal_id = getattr(protein_info, "proposalId", None)
+        acronym = getattr(protein_info, "acronym", "Protein")
 
-        if proposal.proposalCode not in {"mx", "cm", "nt"}:
-            self.log.debug(
-                f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
-            )
-            return {"success": True}
+        if protein_id and proposal_id:
+            query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
+            proposal = query.first()
+
+            if proposal.proposalCode not in {"mx", "cm", "nt"}:
+                self.log.debug(
+                    f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
+                )
+                return {"success": True}
 
         if len(parameters.scaling_id) != 1:
             self.log.info(
@@ -2590,8 +2593,6 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug("Ligand_fit trigger: Starting")
-
-        acronym = protein_info.acronym
 
         ligand_fit_parameters = {
             "dcid": parameters.dcid,

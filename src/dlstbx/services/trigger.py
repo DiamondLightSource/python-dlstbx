@@ -174,7 +174,7 @@ class FastEPParameters(pydantic.BaseModel):
     scaling_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    mtz: pathlib.Path
+    mtz: pathlib.Path | Dict[str, pathlib.Path]
     recipe: Optional[str] = None
 
 
@@ -1097,23 +1097,76 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in (
-            "OSC",
-            "SAD",
-            "MAD",
-            "Helical",
-            "Metal ID",
-        ):
-            self.log.info(
-                f"Skipping fast_ep trigger: experiment type {parameters.experiment_type} not supported"
-            )
-            return {"success": True}
+        if parameters.automatic:
+            if parameters.experiment_type not in (
+                "OSC",
+                "SAD",
+                "MAD",
+                "Helical",
+                "Metal ID",
+            ):
+                self.log.info(
+                    f"Skipping fast_ep trigger: experiment type {parameters.experiment_type} not supported"
+                )
+                return {"success": True}
 
-        if (
-            not parameters.diffraction_plan_info
-            or not parameters.diffraction_plan_info.anomalousScatterer
-        ):
-            self.log.info("Skipping fast_ep trigger: no anomalous scatterer specified")
+            if (
+                not parameters.diffraction_plan_info
+                or not parameters.diffraction_plan_info.anomalousScatterer
+            ):
+                self.log.info(
+                    "Skipping fast_ep trigger: no anomalous scatterer specified"
+                )
+                return {"success": True}
+
+        if isinstance(parameters.mtz, dict):
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            for _, program_name, filepath, filename in attachments:
+                if filename == str(parameters.mtz.get(program_name)):
+                    mtzin = pathlib.Path(filepath) / filename
+                    break
+            else:
+                self.log.error(
+                    "Skipping mrbump trigger: No input data files found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
+        elif isinstance(parameters.mtz, pathlib.Path):
+            mtzin = parameters.mtz
+        else:
+            self.log.error(
+                "Skipping fast_ep trigger: Invalid input data type %s",
+                type(parameters.mtz),
+            )
             return {"success": True}
 
         dcid = parameters.dcid
@@ -1136,7 +1189,7 @@ class DLSTrigger(CommonService):
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
         fast_ep_parameters = {
-            "data": os.fspath(parameters.mtz),
+            "data": os.fspath(mtzin),
             "scaling_id": parameters.scaling_id,
         }
 
@@ -1234,7 +1287,6 @@ class DLSTrigger(CommonService):
                 type(parameters.hklin),
             )
             return {"success": True}
-
         jobids = []
 
         all_pdb_files = set()

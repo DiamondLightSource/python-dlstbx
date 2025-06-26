@@ -12,7 +12,7 @@ from dlstbx.wrapper import Wrapper
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
-    sequence: str = pydantic.Field(..., regex="[A-Z]+")
+    sequence: str = pydantic.Field(..., pattern="[A-Z]+")
     protein_id: int = pydantic.Field(..., gt=0)
     protein_name: str
     working_directory: pathlib.Path

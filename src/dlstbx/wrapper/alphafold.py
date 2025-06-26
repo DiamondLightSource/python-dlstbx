@@ -12,7 +12,7 @@ from dlstbx.wrapper import Wrapper
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
-    sequence: str = pydantic.Field(..., regex="[A-Z]+")
+    sequence: str = pydantic.Field(..., pattern="[A-Z]+")
     protein_id: int = pydantic.Field(..., gt=0)
     protein_name: str
     working_directory: pathlib.Path
@@ -60,12 +60,6 @@ class AlphaFoldWrapper(Wrapper):
                 working_directory=params.working_directory,
                 print_stdout=True,
                 print_stderr=True,
-                environment_override={
-                    "LD_LIBRARY_PATH": "",
-                    "LOADEDMODULES": "",
-                    "PYTHONPATH": "",
-                    "_LMFILES_": "",
-                },
             )
         except subprocess.TimeoutExpired as te:
             success = False

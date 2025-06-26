@@ -9,8 +9,6 @@ import requests
 from workflows.services.common_service import CommonService
 from zocalo.util import slurm
 
-import dlstbx.util.cluster
-
 
 class DLSClusterMonitor(CommonService):
     """A service to interface zocalo with functions to gather cluster statistics."""
@@ -28,7 +26,6 @@ class DLSClusterMonitor(CommonService):
         # Generate cluster statistics up to every 30 seconds.
         # Statistics go with debug level to a separate logger so they can be
         # filtered by log monitors.
-        self.cluster_statistics = dlstbx.util.cluster.ClusterStatistics()
 
         self.slurm_api: slurm.SlurmRestApi = (
             slurm.SlurmRestApi.from_zocalo_configuration(self.config)

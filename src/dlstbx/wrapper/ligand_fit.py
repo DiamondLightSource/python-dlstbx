@@ -23,7 +23,7 @@ class LigandFitWrapper(Wrapper):
     def pull_CC_from_log(self, pipeline_directory):
         f = pipeline_directory / "pipeline.log"
         file_read = open(f, "r")
-        text = "Overall CC"
+        text = "CC"
         lines = file_read.readlines()
         llist = []
         for line in lines:
@@ -31,8 +31,8 @@ class LigandFitWrapper(Wrapper):
                 llist.append(line)
         file_read.close()
         match = re.search(r"CC\s*=\s*([0-9.]+)", llist[-1])
-        cc = float(match.group(1))
-        return cc
+        CC = float(match.group(1))
+        return CC
 
     def send_attachments_to_ispyb(self, pipeline_directory, min_cc_keep):
         CC = self.pull_CC_from_log(pipeline_directory)
@@ -143,23 +143,9 @@ class LigandFitWrapper(Wrapper):
             out_pdb = str(pipeline_directory / "LIG_final.pdb")
             acr = params.get("acronym", "Protein")
 
-            mvs_command = f"source /etc/profile.d/modules.sh; module load molviewspec; \
-                            gen_html.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
-
-            try:
-                result = subprocess.run(
-                    mvs_command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    cwd=working_directory,
-                    check=True,
-                )
-
-            except subprocess.CalledProcessError as e:
-                self.log.error(f"Ligand_fit process '{mvs_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
+            os.system(
+                f"module load molviewspec; gen_html.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
+            )
 
         self.generate_smiles_png(smiles, pipeline_directory)
         # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)

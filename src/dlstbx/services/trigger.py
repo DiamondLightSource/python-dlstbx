@@ -1908,6 +1908,11 @@ class DLSTrigger(CommonService):
             data_files = []
             for dc, app, pj in query.all():
                 # Select only those dcids at the same wavelength as the triggering dcid
+                if not dc.wavelength:
+                    self.log.debug(
+                        f"Discarding appid {app.autoProcProgramId} (no wavelength information)"
+                    )
+                    continue
                 if (
                     parameters.wavelength
                     and abs(dc.wavelength - parameters.wavelength)

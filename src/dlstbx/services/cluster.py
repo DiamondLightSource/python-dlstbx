@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import datetime
 import errno
-import getpass
 import json
 import logging
 import math
 import os
 import pathlib
-import re
 from typing import Optional
 
 import pkg_resources
@@ -187,54 +185,6 @@ class DLSCluster(CommonService):
             )
         return True
 
-    def modify_commands_to_environment(
-        self,
-        commands: str | list[str],
-        active_envs: list[str],
-        dials_dev_command: str | None,
-        rabbit_host: str | None,
-    ) -> str | list[str]:
-        if len(active_envs) == 1:
-            active_env = active_envs[0]
-            if isinstance(commands, str):
-                commands = [commands]
-            _updated_commands = []
-            dials_replace_patterns = [
-                r"\bmodule load dials/latest\b",
-                r"\bmodule load dials/nightly\b",
-                r"module load dials\b(?!/)",
-            ]
-            combined_pattern = "|".join(dials_replace_patterns)
-            for _command in commands:
-                if dials_dev_command and (
-                    match := re.search(combined_pattern, _command)
-                ):
-                    _command = _command.replace(match.group(), dials_dev_command)
-                if "dlstbx.wrap" in _command and "-e" not in _command.split():
-                    wrap_cmd = f"dlstbx.wrap -e {active_env}"
-                    if active_env == "devrmq":
-                        wrap_cmd += f" --rabbit-host={rabbit_host}"
-                    _command = _command.replace("dlstbx.wrap", wrap_cmd, 1)
-                _updated_commands.append(_command)
-            commands = _updated_commands
-        return commands
-
-    def replace_zocalo_tmp_with_user_tmp(
-        self, working_directory: pathlib.Path
-    ) -> pathlib.Path:
-        """Replace the zocalo tmp directory with the user tmp directory if not running running as gda2"""
-        if (
-            getpass.getuser() != "gda2"
-            and working_directory.parts[:4] == pathlib.Path("/dls/tmp/zocalo").parts
-        ):
-            working_directory_parts = list(working_directory.parts)
-            working_directory_parts.insert(3, getpass.getuser())
-            working_directory = pathlib.Path(*working_directory_parts)
-            self.log.debug(
-                f"Cluster service not running as gda2 and trying to create directory in /dls/tmp/zocalo, using {working_directory} instead"
-            )
-        return working_directory
-
     @staticmethod
     def _recursive_mkdir(path):
         try:
@@ -268,21 +218,6 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
-
-        is_live_zocalo = self._environment["live"]
-
-        if not is_live_zocalo:
-            active_envs = self.config.active_environments
-            dials_dev = (
-                self.config._plugin_configurations["dials-dev"]
-                if "dials-dev" in self.config._plugin_configurations
-                else {}
-            )
-            dials_dev_command = dials_dev.get("dials-command")
-            rabbit_host = self.transport.defaults.get("--rabbit-host")
-            params.commands = self.modify_commands_to_environment(
-                params.commands, active_envs, dials_dev_command, rabbit_host
-            )
 
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)
@@ -323,9 +258,6 @@ class DLSCluster(CommonService):
                 )
         if "recipewrapper" in parameters:
             recipewrapper = pathlib.Path(parameters["recipewrapper"])
-            # Replace zocalo tmp with user tmp if not running in live zocalo
-            if not is_live_zocalo:
-                recipewrapper = self.replace_zocalo_tmp_with_user_tmp(recipewrapper)
             try:
                 recipewrapper.parent.mkdir(parents=True, exist_ok=True)
             except OSError as e:
@@ -366,9 +298,6 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
         working_directory = pathlib.Path(parameters["workingdir"])
-        # Replace zocalo tmp with user tmp if not running in live zocalo
-        if not is_live_zocalo:
-            working_directory = self.replace_zocalo_tmp_with_user_tmp(working_directory)
         try:
             working_directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:

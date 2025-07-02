@@ -92,7 +92,7 @@ def run():
             .filter(models.BLSession.visit_number != None)  # noqa: E711 (sqlalchemy)
             .limit(100)
         )
-        archivables = [Archivable(**row) for row in query.all()]
+        archivables = [Archivable(**row._mapping) for row in query.all()]
         print(f"Found {len(archivables)} visits that ended more than a year ago")
         mark_as_archived(archivables)
 
@@ -111,7 +111,7 @@ def run():
             .limit(100)
         )
 
-        archivables = [Archivable(**row) for row in query.all()]
+        archivables = [Archivable(**row._mapping) for row in query.all()]
         print(
             f"Found {len(archivables)} visits that ended more than 40 days ago and have a closed proposal"
         )
@@ -136,7 +136,7 @@ def run():
             .filter(models.DataCollection.dataCollectionId.is_(None))
             .limit(100)
         )
-        archivables = [Archivable(**row) for row in query.all()]
+        archivables = [Archivable(**row._mapping) for row in query.all()]
         print(
             f"Found {len(archivables)} visits that ended more than 40 days ago and have no data collections"
         )
@@ -211,7 +211,7 @@ def run():
                 if len(files):
                     break
             else:
-                archivables.append(Archivable(**row))
+                archivables.append(Archivable(**row._mapping))
 
         print(
             f"Found {len(archivables)} visits that ended more than 40 days ago and have no associated files on disk"

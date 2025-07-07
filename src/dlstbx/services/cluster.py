@@ -83,7 +83,9 @@ def submit_to_slurm(
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
             "USER=gda2"
         ]
-
+        # If ZOCALO_DEFAULT_ENV not already in environment, add the current environment
+        # as the default environment to keep zocalo in the current environment. Ignores
+        # if multiple environments active or current environment is "default"
         if (
             "ZOCALO_DEFAULT_ENV" not in minimal_environment
             and len(zc.active_environments) == 1

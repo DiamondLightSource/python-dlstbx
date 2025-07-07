@@ -77,12 +77,19 @@ def submit_to_slurm(
         # The environment must not be empty, see
         # https://github.com/DiamondLightSource/python-dlstbx/pull/228.
         # If a recipe requires a environment variable, add it to minimal_environment here.
-        minimal_environment = {"USER"}
+        minimal_environment = {"USER", "ZOCALO_DEFAULT_ENV"}
         # Only attempt to copy variables that already exist in the submitter's environment.
         minimal_environment &= set(os.environ)
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
             "USER=gda2"
         ]
+
+        if (
+            "ZOCALO_DEFAULT_ENV" not in minimal_environment
+            and len(zc.active_environments) == 1
+            and zc.active_environments[0] != "default"
+        ):
+            environment.append(f"ZOCALO_DEFAULT_ENV={zc.active_environments[0]}")
     # Account needs to be set to the user name if not running as gda2
     if api.user_name != "gda2":
         params.account = api.user_name

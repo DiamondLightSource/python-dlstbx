@@ -266,9 +266,9 @@ class DLSCluster(CommonService):
                     rw.environment, fh, sort_keys=True, indent=2, separators=(",", ": ")
                 )
         if "recipewrapper" in parameters:
-            recipewrapper = pathlib.Path(parameters["recipewrapper"])
+            recipewrapper = parameters["recipewrapper"]
             try:
-                recipewrapper.parent.mkdir(parents=True, exist_ok=True)
+                self._recursive_mkdir(os.path.dirname(recipewrapper))
             except OSError as e:
                 if e.errno == errno.ENOENT:
                     self.log.error(
@@ -281,9 +281,7 @@ class DLSCluster(CommonService):
                 self._transport.nack(header)
                 return
             self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
-            params.commands = params.commands.replace(
-                "$RECIPEWRAP", recipewrapper.as_posix()
-            )
+            params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
             with open(recipewrapper, "w") as fh:
                 json.dump(
                     {

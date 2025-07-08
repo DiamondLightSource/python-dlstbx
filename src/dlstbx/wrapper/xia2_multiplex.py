@@ -285,8 +285,6 @@ class Xia2MultiplexWrapper(Wrapper):
             for dataset_name, dataset in d["datasets"].items():
                 if dataset_name == "All data":
                     base_dir = working_directory
-                    scaled_unmerged_mtz = base_dir / "scaled_unmerged.mtz"
-                    scaled_mtz = working_directory / "scaled.mtz"
                     dimple_symlink = "dimple-xia2.multiplex"
                     cluster_prefix = ""
                     cluster_num = None
@@ -294,10 +292,6 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_num = dataset_name.split(" ")[-1]
                     cluster_prefix = f"coordinate_cluster_{cluster_num}_"
                     base_dir = working_directory / f"coordinate_cluster_{cluster_num}"
-                    scaled_unmerged_mtz = (
-                        base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
-                    )
-                    scaled_mtz = results_directory / f"{cluster_prefix}scaled.mtz"
                     dimple_symlink = (
                         f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
                     )
@@ -307,6 +301,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     )
                     continue
 
+                scaled_unmerged_mtz = base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
                 i_obs = iotbx.merging_statistics.select_data(
                     scaled_unmerged_mtz.as_posix(), data_labels=None
                 )
@@ -408,9 +403,19 @@ class Xia2MultiplexWrapper(Wrapper):
                             }
                         )
                 # Add parameters to the environment to be picked up downstream by trigger function
-                self.recwrap.environment.update({"scaled_mtz": scaled_mtz.as_posix()})
                 self.recwrap.environment.update(
-                    {"scaled_unmerged_mtz": scaled_unmerged_mtz.as_posix()}
+                    {
+                        "scaled_mtz": (
+                            results_directory / f"{cluster_prefix}scaled.mtz"
+                        ).as_posix()
+                    }
+                )
+                self.recwrap.environment.update(
+                    {
+                        "scaled_unmerged_mtz": (
+                            results_directory / f"{cluster_prefix}scaled_unmerged.mtz"
+                        ).as_posix()
+                    }
                 )
                 self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
 

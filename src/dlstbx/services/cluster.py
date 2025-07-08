@@ -313,15 +313,16 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        active_envs = self.config.active_environments
-        dials_version = ""
-        if len(active_envs) == 1:
-            active_env = active_envs[0]
-            if active_env == "devrmq":
-                dials_version = getpass.getuser()
-            else:
-                dials_version = active_env
-        params.commands = params.commands.replace("$DIALS_VERSION", dials_version)
+        if "$DIALS_VERSION" in params.commands:
+            active_envs = self.config.active_environments
+            dials_version = ""
+            if len(active_envs) == 1:
+                active_env = active_envs[0]
+                if active_env == "devrmq":
+                    dials_version = getpass.getuser()
+                else:
+                    dials_version = active_env
+            params.commands = params.commands.replace("$DIALS_VERSION", dials_version)
 
         submit_to_scheduler = self.schedulers.get(params.scheduler)
 

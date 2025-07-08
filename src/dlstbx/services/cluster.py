@@ -90,6 +90,9 @@ def submit_to_slurm(
             environment.append(f"ZOCALO_DEFAULT_ENV={zc.active_environments[0]}")
     # Account needs to be set to the user name if not running as gda2
     if api.user_name != "gda2":
+        logger.debug(
+            f"Cluster service: Not running as gda2, setting slurm account to user - {api.user_name}"
+        )
         params.account = api.user_name
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
@@ -322,6 +325,9 @@ class DLSCluster(CommonService):
                     dials_version = getpass.getuser()
                 else:
                     dials_version = active_env
+            self.log.debug(
+                f"Cluster service: Replacing $DIALS_VERSION with {dials_version}"
+            )
             params.commands = params.commands.replace("$DIALS_VERSION", dials_version)
 
         submit_to_scheduler = self.schedulers.get(params.scheduler)

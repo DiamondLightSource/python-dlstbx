@@ -391,13 +391,13 @@ GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST = np.array(
     ],
 )
 def test_reshape_grid(data_in, expected_data, steps, snaked, orientation):
-    # old_data_in = data_in.copy()
+    old_data_in = data_in.copy()
     data_out = dlstbx.util.xray_centering.reshape_grid(
         data_in, steps, snaked=snaked, orientation=orientation
     )
     assert np.all(data_out == expected_data), f"{data_out} != {expected_data}"
-    # The current operation of the gridscan processing relies on this mutation of the input
-    # assert np.all(data_in == old_data_in), f"{data_in} != {old_data_in}"
+    # Check that the input hasn't been mutated by reshaping
+    assert np.all(data_in == old_data_in), f"{data_in} != {old_data_in}"
 
 
 @pytest.mark.parametrize(

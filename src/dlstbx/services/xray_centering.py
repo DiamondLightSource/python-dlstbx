@@ -269,6 +269,7 @@ class DLSXRayCentering(CommonService):
                             == self._centering_data[_dcid].gridinfo.image_count
                             for _dcid in dcids
                         )
+                    # Catch if centering data doesn't exist yet for a dcid.
                     except KeyError:
                         all_images_seen = False
                     if all_images_seen:

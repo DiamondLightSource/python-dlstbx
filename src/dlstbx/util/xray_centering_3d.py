@@ -56,6 +56,14 @@ def gridscan3d(
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
 
+    Fitting routine finds each separate region of continuously connected data, filters
+    out any regions which do not have a voxel with intensity > threshold_absolute. Then,
+    for each of these regions, a relative threshold of the max voxel intensity for that
+    region is applied, with the aim to separate/disconnect peaks of intensity within the
+    region. Each continuously connected sub_region within the region after applying the
+    threshold is then found and is stored as grid_Scan result. The purpose of this second
+    step is to try and locate the individual centres of crystals that are close together.
+
     Assumption: X is along the rotation axis, Y, Z are perpendicular
 
     - spot find on images at -45°, +45° -> 2 x 2D array of spot finding metrics
@@ -69,9 +77,9 @@ def gridscan3d(
     Args:
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
         threshold: mask out values less than this fraction of the maximum data value
-                in the reconstructed 3d grid
-        threshold_absolute: mask out values less than this absolute value in the
-                original grids
+                in an identified region of the reconstructed 3d grid
+        threshold_absolute: filter out identified regions of continuous signal where the
+        max value is less than this absolute value.
         plot: Show interactive debug plots of the grid scan analysis (default=False)
         sample_id: The sample id attributed to the grid_scan. This will usually be the
             sample in sublocation 1 in the case of multi-sample pins.
@@ -88,62 +96,68 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
-    # mask out grid scans to reduce impact of noisy pixels / edge effects
-    data[0][data[0] < threshold_absolute] = 0
-    data[1][data[1] < threshold_absolute] = 0
-
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)
     logger.debug(data[1].shape)
     logger.debug(reconstructed_3d.shape)
-    max_idx = tuple(
-        int(r[0]) for r in np.where(reconstructed_3d == reconstructed_3d.max())
-    )
-    max_count = int(reconstructed_3d[max_idx])
 
-    thresholded = (reconstructed_3d >= threshold * max_count) * reconstructed_3d
-    # Count corner-corner contacts as a contiguous region
+    # Count corner-corner contacts as a continuous region
     structure = np.ones((3, 3, 3))
-    labels, n_regions = scipy.ndimage.label(thresholded, structure=structure)
+    # Find all continuos regions
+    labels, n_regions = scipy.ndimage.label(reconstructed_3d, structure=structure)
     logger.info(f"Found {n_regions} distinct regions")
 
-    object_slices = scipy.ndimage.find_objects(labels)
-
     results: list[GridScan3DResult] = []
-    for index in range(1, n_regions + 1):
-        com = tuple(
-            c + 0.5
-            for c in scipy.ndimage.center_of_mass(
-                thresholded, labels=labels, index=index
+    for label in range(1, n_regions + 1):
+        labelled_data = (labels == label) * reconstructed_3d
+        # Filter out regions arising from noise/background
+        if labelled_data.max() < threshold_absolute:
+            logger.debug(
+                f"Region {label} has no pixels greater than the absolute threshold of {threshold_absolute} spots - excluding from results"
             )
+            continue
+        # Apply relative threshold to filter out edge effects and to separate out multiple centres in a single region.
+        thresholded = (labelled_data >= threshold * labelled_data.max()) * labelled_data
+        sub_labels, n_sub_regions = scipy.ndimage.label(
+            thresholded, structure=structure
         )
-        max_voxel = tuple(
-            int(i)
-            for i in scipy.ndimage.maximum_position(
-                thresholded, labels=labels, index=index
-            )
-        )
-        max_count = int(thresholded[max_voxel])
-        n_voxels = np.count_nonzero(labels == index)
-        total_count = int(
-            scipy.ndimage.sum_labels(thresholded, labels=labels, index=index)
-        )
-        x, y, z = object_slices[index - 1]
-        bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
-        tagged_sample_id = tag_sample_id(
-            sample_id, multipin_sample_ids, well_limits, com[0]
-        )
+        logger.debug(f"For label {label}, {n_sub_regions} sub regions found")
+        object_slices = scipy.ndimage.find_objects(sub_labels)
 
-        result = GridScan3DResult(
-            centre_of_mass=com,
-            max_voxel=max_voxel,
-            max_count=max_count,
-            n_voxels=n_voxels,
-            total_count=total_count,
-            bounding_box=bounding_box,
-            sample_id=tagged_sample_id,
-        )
-        results.append(result)
+        for sub_label in range(1, n_sub_regions + 1):
+            com = tuple(
+                c + 0.5
+                for c in scipy.ndimage.center_of_mass(
+                    thresholded, labels=labels, index=sub_label
+                )
+            )
+            max_voxel = tuple(
+                int(i)
+                for i in scipy.ndimage.maximum_position(
+                    thresholded, labels=labels, index=sub_label
+                )
+            )
+            max_count = int(thresholded[max_voxel])
+            n_voxels = np.count_nonzero(labels == sub_label)
+            total_count = int(
+                scipy.ndimage.sum_labels(thresholded, labels=labels, index=sub_label)
+            )
+            x, y, z = object_slices[sub_label - 1]
+            bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
+            tagged_sample_id = tag_sample_id(
+                sample_id, multipin_sample_ids, well_limits, com[0]
+            )
+
+            result = GridScan3DResult(
+                centre_of_mass=com,
+                max_voxel=max_voxel,
+                max_count=max_count,
+                n_voxels=n_voxels,
+                total_count=total_count,
+                bounding_box=bounding_box,
+                sample_id=tagged_sample_id,
+            )
+            results.append(result)
 
     if plot:
         plot_gridscan3d_results(data, reconstructed_3d, results)

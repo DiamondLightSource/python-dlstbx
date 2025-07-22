@@ -128,19 +128,21 @@ def gridscan3d(
             com = tuple(
                 c + 0.5
                 for c in scipy.ndimage.center_of_mass(
-                    thresholded, labels=labels, index=sub_label
+                    thresholded, labels=sub_labels, index=sub_label
                 )
             )
             max_voxel = tuple(
                 int(i)
                 for i in scipy.ndimage.maximum_position(
-                    thresholded, labels=labels, index=sub_label
+                    thresholded, labels=sub_labels, index=sub_label
                 )
             )
             max_count = int(thresholded[max_voxel])
             n_voxels = np.count_nonzero(labels == sub_label)
             total_count = int(
-                scipy.ndimage.sum_labels(thresholded, labels=labels, index=sub_label)
+                scipy.ndimage.sum_labels(
+                    thresholded, labels=sub_labels, index=sub_label
+                )
             )
             x, y, z = object_slices[sub_label - 1]
             bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))

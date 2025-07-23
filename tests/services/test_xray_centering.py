@@ -186,7 +186,7 @@ def test_xray_centering_3d(mocker):
     dcids = (5476360, 5476366)
     parameters = {
         "dcid": f"{dcids[0]}",
-        "dcg_dcids": [],
+        "dcg_dcids": [dcids[1]],
         "experiment_type": "Mesh3D",
         "beamline": "i03",
         "sample_id": 2077076,
@@ -250,10 +250,10 @@ def test_xray_centering_3d(mocker):
                 {
                     "max_voxel": (4, 4, 3),
                     "max_count": 464.0,
-                    "n_voxels": 9,
-                    "total_count": 2540.0,
+                    "n_voxels": 17,
+                    "total_count": 3878.0,
                     "centre_of_mass": mock.ANY,
-                    "bounding_box": ((3, 4, 2), (7, 5, 5)),
+                    "bounding_box": ((3, 3, 2), (7, 6, 5)),
                     "sample_id": 2077076,
                 },
             ],

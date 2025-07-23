@@ -96,6 +96,10 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
+    # mask out grid scans to reduce impact of noisy pixels / edge effects
+    data[0][data[0] < threshold_absolute] = 0
+    data[1][data[1] < threshold_absolute] = 0
+
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)
     logger.debug(data[1].shape)
@@ -110,12 +114,6 @@ def gridscan3d(
     results: list[GridScan3DResult] = []
     for label in range(1, n_regions + 1):
         labelled_data = (labels == label) * reconstructed_3d
-        # Filter out regions arising from noise/background
-        if labelled_data.max() < threshold_absolute:
-            logger.debug(
-                f"Region {label} has no pixels greater than the absolute threshold of {threshold_absolute} spots - excluding from results"
-            )
-            continue
         # Apply relative threshold to filter out edge effects and to separate out multiple centres in a single region.
         thresholded = (labelled_data >= threshold * labelled_data.max()) * labelled_data
         sub_labels, n_sub_regions = scipy.ndimage.label(

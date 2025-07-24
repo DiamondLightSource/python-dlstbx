@@ -757,6 +757,12 @@ class autoPROCWrapper(Wrapper):
                 )
 
         if autoproc_xml:
+            self.recwrap.environment.update(
+                {
+                    "mtz_file": (results_directory / "truncate-unique.mtz").as_posix(),
+                    "dimple_symlink": "dimple-autoPROC",
+                }
+            )
             success = self.send_results_to_ispyb(
                 autoproc_xml,
                 success,
@@ -764,6 +770,14 @@ class autoPROCWrapper(Wrapper):
                 res_i_sig_i_2=res_i_sig_i_2,
             )
         if staraniso_xml:
+            self.recwrap.environment.update(
+                {
+                    "mtz_file": (
+                        results_directory / "staraniso_alldata-unique.mtz"
+                    ).as_posix(),
+                    "dimple_symlink": "dimple-autoPROC+staraniso",
+                }
+            )
             self.send_results_to_ispyb(
                 staraniso_xml,
                 success,

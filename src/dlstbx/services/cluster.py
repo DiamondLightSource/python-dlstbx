@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import errno
+import getpass
 import json
 import logging
 import math
@@ -55,7 +56,6 @@ def submit_to_slurm(
     recipewrapper: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
-
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)
@@ -83,6 +83,17 @@ def submit_to_slurm(
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
             "USER=gda2"
         ]
+        # Set ZOCALO_DEFAULT_ENV environment variable to the currently active environment
+        # so that any dlstbx/zocalo commands in the slurm job will stay in the environment
+        # unless otherwise specified. Ignore if multiple environments active.
+        if len(zc.active_environments) == 1:
+            environment.append(f"ZOCALO_DEFAULT_ENV={zc.active_environments[0]}")
+    # Account needs to be set to the user name if not running as gda2
+    if api.user_name != "gda2":
+        logger.debug(
+            f"Cluster service: Not running as gda2, setting slurm account to user - {api.user_name}"
+        )
+        params.account = api.user_name
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     jdm_params = {
@@ -278,6 +289,20 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
+
+        if "$DIALS_VERSION" in params.commands:
+            active_envs = self.config.active_environments
+            dials_version = ""
+            if len(active_envs) == 1:
+                active_env = active_envs[0]
+                if active_env == "devrmq":
+                    dials_version = getpass.getuser()
+                else:
+                    dials_version = active_env
+            self.log.debug(
+                f"Cluster service: Replacing $DIALS_VERSION with {dials_version}"
+            )
+            params.commands = params.commands.replace("$DIALS_VERSION", dials_version)
 
         submit_to_scheduler = self.schedulers.get(params.scheduler)
 

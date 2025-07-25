@@ -288,6 +288,8 @@ class autoPROCWrapper(Wrapper):
         special_program_name: str | None = None,
         attachments: list[tuple[str, Path, str, int]] | None = None,
         res_i_sig_i_2: float | None = None,
+        mtz_file: str | None = None,
+        dimple_symlink: str | None = None,
     ):
         ispyb_command_list = []
 
@@ -462,6 +464,13 @@ class autoPROCWrapper(Wrapper):
             "Sending %d commands to ISPyB: %s",
             len(ispyb_command_list),
             str(ispyb_command_list),
+        )
+        # Store parameters in recwrap environment to be used by downstream jobs
+        self.recwrap.environment.update(
+            {
+                "mtz_file": mtz_file,
+                "dimple_symlink": dimple_symlink,
+            }
         )
         self.recwrap.send_to(
             "ispyb" if success else "result-files",
@@ -757,32 +766,24 @@ class autoPROCWrapper(Wrapper):
                 )
 
         if autoproc_xml:
-            self.recwrap.environment.update(
-                {
-                    "mtz_file": (results_directory / "truncate-unique.mtz").as_posix(),
-                    "dimple_symlink": "dimple-autoPROC",
-                }
-            )
             success = self.send_results_to_ispyb(
                 autoproc_xml,
                 success,
                 attachments=attachments,
                 res_i_sig_i_2=res_i_sig_i_2,
+                mtz_file=(results_directory / "truncate-unique.mtz").as_posix(),
+                dimple_symlink="dimple-autoPROC",
             )
         if staraniso_xml:
-            self.recwrap.environment.update(
-                {
-                    "mtz_file": (
-                        results_directory / "staraniso_alldata-unique.mtz"
-                    ).as_posix(),
-                    "dimple_symlink": "dimple-autoPROC+staraniso",
-                }
-            )
             self.send_results_to_ispyb(
                 staraniso_xml,
                 success,
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
+                mtz_file=(
+                    results_directory / "staraniso_alldata-unique.mtz"
+                ).as_posix(),
+                dimple_symlink="dimple-autoPROC+staraniso",
             )
 
         return success

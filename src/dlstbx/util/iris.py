@@ -17,6 +17,7 @@ from minio.error import S3Error
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from dlstbx.util.hdf5 import find_all_references
 from dlstbx.wrapper.helpers import fix_acl_mask
 
 URL_EXPIRE = timedelta(days=7)
@@ -110,8 +111,13 @@ def get_image_files(working_directory, images, logger):
     file_list = {}
     h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
     for h5_file in h5_paths:
+        try:
+            related = set(find_all_references(h5_file))
+        except (ValueError, KeyError):
+            logger.error(f"Could not find files related to {h5_file}", exc_info=True)
         image_pattern = str(h5_file).split("master")[0] + "*"
-        for filepath in glob.glob(image_pattern):
+        related.union(glob.glob(image_pattern))
+        for filepath in sorted(related):
             filename = Path(filepath).name
             logger.info(f"Found image file {filepath}")
             file_list[filename] = filepath

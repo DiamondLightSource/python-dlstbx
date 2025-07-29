@@ -72,12 +72,13 @@ class S3EchoUploader(CommonService):
         s3echo_upload_files = rw.environment.get("s3echo_upload", {})
         upload_file_list = s3echo_upload_files.keys()
         if s3_urls := message.get("s3_urls", {}) if isinstance(message, dict) else {}:
-            upload_file_list = {
-                file_name
-                for file_name in s3echo_upload_files
-                if all(file_name not in upload_name for upload_name in s3_urls)
-            }
-
+            upload_file_list = sorted(
+                {
+                    file_name
+                    for file_name in s3echo_upload_files
+                    if all(file_name not in upload_name for upload_name in s3_urls)
+                }
+            )
         try:
             filename = next(iter(upload_file_list))
             filepath = s3echo_upload_files.get(filename)

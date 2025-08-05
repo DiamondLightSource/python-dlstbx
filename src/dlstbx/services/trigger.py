@@ -34,7 +34,7 @@ from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
 from dlstbx.crud import get_protein_for_dcid
-from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util import INDUSTRIAL_CODES, ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
@@ -855,7 +855,7 @@ class DLSTrigger(CommonService):
             return False
 
         dc, proposal = rows[0]
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(
                 f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
             )
@@ -934,7 +934,7 @@ class DLSTrigger(CommonService):
                 f"mr_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(
                 f"Skipping mr_predict trigger for {proposal.proposalCode} visit"
             )
@@ -1373,7 +1373,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == parameters.dcid)
         )
         proposal = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
@@ -1477,7 +1477,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
         )
         proposal, blsession = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 

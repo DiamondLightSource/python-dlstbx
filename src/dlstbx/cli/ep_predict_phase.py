@@ -17,6 +17,8 @@ from ispyb.sqlalchemy import (
 )
 from sqlalchemy import Integer, cast, desc, or_
 
+from dlstbx.util import INDUSTRIAL_CODES
+
 
 def read_ispyb_data(jobids):
     url = ispyb.sqlalchemy.url()
@@ -173,17 +175,18 @@ def run_ispyb_job(data, debug, dry_run):
             print(f"Unrecognised file path {str(filename)}")
             continue
 
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", v["filepath"])
-        try:
+        if visit_match := re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", v["filepath"]):
             visit = visit_match.group(1)
-        except AttributeError:
+        else:
             print(f"Cannot match visit pattern in path {str(filename)}. Skipping")
             continue
-        if True in [pfx in visit for pfx in ("lb", "in", "sw", "il")]:
+
+        if any(pfx in visit for pfx in INDUSTRIAL_CODES):
             print(
                 f"Skipping processing for data from an industrial visit {visit}: {str(filename)}"
             )
             continue
+
         command = [
             "ispyb.job",
             "--new",

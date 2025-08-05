@@ -102,7 +102,9 @@ class Xia2SsxWrapper(Wrapper):
             command.append(f"dose_series_repeat={params.dose_series_repeat}")
         return command
 
-    def get_uc_sg_from_pdb(self, params: Xia2SsxParams) -> tuple[tuple[float, float, float, float, float, float], str] | None:
+    def get_uc_sg_from_pdb(
+        self, params: Xia2SsxParams
+    ) -> tuple[tuple[float, float, float, float, float, float], str] | None:
         for pdb in params.reference_pdb:
             strname = str(pdb)
             pdb_file = None
@@ -120,15 +122,15 @@ class Xia2SsxWrapper(Wrapper):
                 # If the file is not found, an OSError will be raised. But if iotbx fails to parse the file,
                 # there are many possible exceptions, so be generous.
                 except Exception as e:
-                    self.log.warning(f"Warning: Could not read PDB file {str(pdb_file)}: {e}")
+                    self.log.warning(
+                        f"Warning: Could not read PDB file {str(pdb_file)}: {e}"
+                    )
                     continue
                 crystal_symmetry = pdb_inp.crystal_symmetry()
                 unit_cell = crystal_symmetry.unit_cell().parameters()
                 space_group = str(crystal_symmetry.space_group().info())
                 return (unit_cell, space_group)
         return None
-
-
 
     def find_matching_reference_pdb(self, params: Xia2SsxParams) -> str | None:
         if not params.unit_cell and not params.spacegroup:

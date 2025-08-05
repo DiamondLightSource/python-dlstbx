@@ -179,7 +179,7 @@ def run_ispyb_job(data, debug, dry_run):
         except AttributeError:
             print(f"Cannot match visit pattern in path {str(filename)}. Skipping")
             continue
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
+        if True in [pfx in visit for pfx in ("lb", "in", "sw", "il")]:
             print(
                 f"Skipping processing for data from an industrial visit {visit}: {str(filename)}"
             )

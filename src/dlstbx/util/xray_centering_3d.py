@@ -96,9 +96,10 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
-    # mask out grid scans to reduce impact of noisy pixels / edge effects
-    data[0][data[0] < threshold_absolute] = 0
-    data[1][data[1] < threshold_absolute] = 0
+    # mask out grid scans to reduce impact of noisy pixels / edge effects (only if some data above threshold)
+    for data_idx in range(2):
+        if data[data_idx].max() > threshold_absolute:
+            data[data_idx][data[data_idx] < threshold_absolute] = 0
 
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)

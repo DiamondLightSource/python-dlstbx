@@ -3,17 +3,20 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import sqlite3
 from datetime import datetime, timedelta
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
 import ispyb
+import pandas as pd
 import prometheus_client
 import pydantic
 import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
+import yaml
 from ispyb.sqlalchemy import (
     AutoProc,
     AutoProcIntegration,
@@ -21,7 +24,9 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcScaling,
     AutoProcScalingHasInt,
+    BLSample,
     BLSession,
+    Container,
     DataCollection,
     ProcessingJob,
     Proposal,
@@ -245,6 +250,17 @@ class LigandFitParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     scaling_id: list[int]
     min_cc_keep: float = pydantic.Field(default=0.7)
+
+
+class PanDDAParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    pdb: pathlib.Path
+    mtz: pathlib.Path
+    prerun_threshold: int
+    program_id: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
 
 
 class DLSTrigger(CommonService):
@@ -2634,5 +2650,208 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_pandda_xchem(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        message: Dict,
+        parameters: PanDDAParameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,
+        **kwargs,
+    ):
+        """Trigger a PanDDA job for an XChem fragment screening experiment.
+        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from the
+        upstream DIMPLE job
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "pandda_xchem"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
+        processing PanDDA jobs
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - backoff-delay: base delay (in seconds) for exponential backoff in the event
+            that xx
+        - backoff-max-try: the number of times that a message re-sent before giving up
+        - backoff-multiplier: the multiplier for exponential backoff
+        Example recipe parameters:
+        { "target": "pandda_xchem",
+            "dcid": 123456,
+            "pdb": "/path/to/pdb",
+            "mtz": "/path/to/mtz",
+            "prerun_threshold": 1000,
+            "program_id": 123456,
+            "automatic": true,
+            "comment": "PanDDA triggered by dimple",
+            "timeout-minutes": 120,
+        }
+        """
+
+        dcid = parameters.dcid
+        # program_id = parameters.program_id
+        _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
+        visit_dir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
+        visit = ispyb_info.get("ispyb_visit", "")
+        processing_dir = visit_dir / "processing"
+        database_dir = processing_dir / "database"
+
+        # 1. Check that this is an XChem expt, presence of .yaml or .sqlite?
+
+        # Makeshift filter
+        latest_file = max(
+            database_dir.glob("*.sqlite"), key=lambda f: f.stat().st_mtime, default=None
+        )
+        if latest_file:
+            self.log.info(f"SQLite database {latest_file} found for visit {visit}")
+        else:
+            return {"success": True}
+
+        # Load the experiment yaml
+        yaml_file = processing_dir / "experiment.yaml"
+        if yaml_file.exists():
+            with open(yaml_file, "r") as file:
+                expt_yaml = yaml.safe_load(file)
+        else:
+            self.log.info(
+                f"No experiment yaml found in processing directory {processing_dir}"
+            )
+
+        # Obtain location and container code
+        query = (
+            session.query(DataCollection, BLSample)
+            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
+            .join(Container, Container.containerId == BLSample.containerId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+
+        query = query.with_entities(BLSample.location, Container.code)
+        location = int(query.one()[0])
+        code = query.one()[1]
+
+        # Read XChem SQLite row into a pandas DataFrame
+        con = sqlite3.connect(latest_file)
+        df = pd.read_sql_query(
+            f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location}",
+            con,
+        )
+
+        if len(df) != 1:
+            self.log.info(
+                f"Row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found, skipping"
+            )
+            return {"success": True}
+
+        # ProteinName = df["ProteinName"].item()
+        LibraryName = df["LibraryName"].item()
+        SourceWell = df["SourceWell"].item()
+        CompoundSMILES = df["CompoundSMILES"].item()
+
+        cif_dir = (
+            pathlib.Path("/dls/science/groups/i04-1/software/ligand_libraries")
+            / "LibraryName"
+        )  # make a parameter?
+
+        protein_info = get_protein_for_dcid(parameters.dcid, session)
+        acronym = getattr(protein_info, "acronym", "Protein")  # or use ProteinName?
+
+        if LibraryName == "DMSO":  # track DMSO datasets
+            tag = "DMSO"
+        elif not CompoundSMILES:
+            tag = "Apo"  # ?
+
+        # 2. Create the dataset directory and find ligand files (if they exist)
+        pdb = str(parameters.pdb)
+        mtz = str(parameters.mtz)
+
+        model_dir = processing_dir / "analysis" / "model_building"
+        dtag = f"{acronym}-{code}-x{location}"  # dataset tag
+        well_dir = model_dir / dtag
+        compound_dir = well_dir / "compound"
+
+        pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
+        count = sum(1 for p in model_dir.iterdir() if p.is_dir())  # count datasets
+        expt_yaml["datasets"].extend([dtag])  # update the yaml
+
+        os.symlink(pdb, well_dir / "dimple.pdb")
+        os.symlink(mtz, well_dir / "dimple.mtz")
+
+        # Lookup any pre-existing ligand files
+        ligand_pdb = cif_dir / f"{SourceWell}" / "ligand.pdb"  # name convention?
+        ligand_cif = cif_dir / f"{SourceWell}" / "ligand.cif"
+
+        if tag == "Apo":
+            self.log.info(
+                f"Puck {code}, position {location} considered to be an apo dataset, saving to yaml"
+            )
+        if ligand_pdb.exists() and ligand_cif.exists():
+            os.symlink(ligand_pdb, compound_dir / "ligand.pdb")
+            os.symlink(ligand_cif, compound_dir / "ligand.cif")
+        else:
+            self.log.info(
+                f"No pre-existing ligand pdb/cif file found for SourceWell {SourceWell}, ligand library {LibraryName}"
+            )
+            ligand_files = False
+
+        # 3. Job launch logic
+        prerun_threshold = parameters.prerun_threshold
+
+        if ligand_files & count < prerun_threshold:
+            self.log.info(
+                f"Dataset count {count} < PanDDA2 pre-run threshold of {prerun_threshold}, and ligand files already exist, skipping..."
+            )
+            return {"success": True}
+        elif not ligand_files & count < prerun_threshold:
+            self.log.info(
+                f"Dataset count {count} < PanDDA2 pre-run threshold of {prerun_threshold}, launching ligand restraint generation job"
+            )
+            job_type = "prep"
+        elif count == prerun_threshold:
+            self.log.info(
+                f"Dataset count {count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 pre-run"
+            )
+            job_type = "pre-run"
+        elif count > prerun_threshold:
+            job_type = "single"
+            f"Launching single PanDDA2 job for dtag {dtag}"
+
+        self.log.debug("PanDDA trigger: Starting")
+        pandda_parameters = {
+            "dcid": parameters.dcid,
+            "processing_directory": str(processing_dir),
+            "ligand_files": ligand_files,
+            "job_type": job_type,
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "PanDDA"
+        jp["recipe"] = "postprocessing-pandda"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"PanDDA trigger: generated JobID {jobid}")
+
+        for key, value in pandda_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"PanDDA trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        self.log.debug(f"PanDDA_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"PanDDA_id trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

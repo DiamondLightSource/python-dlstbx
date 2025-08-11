@@ -76,6 +76,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "mosflm_strategy = dlstbx.wrapper.mosflm_strategy:MosflmStrategyWrapper",
     "mr_predict = dlstbx.wrapper.mr_predict:MRPredictWrapper",
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
+    "pandda_xchem = dlstbx.wrapper.pandda_xchem:PanDDAWrapper",
     "phaser_ellg  = dlstbx.wrapper.phaser_ellg:PhasereLLGWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "scaleit = dlstbx.wrapper.scaleit:ScaleitWrapper",

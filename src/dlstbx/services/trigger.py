@@ -2772,7 +2772,6 @@ class DLSTrigger(CommonService):
         dtag = f"{acronym}-{code}-x{location}"  # dataset tag
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
-
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
         count = sum(1 for p in model_dir.iterdir() if p.is_dir())  # count datasets
         expt_yaml["datasets"].extend([dtag])  # update the yaml
@@ -2807,14 +2806,14 @@ class DLSTrigger(CommonService):
             return {"success": True}
         elif not ligand_files & count < prerun_threshold:
             self.log.info(
-                f"Dataset count {count} < PanDDA2 pre-run threshold of {prerun_threshold}, launching ligand restraint generation job"
+                f"Dataset count {count} < PanDDA2 pre-run threshold of {prerun_threshold}, launching ligand restraint generation job for dataset {dtag}"
             )
             job_type = "prep"
         elif count == prerun_threshold:
             self.log.info(
                 f"Dataset count {count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 pre-run"
             )
-            job_type = "pre-run"
+            job_type = "prerun"
         elif count > prerun_threshold:
             job_type = "single"
             f"Launching single PanDDA2 job for dtag {dtag}"
@@ -2822,9 +2821,12 @@ class DLSTrigger(CommonService):
         self.log.debug("PanDDA trigger: Starting")
         pandda_parameters = {
             "dcid": parameters.dcid,
+            "CompoundSMILES": CompoundSMILES,
             "processing_directory": str(processing_dir),
             "ligand_files": ligand_files,
             "job_type": job_type,
+            "dtag": dtag,
+            "processing_dir": processing_dir,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -2832,7 +2834,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = "PanDDA"
-        jp["recipe"] = "postprocessing-pandda"
+        jp["recipe"] = f"postprocessing-pandda-{job_type}"  # multiple recipes
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"PanDDA trigger: generated JobID {jobid}")

@@ -112,9 +112,6 @@ def construct_commandline(
 
     command = [
         "process",
-        "-xml",
-        "-M",
-        "HighResCutOnCChalf",
         "-M",
         "ReportingInlined",
         'AutoProcSmallFootprint="yes"',

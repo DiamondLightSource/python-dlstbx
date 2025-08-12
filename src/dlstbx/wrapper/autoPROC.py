@@ -190,8 +190,6 @@ def construct_commandline(
             first_image_or_master_h5,
             macro=macro,
         )
-        if beamline == "i04-1":
-            untrusted_rectangles.append("774 1029 1356 1613")
 
         if beamline == "i24" and first_image_or_master_h5.endswith(".cbf"):
             # i24 can run in tray mode (horizontal gonio) or pin mode

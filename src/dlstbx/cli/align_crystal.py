@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
-import shutil
+import subprocess
 import sys
-
-import procrunner
+import time
 
 logger = logging.getLogger("dlstbx.align_crystal")
 
 
 def _run_command(args):
-    logger.info("command: %s", " ".join(args))
-    result = procrunner.run(args, print_stdout=False, print_stderr=False)
+    logger.info(f"command: {' '.join(args)}")
+    start_time = time.time()
+    result = subprocess.run(args, capture_output=True, text=True)
     logger.info(
-        "exited with returncode %s after %s seconds",
-        result.returncode,
-        result["runtime"],
+        f"exited with returncode {result.returncode} after {time.time() - start_time} seconds"
     )
     if result.returncode:
         logger.info(result.stdout)
@@ -42,24 +39,16 @@ def align_crystal(image_files, nproc=None):
     ):
         return False
 
-    if not _run_command(
-        ["dials.refine_bravais_settings", "indexed.expt", "indexed.refl"]
-    ):
+    if not _run_command(["dials.refine", "indexed.expt", "indexed.refl"]):
         return False
-    with open("bravais_summary.json") as f:
-        d = json.load(f)
-    solutions = {int(k): v for k, v in d.items()}
-    for k in solutions:
-        solutions[k]["experiments_file"] = "bravais_setting_%d.expt" % k
-    soln = solutions[max(solutions)]
 
-    if not _run_command(
-        ["dials.reindex", "indexed.refl", 'change_of_basis_op="%s"' % soln["cb_op"]]
-    ):
+    if not _run_command(["dials.integrate", "refined.expt", "refined.refl"]):
         return False
-    shutil.copyfile(soln["experiments_file"], "reindexed.expt")
 
-    return _run_command(["dials.align_crystal", "reindexed.expt"])
+    if not _run_command(["dials.symmetry", "integrated.expt", "integrated.refl"]):
+        return False
+
+    return _run_command(["dials.align_crystal", "symmetrized.expt"])
 
 
 def run(args=None):

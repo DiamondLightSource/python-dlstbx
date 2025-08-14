@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 
-import procrunner
 import py
 from dxtbx.serialize import load
 
@@ -164,27 +164,28 @@ class AlignCrystalWrapper(Wrapper):
 
         # run dlstbx.align_crystal in working directory
         self.log.info("command: %s", " ".join(command))
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            working_directory=working_directory.strpath,
-        )
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            self.log.info(
-                "dlstbx.align_crystal successful, took %.1f seconds", result["runtime"]
+        try:
+            result = subprocess.run(
+                command,
+                timeout=params.get("timeout"),
+                cwd=working_directory.strpath,
+                capture_output=True,
             )
-        else:
+        except subprocess.TimeoutExpired:
             self.log.info(
-                "dlstbx.align_crystal failed with exitcode %s and timeout %s:\n{result[stderr]}".format(
-                    result=result
-                ),
-                result["exitcode"],
-                result["timeout"],
+                f"dlstbx.align_crystal failed by timeout ({params.get('timeout')}s)"
             )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
-            return
+            return False
+
+        if result.returncode:
+            self.log.info(
+                f"dlstbx.align_crystal failed with returncode {result.returncode}"
+            )
+            self.log.debug(result.stdout)
+            self.log.debug(result.stderr)
+            return False
+
+        self.log.info("dlstbx.align_crystal successful")
 
         # Create results directory and symlink if they don't already exist
         results_directory.ensure(dir=True)
@@ -194,7 +195,7 @@ class AlignCrystalWrapper(Wrapper):
             #'.json': 'result',
             ".log": "log"
         }
-        keep = {"align_crystal.json": "result", "bravais_summary.json": "result"}
+        keep = {"align_crystal.json": "result", "dials_symmetry.json": "result"}
         allfiles = []
         for filename in working_directory.listdir():
             filetype = keep_ext.get(filename.ext)
@@ -217,9 +218,9 @@ class AlignCrystalWrapper(Wrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        assert working_directory.join("reindexed.expt")
+        assert working_directory.join("symmetrized.expt")
         experiments = load.experiment_list(
-            working_directory.join("reindexed.expt").strpath
+            working_directory.join("symmetrized.expt").strpath
         )
         crystal_symmetry = experiments[0].crystal.get_crystal_symmetry()
         # Forward JSON results if possible
@@ -232,4 +233,4 @@ class AlignCrystalWrapper(Wrapper):
         else:
             self.log.warning("Expected JSON output file missing")
 
-        return success
+        return True

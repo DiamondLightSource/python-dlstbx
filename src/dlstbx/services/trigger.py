@@ -2661,7 +2661,6 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = "align_crystal"
@@ -2671,7 +2670,7 @@ class DLSTrigger(CommonService):
         self.log.debug(f"align_crystal trigger: generated JobID {jobid}")
 
         align_crystal_parameters = {
-            "experiment_file": parameters.experiment_file,
+            "experiment_file": parameters.experiment_file.as_posix(),
             "symlink": parameters.symlink,
         }
 
@@ -2684,3 +2683,10 @@ class DLSTrigger(CommonService):
             self.log.debug(
                 f"Align_crystal trigger: generated JobParameterID {jppid} with {key}={value}"
             )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Align_crystal trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}

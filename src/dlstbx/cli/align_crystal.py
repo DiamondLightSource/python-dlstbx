@@ -42,7 +42,9 @@ def align_crystal(image_files, nproc=None):
     if not _run_command(["dials.refine", "indexed.expt", "indexed.refl"]):
         return False
 
-    if not _run_command(["dials.integrate", "refined.expt", "refined.refl"]):
+    if not _run_command(
+        ["dials.integrate", "refined.expt", "refined.refl", "profile.fitting=False"]
+    ):
         return False
 
     if not _run_command(["dials.symmetry", "integrated.expt", "integrated.refl"]):

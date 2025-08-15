@@ -2665,7 +2665,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = "align_crystal"
-        jp["recipe"] = "postprocessing-align_crystal"
+        jp["recipe"] = "postprocessing-align-crystal"
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"align_crystal trigger: generated JobID {jobid}")

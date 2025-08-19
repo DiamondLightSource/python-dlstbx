@@ -10,15 +10,16 @@ logger = logging.getLogger("dlstbx.align_crystal")
 
 
 def _run_command(args):
-    logger.info(f"command: {' '.join(args)}")
+    logger.info(f"Running command: {' '.join(args)}")
     start_time = time.time()
     result = subprocess.run(args, capture_output=True, text=True)
+    logger.info(result.stdout)
+    logger.info(result.stderr)
     logger.info(
-        f"exited with returncode {result.returncode} after {time.time() - start_time} seconds"
+        f"Command '{' '.join(args)}' exited with returncode '{result.returncode}' after {(time.time() - start_time):.1f} seconds\n"
     )
+
     if result.returncode:
-        logger.info(result.stdout)
-        logger.info(result.stderr)
         return False
     return True
 

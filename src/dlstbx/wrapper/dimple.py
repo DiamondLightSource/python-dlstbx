@@ -140,10 +140,19 @@ class DimpleWrapper(Wrapper):
                     blob.view2 = f"anom-blob{n}v2.png"
                     blob.view3 = f"anom-blob{n}v3.png"
             anode_result_files = {
-                self.results_directory / "anode.pha": schemas.AttachmentFileType.RESULT,
-                self.results_directory
-                / "anode_fa.res": schemas.AttachmentFileType.RESULT,
-                anode_log: schemas.AttachmentFileType.LOG,
+                self.results_directory / "anode.pha": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
+                self.results_directory / "anode_fa.res": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
+                anode_log: (schemas.AttachmentFileType.LOG, 2),
+                self.results_directory / "anode.map": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
             }
             attachments.extend(
                 [
@@ -152,8 +161,9 @@ class DimpleWrapper(Wrapper):
                         file_path=f.parent,
                         file_name=f.name,
                         timestamp=dateutil.parser.parse(end_time),
+                        importance_rank=importance_rank,
                     )
-                    for f, ftype in anode_result_files.items()
+                    for f, (ftype, importance_rank) in anode_result_files.items()
                     if f.is_file()
                 ]
             )

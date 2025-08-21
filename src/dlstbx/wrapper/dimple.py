@@ -144,6 +144,7 @@ class DimpleWrapper(Wrapper):
                 self.results_directory
                 / "anode_fa.res": schemas.AttachmentFileType.RESULT,
                 anode_log: schemas.AttachmentFileType.LOG,
+                self.results_directory / "anode.map": schemas.AttachmentFileType.RESULT,
             }
             attachments.extend(
                 [

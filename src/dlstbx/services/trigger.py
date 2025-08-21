@@ -250,6 +250,7 @@ class LigandFitParameters(pydantic.BaseModel):
 class AlignCrystalParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     comment: Optional[str] = None
+    upstream_pipeline: Literal["xia2-dials", "fast_dp"]
     experiment_type: str
     experiment_file: pathlib.Path
     symlink: str = pydantic.Field(default="")
@@ -2660,11 +2661,15 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        downstream_pipeline = {"fast_dp": "xoalign", "xia2-dials": "align-crystal"}
+
         jp = self.ispyb.mx_processing.get_job_params()
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
-        jp["display_name"] = "align_crystal"
-        jp["recipe"] = "postprocessing-align-crystal"
+        jp["display_name"] = downstream_pipeline[parameters.upstream_pipeline]
+        jp["recipe"] = (
+            f"postprocessing-{downstream_pipeline[parameters.upstream_pipeline]}"
+        )
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"align_crystal trigger: generated JobID {jobid}")

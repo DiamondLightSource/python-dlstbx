@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+from pathlib import Path
 
-import procrunner
-import py
-
+from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
 
 
@@ -14,23 +16,33 @@ class XOalignWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-        params = self.recwrap.recipe_step["job_parameters"]
+        params = ChainMapWithReplacement(
+            self.recwrap.recipe_step["job_parameters"].get("ispyb_parameters", {}),
+            self.recwrap.recipe_step["job_parameters"],
+            substitutions=self.recwrap.environment,
+        )
 
         beamline = params["beamline"]
         if beamline not in ("i03", "i04"):
             # Only run XOalign on these beamlines
             return True
 
-        index_mat = params.get("index.mat", self.recwrap.payload.get("index.mat"))
-        mosflm_index_mat = py.path.local(index_mat)
-        if not mosflm_index_mat.check():
+        if isinstance(params["experiment_file"], list):
+            experiment_file = Path(params["experiment_file"][0])
+        else:
+            experiment_file = Path(params.get("experiment_file"))
+
+        if not experiment_file.is_file():
+            self.log.error(
+                f"Input file {experiment_file} does not exist, could not run xoalign"
+            )
             return False
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = Path(params["working_directory"])
+        results_directory = Path(params["results_directory"])
 
         # Create working directory
-        working_directory.ensure(dir=True)
+        working_directory.mkdir(parents=True, exist_ok=True)
 
         chi = params.get("chi")
         kappa = params.get("kappa")
@@ -43,42 +55,49 @@ class XOalignWrapper(Wrapper):
         else:
             datum = ""
 
-        xoalign_py = "/dls_sw/apps/xdsme/graemewinter-xdsme/bin/Linux_i586/XOalign.py"
-        commands = [xoalign_py, datum, mosflm_index_mat.strpath]
-        self.log.info("command: %s", " ".join(commands))
-        result = procrunner.run(
-            commands,
-            environment_override={
-                "XOALIGN_CALIB": "/dls_sw/%s/etc/xoalign_config.py" % params["beamline"]
-            },
-            working_directory=working_directory,
+        subprocess_environment = os.environ.copy()
+        subprocess_environment["XOALIGN_CALIB"] = (
+            f"/dls_sw/{beamline}/etc/xoalign_config.py"
         )
-        success = not result["exitcode"] and not result["timeout"]
+
+        commands = [
+            "XOalign.py",
+            *([datum] if datum else []),
+            experiment_file.as_posix(),
+        ]
+
+        self.log.info("command: %s", " ".join(commands))
+        result = subprocess.run(
+            commands,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=subprocess_environment,
+            cwd=working_directory,
+            text=True,
+        )
+        success = not result.returncode
         if success:
-            self.log.info("XOalign successful, took %.1f seconds", result["runtime"])
+            self.log.info("XOalign successful")
         else:
             self.log.info(
-                "XOalign failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+                f"XOalign failed with returncode {result.returncode}",
             )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
+            self.log.debug(result.stdout)
 
-        working_directory.join("XOalign.log").write(result.stdout)
+        with open(working_directory / "XOalign.log", "w") as log_file:
+            log_file.write(result.stdout)
 
         self.insertXOalignStrategies(params["dcid"], result.stdout)
 
+        results_directory.mkdir(parents=True, exist_ok=True)
+
         # copy output files to result directory
         self.log.info(
-            "Copying results from %s to %s",
-            working_directory.strpath,
-            results_directory.strpath,
+            f"Copying results from {working_directory} to {results_directory}"
         )
-        for f in working_directory.listdir():
-            if not f.basename.startswith("."):
-                f.copy(results_directory)
-
+        for path in working_directory.iterdir():
+            if path.is_file() and not path.name.startswith("."):
+                shutil.copy(path, results_directory)
         return success
 
     def insertXOalignStrategies(self, dcid, xoalign_log):

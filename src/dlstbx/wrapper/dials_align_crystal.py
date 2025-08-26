@@ -66,7 +66,7 @@ class AlignCrystalWrapper(Wrapper):
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {
                 "dcid": dcid,
-                "programversion": "dials.align_crystal downstream",
+                "programversion": "xia2-dials+dials.align_crystal",
                 "comments": settings_str,
                 "shortcomments": f"solution {solution_id}",
                 "ispyb_command": "insert_screening",

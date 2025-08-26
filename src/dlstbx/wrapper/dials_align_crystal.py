@@ -7,6 +7,7 @@ from pathlib import Path
 
 from dxtbx.model.crystal import CrystalFactory
 
+import dlstbx.util.symlink
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
 
@@ -144,6 +145,12 @@ class AlignCrystalWrapper(Wrapper):
         self.results_directory = Path(self.params["results_directory"])
         self.working_directory.mkdir(parents=True, exist_ok=True)
 
+        symlink = self.params.get("create_symlink")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(self.working_directory, symlink)
+
         experiment_file = self.params["experiment_file"]
         if isinstance(experiment_file, list):
             experiment_file = experiment_file[0]
@@ -172,6 +179,9 @@ class AlignCrystalWrapper(Wrapper):
         self.log.info("dials.align_crystal completed successfully")
 
         self.results_directory.mkdir(parents=True, exist_ok=True)
+
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(self.results_directory, symlink)
 
         # copy output files to result directory and attach them in ISPyB
 

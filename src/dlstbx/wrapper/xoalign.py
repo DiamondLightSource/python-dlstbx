@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import dlstbx.util.symlink
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
 
@@ -43,6 +44,12 @@ class XOalignWrapper(Wrapper):
 
         # Create working directory
         working_directory.mkdir(parents=True, exist_ok=True)
+
+        symlink = self.params.get("create_symlink")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(working_directory, symlink)
 
         chi = params.get("chi")
         kappa = params.get("kappa")
@@ -90,6 +97,9 @@ class XOalignWrapper(Wrapper):
         self.insertXOalignStrategies(params["dcid"], result.stdout)
 
         results_directory.mkdir(parents=True, exist_ok=True)
+
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(results_directory, symlink)
 
         # copy output files to result directory
         self.log.info(

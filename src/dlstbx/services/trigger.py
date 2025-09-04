@@ -247,6 +247,15 @@ class LigandFitParameters(pydantic.BaseModel):
     min_cc_keep: float = pydantic.Field(default=0.7)
 
 
+class AlignCrystalParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    comment: Optional[str] = None
+    upstream_pipeline: Literal["xia2-dials", "fast_dp"]
+    experiment_type: str
+    experiment_file: pathlib.Path
+    symlink: str = pydantic.Field(default="")
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -2634,5 +2643,55 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_align_crystal(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: AlignCrystalParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type != "Characterization":
+            self.log.info(
+                f"Skipping align_crystal trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        downstream_pipeline = {"fast_dp": "xoalign", "xia2-dials": "align-crystal"}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = downstream_pipeline[parameters.upstream_pipeline]
+        jp["recipe"] = (
+            f"postprocessing-{downstream_pipeline[parameters.upstream_pipeline]}"
+        )
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"align_crystal trigger: generated JobID {jobid}")
+
+        align_crystal_parameters = {
+            "experiment_file": parameters.experiment_file.as_posix(),
+            "symlink": parameters.symlink,
+        }
+
+        for key, value in align_crystal_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Align_crystal trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Align_crystal trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

@@ -195,20 +195,24 @@ def run():
                     continue
 
                 image_directory = Path(row.imageDirectory)
-                if not image_directory.exists():
-                    continue
-
-                files = [
-                    f
-                    for f in image_directory.iterdir()
-                    if f.suffix
-                    not in {
-                        ".run",
-                        ".gridscan",
-                        ".xml",
-                    }  # legacy files that aren't removed when a visit is archived
-                ]
-                if len(files):
+                try:
+                    if image_directory.is_dir():
+                        files = [
+                            f
+                            for f in image_directory.iterdir()
+                            if f.suffix
+                            not in {
+                                ".run",
+                                ".gridscan",
+                                ".xml",
+                            }  # legacy files that aren't removed when a visit is archived
+                        ]
+                        if len(files):
+                            break
+                except Exception as ex:
+                    print(
+                        f"Following exception was raised while trying to read files in {image_directory} directory:\n{ex}"
+                    )
                     break
             else:
                 archivables.append(Archivable(**row._mapping))

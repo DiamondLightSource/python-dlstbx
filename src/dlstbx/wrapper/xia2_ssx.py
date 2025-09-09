@@ -407,7 +407,7 @@ class Xia2SsxWrapper(Wrapper):
                 allfiles.append(os.fspath(result_file))
 
         # Get the merged mtz and json files at the suggested resolution limit,
-        # for reporting in ISPyB. Don't use the "full" files in this bit.
+        # for reporting in ISPyB. Don't use the "full" files for reporting.
         if xia2_ssx_params.dose_series_repeat:
             merged_mtz_files = sorted(
                 (working_directory / "DataFiles").glob("dose_*.mtz")
@@ -415,14 +415,14 @@ class Xia2SsxWrapper(Wrapper):
             merging_json_files = sorted(
                 (working_directory / "LogFiles").glob("dials.merge.dose_*.json")
             )
-            merged_mtz_full_files = sorted(
+            merged_mtz_full_files = set(
                 (working_directory / "DataFiles").glob("dose_*_full.mtz")
             )
-            merging_json_full_files = sorted(
+            merging_json_full_files = set(
                 (working_directory / "LogFiles").glob("dials.merge.dose_*_full.json")
             )
-            merged_mtz_files = list(set(merged_mtz_files).difference(set(merged_mtz_full_files)))
-            merged_json_files = list(set(merged_json_files).difference(set(merged_json_full_files)))
+            merged_mtz_files = [f for f in merged_mtz_files if f not in merged_mtz_full_files]
+            merging_json_files = [f for f in merging_json_files if f not in merging_json_full_files]
             if len(merged_mtz_files) != xia2_ssx_params.dose_series_repeat:
                 raise RuntimeError(
                     f"Expected {xia2_ssx_params.dose_series_repeat} mtz files (found {len(merged_mtz_files)})"

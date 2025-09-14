@@ -421,8 +421,12 @@ class Xia2SsxWrapper(Wrapper):
             merging_json_full_files = set(
                 (working_directory / "LogFiles").glob("dials.merge.dose_*_full.json")
             )
-            merged_mtz_files = [f for f in merged_mtz_files if f not in merged_mtz_full_files]
-            merging_json_files = [f for f in merging_json_files if f not in merging_json_full_files]
+            merged_mtz_files = [
+                f for f in merged_mtz_files if f not in merged_mtz_full_files
+            ]
+            merging_json_files = [
+                f for f in merging_json_files if f not in merging_json_full_files
+            ]
             if len(merged_mtz_files) != xia2_ssx_params.dose_series_repeat:
                 raise RuntimeError(
                     f"Expected {xia2_ssx_params.dose_series_repeat} mtz files (found {len(merged_mtz_files)})"

@@ -20,6 +20,7 @@ from ispyb.sqlalchemy import (
     AutoProcProgram,
     AutoProcProgramAttachment,
     AutoProcScaling,
+    AutoProcScalingHasInt,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -32,7 +33,8 @@ from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
-from dlstbx.util import ChainMapWithReplacement
+from dlstbx.crud import get_protein_for_dcid
+from dlstbx.util import INDUSTRIAL_CODES, ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
@@ -50,10 +52,11 @@ class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
-    mtz: pathlib.Path
+    mtz: pathlib.Path | Dict[str, pathlib.Path]
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    symlink: str = pydantic.Field(default="")
 
 
 class DataCollectionInfo(pydantic.BaseModel):
@@ -97,7 +100,7 @@ class MrBumpParameters(pydantic.BaseModel):
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
     protein_info: Optional[ProteinInfo] = None
-    hklin: pathlib.Path
+    hklin: pathlib.Path | Dict[str, pathlib.Path]
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -144,11 +147,14 @@ class BigEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
-    program_id: int = pydantic.Field(gt=0)
+    scaling_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     spacegroup: Optional[str] = None
     recipe: Optional[str] = None
+    upstream_source: Optional[str] = None
+    data: Optional[str] = None
+    scaled_unmerged_mtz: Optional[str] = None
 
     @pydantic.field_validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -168,12 +174,14 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     shelxc_path: pathlib.Path
     fast_ep_path: pathlib.Path
     program_id: int = pydantic.Field(gt=0)
+    scaling_id: int = pydantic.Field(gt=0)
     path_ext: Optional[str] = pydantic.Field(
         default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
     )
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     recipe: Optional[str] = None
+    upstream_source: Optional[str] = None
 
 
 class FastEPParameters(pydantic.BaseModel):
@@ -183,7 +191,7 @@ class FastEPParameters(pydantic.BaseModel):
     scaling_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    mtz: pathlib.Path
+    mtz: pathlib.Path | Dict[str, pathlib.Path]
     recipe: Optional[str] = None
 
 
@@ -199,7 +207,7 @@ class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
     program_id: Optional[int] = pydantic.Field(default=0, gt=0)
-    wavelength: Optional[float] = pydantic.Field(gt=0)
+    wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -215,7 +223,7 @@ class MultiplexParameters(pydantic.BaseModel):
 class Xia2SsxReduceParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
-    wavelength: Optional[float] = pydantic.Field(gt=0)
+    wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -247,6 +255,16 @@ class LigandFitParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
+    min_cc_keep: float = pydantic.Field(default=0.7)
+
+
+class AlignCrystalParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    comment: Optional[str] = None
+    upstream_pipeline: Literal["xia2-dials", "fast_dp"]
+    experiment_type: str
+    experiment_file: pathlib.Path
+    symlink: str = pydantic.Field(default="")
 
 
 class DLSTrigger(CommonService):
@@ -385,7 +403,13 @@ class DLSTrigger(CommonService):
         }
         """
 
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+        if parameters.experiment_type not in (
+            "OSC",
+            "SAD",
+            "MAD",
+            "Helical",
+            "Metal ID",
+        ):
             self.log.info(
                 f"Skipping dimple trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -409,10 +433,61 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
+        if isinstance(parameters.mtz, dict):
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            for _, program_name, filepath, filename in attachments:
+                if filename == str(parameters.mtz.get(program_name)):
+                    datafile = pathlib.Path(filepath) / filename
+                    break
+            else:
+                self.log.error(
+                    "Skipping dimple trigger: No input data files found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
+        elif isinstance(parameters.mtz, pathlib.Path):
+            datafile = parameters.mtz.as_posix()
+        else:
+            self.log.error(
+                "Skipping dimple trigger: Invalid input data type path %s",
+                type(parameters.mtz),
+            )
+            return {"success": True}
+
         dimple_parameters: dict[str, list[Any]] = {
-            "data": [os.fspath(parameters.mtz)],
+            "data": [os.fspath(datafile)],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
+            "create_symlink": [parameters.symlink],
         }
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -633,7 +708,7 @@ class DLSTrigger(CommonService):
                     .filter(DataCollection.dataCollectionId.in_(dcids))
                     .filter(DataCollection.numberOfImages == dc_info.numberOfImages)
                     .filter(DataCollection.startImageNumber == dc_info.startImageNumber)
-                    .filter(DataCollection.imagePrefix.endswith(f"E{energy_num-1}"))
+                    .filter(DataCollection.imagePrefix.endswith(f"E{energy_num - 1}"))
                     .filter(DataCollection.SESSIONID == dc_info.SESSIONID)
                 )
                 if not len(query.all()):
@@ -801,9 +876,11 @@ class DLSTrigger(CommonService):
             .options(
                 contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                 joinedload(ProcessingJob.ProcessingJobParameters),
-                Load(DataCollection)
-                .load_only("dataCollectionId", "wavelength")
-                .raiseload("*"),
+                Load(DataCollection).load_only(
+                    DataCollection.dataCollectionId,
+                    DataCollection.wavelength,
+                    raiseload=True,
+                ),
             )
             .populate_existing()
         )
@@ -929,7 +1006,7 @@ class DLSTrigger(CommonService):
             return False
 
         dc, proposal = rows[0]
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(
                 f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
             )
@@ -1008,7 +1085,7 @@ class DLSTrigger(CommonService):
                 f"mr_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(
                 f"Skipping mr_predict trigger for {proposal.proposalCode} visit"
             )
@@ -1171,17 +1248,76 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
-            self.log.info(
-                f"Skipping fast_ep trigger: experiment type {parameters.experiment_type} not supported"
-            )
-            return {"success": True}
+        if parameters.automatic:
+            if parameters.experiment_type not in (
+                "OSC",
+                "SAD",
+                "MAD",
+                "Helical",
+                "Metal ID",
+            ):
+                self.log.info(
+                    f"Skipping fast_ep trigger: experiment type {parameters.experiment_type} not supported"
+                )
+                return {"success": True}
 
-        if (
-            not parameters.diffraction_plan_info
-            or not parameters.diffraction_plan_info.anomalousScatterer
-        ):
-            self.log.info("Skipping fast_ep trigger: no anomalous scatterer specified")
+            if (
+                not parameters.diffraction_plan_info
+                or not parameters.diffraction_plan_info.anomalousScatterer
+            ):
+                self.log.info(
+                    "Skipping fast_ep trigger: no anomalous scatterer specified"
+                )
+                return {"success": True}
+
+        if isinstance(parameters.mtz, dict):
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            for _, program_name, filepath, filename in attachments:
+                if filename == str(parameters.mtz.get(program_name)):
+                    mtzin = pathlib.Path(filepath) / filename
+                    break
+            else:
+                self.log.error(
+                    "Skipping mrbump trigger: No input data files found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
+        elif isinstance(parameters.mtz, pathlib.Path):
+            mtzin = parameters.mtz
+        else:
+            self.log.error(
+                "Skipping fast_ep trigger: Invalid input data type %s",
+                type(parameters.mtz),
+            )
             return {"success": True}
 
         dcid = parameters.dcid
@@ -1204,7 +1340,7 @@ class DLSTrigger(CommonService):
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
         fast_ep_parameters = {
-            "data": os.fspath(parameters.mtz),
+            "data": os.fspath(mtzin),
             "scaling_id": parameters.scaling_id,
         }
 
@@ -1243,7 +1379,7 @@ class DLSTrigger(CommonService):
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
 
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD"):
+        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Metal ID"):
             self.log.info(
                 f"Skipping mrbump trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -1253,6 +1389,55 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
+        if isinstance(parameters.hklin, dict):
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            for _, program_name, filepath, filename in attachments:
+                if filename == str(parameters.hklin.get(program_name)):
+                    hklin = pathlib.Path(filepath) / filename
+                    break
+            else:
+                self.log.error(
+                    "Skipping mrbump trigger: No input data files found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
+        elif isinstance(parameters.hklin, pathlib.Path):
+            hklin = parameters.hklin
+        else:
+            self.log.error(
+                "Skipping mrbump trigger: Invalid input data type %s",
+                type(parameters.hklin),
+            )
+            return {"success": True}
         jobids = []
 
         all_pdb_files = set()
@@ -1271,7 +1456,7 @@ class DLSTrigger(CommonService):
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
 
             mrbump_parameters = {
-                "hklin": os.fspath(parameters.hklin),
+                "hklin": os.fspath(hklin),
                 "scaling_id": parameters.scaling_id,
             }
             if pdb_files:
@@ -1339,7 +1524,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == parameters.dcid)
         )
         proposal = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
@@ -1359,13 +1544,22 @@ class DLSTrigger(CommonService):
                 "big_ep_launcher trigger failed: Invalid program_id specified"
             )
             return False
+        try:
+            scaling_id = parameters.scaling_id
+        except (TypeError, ValueError):
+            self.log.error(
+                "big_ep_launcher trigger failed: Invalid scaling_id specified"
+            )
+            return False
         big_ep_parameters = {
             "pipeline": parameters.pipeline,
             "program_id": program_id,
+            "scaling_id": scaling_id,
             "data": os.fspath(parameters.data),
             "path_ext": parameters.path_ext,
             "shelxc_path": os.fspath(parameters.shelxc_path),
             "fast_ep_path": os.fspath(parameters.fast_ep_path),
+            "upstream_source": parameters.upstream_source,
         }
 
         for key, value in big_ep_parameters.items():
@@ -1398,7 +1592,22 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+        bigep_path_ext = {
+            "autoPROC": "autoPROC/ap-run",
+            "autoPROC+STARANISO": "autoPROC-STARANISO/ap-run",
+            "xia2 3dii": "xia2/3dii-run",
+            "xia2 dials": "xia2/dials-run",
+            "xia2 3dii (multi)": "multi-xia2/3dii",
+            "xia2 dials (multi)": "multi-xia2/dials",
+            "xia2.multiplex": "xia2.multiplex",
+        }
+        if parameters.experiment_type not in (
+            "OSC",
+            "SAD",
+            "MAD",
+            "Helical",
+            "Metal ID",
+        ):
             self.log.info(
                 f"Skipping big_ep trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -1419,65 +1628,91 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
         )
         proposal, blsession = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        query = (
-            session.query(AutoProcProgram)
-            .join(
-                AutoProcIntegration,
-                AutoProcIntegration.autoProcProgramId
-                == AutoProcProgram.autoProcProgramId,
-            )
-            .join(
-                DataCollection,
-                DataCollection.dataCollectionId == AutoProcIntegration.dataCollectionId,
-            )
-            .filter(DataCollection.dataCollectionId == dcid)
-            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
-        )
-
-        app = query.first()
-        if not app:
-            self.log.error(
-                f"big_ep trigger failed: appid = {parameters.program_id} not found for dcid = {dcid}"
-            )
-            return False
-        if (
-            parameters.automatic
-            and blsession.beamLineName == "i23"
-            and "multi" not in app.processingPrograms
-        ):
-            self.log.info(
-                f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
-            )
-            return {"success": True}
-
         class BigEPParams(pydantic.BaseModel):
+            program_id: int = pydantic.Field(gt=0)
             data: pathlib.Path
             scaled_unmerged_mtz: pathlib.Path
             path_ext: str = pydantic.Field(
                 default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
             )
 
-        try:
-            big_ep_params = BigEPParams(**parameter_map.get(app.processingPrograms, {}))
-        except pydantic.ValidationError as e:
-            self.log.error("big_ep trigger called with invalid parameters: %s", e)
+        if parameters.scaling_id:
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgram.autoProcProgramId,
+                    AutoProcProgram.processingPrograms,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            )
+            attachments = query.all()
+            big_ep_params = {}
+            for app in attachments:
+                if (
+                    parameters.automatic
+                    and blsession.beamLineName == "i23"
+                    and "multi" not in app.processingPrograms
+                ):
+                    self.log.info(
+                        f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
+                    )
+                    return {"success": True}
+                big_ep_params["program_id"] = app.autoProcProgramId
+                try:
+                    big_ep_params["path_ext"] = bigep_path_ext[app.processingPrograms]
+                except Exception:
+                    pass
+
+                for input_file in ("data", "scaled_unmerged_mtz"):
+                    processing_params = parameter_map.get(app.processingPrograms, {})
+                    input_filename = getattr(
+                        parameters, input_file
+                    ) or processing_params.get(input_file)
+                    if pathlib.Path(input_filename).is_file():
+                        big_ep_params[input_file] = pathlib.Path(input_filename)
+                    else:
+                        input_filename = pathlib.Path(app.filePath) / input_filename
+                        app_file = pathlib.Path(app.filePath) / app.fileName
+                        if re.search(str(input_filename), str(app_file)):
+                            big_ep_params[input_file] = app_file
+            big_ep_params = BigEPParams(
+                **ChainMapWithReplacement(
+                    big_ep_params,
+                    substitutions=rw.environment,
+                )
+            )
+        else:
+            self.log.error("big_ep trigger failed: No scaling_id value specified")
             return False
 
-        for inp_file in (big_ep_params.data, big_ep_params.scaled_unmerged_mtz):
-            if not inp_file.is_file():
-                self.log.info(
-                    f"Skipping big_ep trigger: input file {inp_file} not found."
-                )
-                return {"success": True}
-
-        path_ext = big_ep_params.path_ext
-        spacegroup = parameters.spacegroup
-        if spacegroup:
-            path_ext += "-" + spacegroup
+        if parameters.spacegroup:
+            big_ep_params.path_ext += "-" + parameters.spacegroup
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
@@ -1488,10 +1723,19 @@ class DLSTrigger(CommonService):
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 
+        pattern_scaled_unmerged = str(
+            getattr(parameters, "scaled_unmerged_mtz")
+            or processing_params.get("scaled_unmerged_mtz")
+        )
         big_ep_parameters = {
-            "program_id": parameters.program_id,
-            "data": os.fspath(big_ep_params.data),
-            "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
+            "program_id": big_ep_params.program_id,
+            "scaling_id": parameters.scaling_id,
+            "data": str(big_ep_params.data.resolve()),
+            "scaled_unmerged_mtz": str(
+                big_ep_params.scaled_unmerged_mtz.resolve().parent
+                / pattern_scaled_unmerged
+            ),
+            "upstream_source": parameters.upstream_source,
         }
 
         for key, value in big_ep_parameters.items():
@@ -1507,11 +1751,11 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "program_id": parameters.program_id,
-                "data": os.fspath(big_ep_params.data),
-                "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
-                "path_ext": path_ext,
-                "force": False,
+                "scaling_id": parameters.scaling_id,
+                "data": big_ep_parameters["data"],
+                "scaled_unmerged_mtz": big_ep_parameters["scaled_unmerged_mtz"],
+                "path_ext": big_ep_params.path_ext,
+                "force": not parameters.automatic or False,
             },
             "recipes": [],
         }
@@ -1802,9 +2046,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -1813,6 +2059,11 @@ class DLSTrigger(CommonService):
             data_files = []
             for dc, app, pj in query.all():
                 # Select only those dcids at the same wavelength as the triggering dcid
+                if not dc.wavelength:
+                    self.log.debug(
+                        f"Discarding appid {app.autoProcProgramId} (no wavelength information)"
+                    )
+                    continue
                 if (
                     parameters.wavelength
                     and abs(dc.wavelength - parameters.wavelength)
@@ -1857,9 +2108,12 @@ class DLSTrigger(CommonService):
                         f"Expected to find an even number of data files for appid {app.autoProcProgramId} (found {len(attachments)})"
                     )
                     continue
-                if len(attachments) == 2:
-                    dcids.append(dc.dataCollectionId)
-                    data_files.append(attachments)
+                if len(attachments) != 2:
+                    f"Skipping xia2.multiplex trigger: Found {len(attachments)} attachments, expected only two for dcid={dcid} group={group}"
+                    continue
+
+                dcids.append(dc.dataCollectionId)
+                data_files.append(attachments)
 
             if not any(data_files):
                 self.log.info(
@@ -1907,14 +2161,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():
@@ -2139,9 +2392,11 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection)
-                    .load_only("dataCollectionId", "wavelength")
-                    .raiseload("*"),
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        raiseload=True,
+                    ),
                 )
                 .populate_existing()
             )
@@ -2232,14 +2487,13 @@ class DLSTrigger(CommonService):
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .options(
-                    Load(DataCollection)
-                    .load_only(
-                        "dataCollectionId",
-                        "wavelength",
-                        "startImageNumber",
-                        "numberOfImages",
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
                     )
-                    .raiseload("*")
                 )
             )
             for dc in query.all():
@@ -2421,6 +2675,9 @@ class DLSTrigger(CommonService):
         - comment: a comment to be stored in the ProcessingJob.comment field
         - scaling_id: scaling id of the data reduction pipeline that triggered dimple
           given as a list as this is how it is presented in the dimple recipe.
+        - min_cc_keep: (optional) minimum correlation coefficient for ligand fitting to be considered successful
+        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
+          processing jobs to finish before skipping
         - automatic: boolean value passed to ProcessingJob.automatic field
 
         Example recipe parameters:
@@ -2432,7 +2689,9 @@ class DLSTrigger(CommonService):
             "pipeline": "phenix_pipeline",
             "automatic": true,
             "comment": "Ligand_fit triggered by xia2 dials",
-            "scaling_id": [123456]
+            "scaling_id": [123456],
+            "min_cc_keep": 0.7,
+            "timeout-minutes": 115
 
         }
         """
@@ -2442,6 +2701,22 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        protein_info = get_protein_for_dcid(parameters.dcid, session)
+
+        protein_id = getattr(protein_info, "proteinId", None)
+        proposal_id = getattr(protein_info, "proposalId", None)
+        acronym = getattr(protein_info, "acronym", "Protein")
+
+        if protein_id and proposal_id:
+            query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
+            proposal = query.first()
+
+            if proposal.proposalCode not in {"mx", "cm", "nt"}:
+                self.log.debug(
+                    f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
+                )
+                return {"success": True}
+
         if len(parameters.scaling_id) != 1:
             self.log.info(
                 f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"
@@ -2450,7 +2725,7 @@ class DLSTrigger(CommonService):
 
         scaling_id = parameters.scaling_id[0]
 
-        # Get data collection information for all collections in dcids
+        # Get data collection information
         query = (
             (
                 session.query(AutoProcProgram)
@@ -2481,6 +2756,7 @@ class DLSTrigger(CommonService):
             "mtz": str(parameters.mtz),
             "smiles": parameters.smiles,
             "pipeline": parameters.pipeline,
+            "acronym": acronym,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -2509,5 +2785,55 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_align_crystal(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: AlignCrystalParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type != "Characterization":
+            self.log.info(
+                f"Skipping align_crystal trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        downstream_pipeline = {"fast_dp": "xoalign", "xia2-dials": "align-crystal"}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = downstream_pipeline[parameters.upstream_pipeline]
+        jp["recipe"] = (
+            f"postprocessing-{downstream_pipeline[parameters.upstream_pipeline]}"
+        )
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"align_crystal trigger: generated JobID {jobid}")
+
+        align_crystal_parameters = {
+            "experiment_file": parameters.experiment_file.as_posix(),
+            "symlink": parameters.symlink,
+        }
+
+        for key, value in align_crystal_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Align_crystal trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Align_crystal trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

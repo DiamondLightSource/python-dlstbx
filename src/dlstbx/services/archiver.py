@@ -37,7 +37,7 @@ class Dropfile:
 
         self._dataset = ET.SubElement(investigation, "dataset")
         ET.SubElement(self._dataset, "name").text = datasetname
-        ET.SubElement(self._dataset, "dataset_type").text = "EXPERIMENT_RAW"
+        ET.SubElement(self._dataset, "dataset_type").text = "raw"
         ET.SubElement(self._dataset, "description").text = "unknown"
 
     def add(self, filename):
@@ -275,7 +275,7 @@ class DLSArchiver(CommonService):
             self._transport.nack(header)
             return
         if not filelist:
-            self.log.warn("Attempted to archive an empty list of files.")
+            self.log.warning("Attempted to archive an empty list of files.")
             self._transport.nack(header)
             return
         self.log.info(

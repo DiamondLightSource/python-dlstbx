@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import errno
+import getpass
 import json
 import logging
 import math
@@ -27,7 +28,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     tasks: Optional[int] = None  # slurm only
     nodes: Optional[int] = None  # slurm only
     memory_per_node: Optional[int] = None  # slurm only
-    gpus_per_node: Optional[str] = None  # slurm only
+    gpus_per_node: Optional[int] = None  # slurm only
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
@@ -55,7 +56,6 @@ def submit_to_slurm(
     recipewrapper: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
-
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)
@@ -83,6 +83,17 @@ def submit_to_slurm(
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
             "USER=gda2"
         ]
+        # Set ZOCALO_DEFAULT_ENV environment variable to the currently active environment
+        # so that any dlstbx/zocalo commands in the slurm job will stay in the environment
+        # unless otherwise specified. Ignore if multiple environments active.
+        if len(zc.active_environments) == 1:
+            environment.append(f"ZOCALO_DEFAULT_ENV={zc.active_environments[0]}")
+    # Account needs to be set to the user name if not running as gda2
+    if api.user_name != "gda2":
+        logger.debug(
+            f"Cluster service: Not running as gda2, setting slurm account to user - {api.user_name}"
+        )
+        params.account = api.user_name
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     jdm_params = {
@@ -120,7 +131,7 @@ def submit_to_slurm(
     try:
         response = api.submit_job(job_submission)
     except requests.HTTPError as e:
-        logger.error(f"Failed Slurm job submission: {e}\n" f"{e.response.text}")
+        logger.error(f"Failed Slurm job submission: {e}\n{e.response.text}")
         return None
     if response.error:
         error_message = f"{response.error_code}: {response.error}"
@@ -144,10 +155,6 @@ class DLSCluster(CommonService):
         Received messages must be acknowledged."""
         self.log.info("Cluster service starting")
 
-        if not self.environment_is_valid():
-            self._request_termination()
-            return
-
         self.schedulers = {
             f.name: f.load()
             for f in pkg_resources.iter_entry_points(
@@ -162,26 +169,6 @@ class DLSCluster(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
-
-    def environment_is_valid(self):
-        """Check that the cluster submission environment is sane. Specifically, that
-        there is no ~/.sge_request file interfering with cluster job submissions.
-        """
-        sge_file = pathlib.Path("~").expanduser() / ".sge_request"
-        if sge_file.exists():
-            contents = sge_file.read_bytes().strip()
-            if contents:
-                self.log.error(
-                    "Rejecting service initialisation: file %s is not empty. "
-                    "This may interfere with service operation. ",
-                    str(sge_file),
-                )
-                return False
-
-            self.log.info(
-                "Note: empty file %s found during service startup", str(sge_file)
-            )
-        return True
 
     @staticmethod
     def _recursive_mkdir(path):
@@ -302,6 +289,20 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
+
+        if "$DIALS_VERSION" in params.commands:
+            active_envs = self.config.active_environments
+            dials_version = ""
+            if len(active_envs) == 1:
+                active_env = active_envs[0]
+                if active_env == "devrmq":
+                    dials_version = getpass.getuser()
+                else:
+                    dials_version = active_env
+            self.log.debug(
+                f"Cluster service: Replacing $DIALS_VERSION with {dials_version}"
+            )
+            params.commands = params.commands.replace("$DIALS_VERSION", dials_version)
 
         submit_to_scheduler = self.schedulers.get(params.scheduler)
 

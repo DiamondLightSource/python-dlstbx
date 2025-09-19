@@ -9,7 +9,7 @@
       <inv_type>experiment</inv_type>
       <dataset>
         <name>regression_data/insulin</name>
-        <dataset_type>EXPERIMENT_RAW</dataset_type>
+        <dataset_type>raw</dataset_type>
         <description>unknown</description>
         <datafile>
           <name>insulin_1_007.img</name>

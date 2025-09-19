@@ -48,7 +48,7 @@ class Xia2SsxParams(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def check_template_or_image(cls, values):
-        if values.get("template") is None and values.get("image") is None:
+        if not (values.template or values.image):
             raise ValueError("Either template or image must be defined")
         return values
 
@@ -74,9 +74,24 @@ class Xia2SsxWrapper(Wrapper):
                 else f"image={params.image}"
             ),
         ]
-        if params.unit_cell:
+        ## If a unit cell and space group is provided by the user as well as a pdb, the user
+        ## provided cell and space group takes precedence.
+        unit_cell = None
+        space_group = None
+        ## If a cell plus space group has not been specified, try to extract both from
+        ## the reference pdb.
+        if (not (params.unit_cell and params.spacegroup)) and params.reference_pdb:
+            cell_and_space_group = self.get_uc_sg_from_pdb(params)
+            if cell_and_space_group:
+                unit_cell = cell_and_space_group[0]
+                space_group = cell_and_space_group[1]
+        if unit_cell:
+            command.append("unit_cell=%s,%s,%s,%s,%s,%s" % unit_cell)
+        elif params.unit_cell:
             command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)
-        if params.spacegroup:
+        if space_group:
+            command.append(f"space_group={space_group}")
+        elif params.spacegroup:
             command.append(f"space_group={params.spacegroup}")
         reference_pdb = self.find_matching_reference_pdb(params)
         if reference_pdb:
@@ -86,6 +101,36 @@ class Xia2SsxWrapper(Wrapper):
         if params.dose_series_repeat:
             command.append(f"dose_series_repeat={params.dose_series_repeat}")
         return command
+
+    def get_uc_sg_from_pdb(
+        self, params: Xia2SsxParams
+    ) -> tuple[tuple[float, float, float, float, float, float], str] | None:
+        for pdb in params.reference_pdb:
+            strname = str(pdb)
+            pdb_file = None
+            if not os.path.isfile(strname) and len(strname) == 4:
+                local_pdb_copy = Path(
+                    f"/dls/science/groups/scisoft/PDB/{strname.lower()[1:3]}/pdb{strname.lower()}.ent.gz"
+                )
+                if local_pdb_copy.is_file():
+                    pdb_file = local_pdb_copy
+            elif os.path.isfile(strname):
+                pdb_file = strname
+            if pdb_file:
+                try:
+                    pdb_inp = iotbx.pdb.input(str(pdb_file))
+                # If the file is not found, an OSError will be raised. But if iotbx fails to parse the file,
+                # there are many possible exceptions, so be generous.
+                except Exception as e:
+                    self.log.warning(
+                        f"Warning: Could not read PDB file {str(pdb_file)}: {e}"
+                    )
+                    continue
+                crystal_symmetry = pdb_inp.crystal_symmetry()
+                unit_cell = crystal_symmetry.unit_cell().parameters()
+                space_group = str(crystal_symmetry.space_group().info())
+                return (unit_cell, space_group)
+        return None
 
     def find_matching_reference_pdb(self, params: Xia2SsxParams) -> str | None:
         if not params.unit_cell and not params.spacegroup:
@@ -361,6 +406,8 @@ class Xia2SsxWrapper(Wrapper):
                 )
                 allfiles.append(os.fspath(result_file))
 
+        # Get the merged mtz and json files at the suggested resolution limit,
+        # for reporting in ISPyB. Don't use the "full" files for reporting.
         if xia2_ssx_params.dose_series_repeat:
             merged_mtz_files = sorted(
                 (working_directory / "DataFiles").glob("dose_*.mtz")
@@ -368,6 +415,18 @@ class Xia2SsxWrapper(Wrapper):
             merging_json_files = sorted(
                 (working_directory / "LogFiles").glob("dials.merge.dose_*.json")
             )
+            merged_mtz_full_files = set(
+                (working_directory / "DataFiles").glob("dose_*_full.mtz")
+            )
+            merging_json_full_files = set(
+                (working_directory / "LogFiles").glob("dials.merge.dose_*_full.json")
+            )
+            merged_mtz_files = [
+                f for f in merged_mtz_files if f not in merged_mtz_full_files
+            ]
+            merging_json_files = [
+                f for f in merging_json_files if f not in merging_json_full_files
+            ]
             if len(merged_mtz_files) != xia2_ssx_params.dose_series_repeat:
                 raise RuntimeError(
                     f"Expected {xia2_ssx_params.dose_series_repeat} mtz files (found {len(merged_mtz_files)})"
@@ -394,12 +453,12 @@ class Xia2SsxWrapper(Wrapper):
                 wl = list(d.keys())[0]
 
                 if not (merging_stats := d[wl].get("merging_stats")):
-                    self.log.warn(
+                    self.log.warning(
                         "Dataset contains no equivalent reflections, "
                         "merging statistics cannot be calculated."
                     )
                 if not (merging_stats_anom := d[wl].get("merging_stats_anom")):
-                    self.log.warn(
+                    self.log.warning(
                         "Anomalous dataset contains no equivalent reflections, "
                         "anomalous merging statistics cannot be calculated."
                     )

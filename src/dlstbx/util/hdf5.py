@@ -3,7 +3,7 @@ import collections
 import logging
 import os
 
-import dxtbx  # noqa: F401; dxtbx must be imported before h5py is imported
+import dxtbx  # noqa: F401 # dxtbx must be imported before h5py is imported
 
 import h5py
 import numpy as np

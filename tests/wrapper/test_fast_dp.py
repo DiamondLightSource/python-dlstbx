@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 from unittest import mock
 
 import dlstbx.wrapper.fast_dp
@@ -9,9 +11,12 @@ from dlstbx.wrapper.fast_dp import FastDPWrapper
 
 def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
     image_path = "/dls/i04-1/data/2019/nt18231-19/tmp/2019-05-02/09-36-17-da63fb1b/INS2_29_2_1_0001.cbf:1:200"
-    working_directory = tmpdir.join("work_dir")
-    working_directory.ensure(dir=True)
-    results_directory = tmpdir.join("results_dir")
+    working_directory = Path(tmpdir) / "work_dir"
+    working_directory.mkdir(parents=True, exist_ok=True)
+    results_directory = Path(tmpdir) / "results_dir"
+    results_directory.mkdir(parents=True, exist_ok=True)
+    final_directory = Path(tmpdir) / "final_dir"
+    final_directory.mkdir(parents=True, exist_ok=True)
     results_d = {
         "refined_beam": [206.45053836697736, 211.11095943078706],
         "commandline": "/path/to/cctbx/modules/fast_dp/fast_dp/fast_dp.py --atom=S -j 0 -J 18 -l durin-plugin.so %s --resolution-high=1.8"
@@ -66,7 +71,16 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
             },
         },
     }
-    working_directory.join("fast_dp.json").write(json.dumps(results_d))
+    with open(working_directory / "fast_dp.json", "w") as fp:
+        fp.write(json.dumps(results_d))
+
+    expected_final_files = [
+        "aimless.log",
+        "fast_dp.log",
+        "fast_dp.mtz",
+        "fast_dp-report.html",
+        "xtriage.log",
+    ]
 
     # define the recipewrap
     recipewrap = {
@@ -77,9 +91,13 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
                     "dcid": "3603387",
                     "fast_dp": {"filename": image_path},
                     "ispyb_parameters": {"d_min": "1.8"},
-                    "results_directory": results_directory.strpath,
+                    "results_directory": str(results_directory),
                     "timeout": None,
-                    "working_directory": working_directory.strpath,
+                    "working_directory": str(working_directory),
+                    "pipeline-final": {
+                        "path": str(final_directory),
+                        "patterns": expected_final_files,
+                    },
                 },
                 "output": {
                     "failure": 6,
@@ -151,9 +169,11 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
         "fast_dp-report.html",
         "iotbx-merging-stats.json",
     ]
+    for output_file in expected_output_files:
+        (working_directory / output_file).touch()
 
-    # expected calls to procrunner
-    expected_procrunner_calls = [
+    # expected calls to subprocess
+    expected_subprocess_calls = [
         mock.call(
             [
                 "fast_dp",
@@ -167,22 +187,21 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
                 image_path,
                 "--resolution-high=1.8",
             ],
-            environment_override={},
-            raise_timeout_exception=True,
             timeout=None,
-            working_directory=working_directory.strpath,
+            env=dict(os.environ),
+            cwd=working_directory,
         ),
         mock.call(
             [
                 "xia2.report",
-                "log_include=%s/fast_dp.log" % working_directory.strpath,
+                f"log_include={str(working_directory / 'fast_dp.log')}",
                 "prefix=fast_dp",
                 "title=fast_dp",
                 "fast_dp_unmerged.mtz",
             ],
             timeout=None,
-            raise_timeout_exception=True,
-            working_directory=working_directory.strpath,
+            env=dict(os.environ),
+            cwd=working_directory,
         ),
     ]
 
@@ -196,10 +215,11 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
     wrapper = make_wrapper(
         FastDPWrapper,
         recipewrap,
+        expected_final_files=expected_final_files,
         expected_output_files=expected_output_files,
         expected_output_directories=None,
         expected_individual_files=expected_individual_files,
-        expected_procrunner_calls=expected_procrunner_calls,
+        expected_subprocess_calls=expected_subprocess_calls,
     )
     mock_get_merging_statistics = mocker.patch.object(
         dlstbx.wrapper.fast_dp, "get_merging_statistics"

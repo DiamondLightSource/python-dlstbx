@@ -43,10 +43,32 @@ def handle_vmxi_gridscan(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
+    symmetry_parameters: ParamTuple = ()
+    if scenario.spacegroup:
+        spacegroup = scenario.spacegroup.string
+        symmetry_parameters += (
+            mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
+        )
+        if scenario.unitcell:
+            symmetry_parameters += (
+                mimas.MimasISPyBParameter(
+                    key="unit_cell", value=scenario.unitcell.string
+                ),
+            )
     return [
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="autoprocessing-xia2-ssx-eiger",
+            source="automatic",
+            sweeps=tuple(scenario.getsweepslistfromsamedcg),
+            displayname="xia2.ssx",
+            parameters=symmetry_parameters,
+        ),
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
-        )
+        ),
     ]
 
 
@@ -60,6 +82,8 @@ def handle_vmxi_rotation_scan(
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="vmxi-per-image-analysis"
         ),
+        # mmcif-gen
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="processing-mmcif-gen"),
         # fast_dp
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,

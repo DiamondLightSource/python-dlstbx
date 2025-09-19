@@ -227,6 +227,7 @@ def test_datacollection_classification(db_session):
         "gridinfo": {"steps_x": 1, "steps_y": 80},
     }
     assert i.classify_dc(dc, None) == {
+        "characterization": False,
         "grid": True,
         "rotation": False,
         "screen": False,
@@ -238,6 +239,7 @@ def test_datacollection_classification(db_session):
     i = ispybtbx()
     dc = {"axisRange": 0, "numberOfImages": 1, "overlap": 0, "gridinfo": {}}
     assert i.classify_dc(dc, None) == {
+        "characterization": False,
         "grid": False,
         "rotation": False,
         "screen": True,
@@ -248,6 +250,7 @@ def test_datacollection_classification(db_session):
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
     assert i.classify_dc(dc, None) == {
+        "characterization": False,
         "grid": False,
         "rotation": True,
         "screen": False,
@@ -258,6 +261,7 @@ def test_datacollection_classification(db_session):
 
     dc = {"axisRange": 90, "numberOfImages": 3, "overlap": -44.5}
     assert i.classify_dc(dc, None) == {
+        "characterization": False,
         "grid": False,
         "rotation": False,
         "screen": True,
@@ -268,6 +272,7 @@ def test_datacollection_classification(db_session):
 
     dc = {"axisRange": 0, "numberOfImages": 25600, "overlap": 0}
     assert i.classify_dc(dc, "Serial Fixed") == {
+        "characterization": False,
         "grid": False,
         "rotation": False,
         "screen": False,
@@ -278,6 +283,7 @@ def test_datacollection_classification(db_session):
 
     dc = {"axisRange": 0, "numberOfImages": 10000, "overlap": 0}
     assert i.classify_dc(dc, "Serial Jet") == {
+        "characterization": False,
         "grid": False,
         "rotation": False,
         "screen": False,
@@ -288,6 +294,7 @@ def test_datacollection_classification(db_session):
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
     assert i.classify_dc(dc, "Diamond Anvil High Pressure") == {
+        "characterization": False,
         "grid": False,
         "rotation": True,
         "screen": False,

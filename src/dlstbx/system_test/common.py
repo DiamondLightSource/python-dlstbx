@@ -161,9 +161,9 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
     ):
         """Use this function within tests to wait for messages to queues and topics."""
         assert queue or topic, "Message queue or topic destination required"
-        assert (
-            not queue or not topic
-        ), "Can only expect message on queue or topic, not both"
+        assert not queue or not topic, (
+            "Can only expect message on queue or topic, not both"
+        )
         self._messaging(
             "expect",
             queue=queue,
@@ -197,9 +197,9 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
             queue = self.target_queue or recipe[recipe_pointer].get("queue")
             topic = recipe[recipe_pointer].get("topic")
             assert queue or topic, "Message queue or topic destination required"
-        assert (
-            not queue or not topic
-        ), "Can only expect message on queue or topic, not both"
+        assert not queue or not topic, (
+            "Can only expect message on queue or topic, not both"
+        )
         if headers is None:
             headers = {"workflows-recipe": mock.ANY}
         else:
@@ -252,9 +252,9 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
             queue = recipe[recipe_pointer].get("queue")
             topic = recipe[recipe_pointer].get("topic")
             assert queue or topic, "Message queue or topic destination required"
-        assert (
-            not queue or not topic
-        ), "Can only expect message on queue or topic, not both"
+        assert not queue or not topic, (
+            "Can only expect message on queue or topic, not both"
+        )
 
         self._messaging(
             "quiet",

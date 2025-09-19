@@ -31,6 +31,7 @@ class XrayCentering(CommonSystemTest):
                     "output": os.fspath(json_file),
                     "log": os.fspath(log_file),
                     "beamline": "i03",
+                    "sample_id": 12345,
                 },
                 "gridinfo": {
                     "dx_mm": 0.02,
@@ -106,6 +107,7 @@ class XrayCentering(CommonSystemTest):
                         "best_image": 6,
                         "reflections_in_best_image": 5,
                         "best_region": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0]],
+                        "sample_id": 12345,
                     },
                 ],
                 "status": "success",
@@ -137,6 +139,7 @@ class XrayCentering(CommonSystemTest):
                         "experiment_type": "Mesh3D",
                         "beamline": "i03",
                         "threshold": 0.5,
+                        "sample_id": 12345,
                     },
                     "output": 2,
                     "gridinfo": {
@@ -192,10 +195,11 @@ class XrayCentering(CommonSystemTest):
                             8.663551401869158,
                         ],
                         "max_voxel": [6, 5, 8],
-                        "max_count": 126,
+                        "max_count": 126.0,
                         "n_voxels": 18,
-                        "total_count": 1498,
+                        "total_count": 1498.0,
                         "bounding_box": [[5, 4, 7], [8, 8, 10]],
+                        "sample_id": 12345,
                     }
                 ],
                 "status": "success",

@@ -45,7 +45,7 @@ class GraylogRRD:
             self.log.info("No update required.")
             return
         if not self.api_graylog:
-            self.log.warn("Graylog API not available.")
+            self.log.warning("Graylog API not available.")
             return
         # Process at most one month worth of log history
         update_from = max(
@@ -68,7 +68,7 @@ class GraylogRRD:
             updates.append(update_record)
 
         if not updates:
-            self.log.warn("No updates available")
+            self.log.warning("No updates available")
             return
 
         while updates:

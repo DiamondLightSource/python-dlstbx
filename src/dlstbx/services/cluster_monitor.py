@@ -9,8 +9,6 @@ import requests
 from workflows.services.common_service import CommonService
 from zocalo.util import slurm
 
-import dlstbx.util.cluster
-
 
 class DLSClusterMonitor(CommonService):
     """A service to interface zocalo with functions to gather cluster statistics."""
@@ -28,7 +26,6 @@ class DLSClusterMonitor(CommonService):
         # Generate cluster statistics up to every 30 seconds.
         # Statistics go with debug level to a separate logger so they can be
         # filtered by log monitors.
-        self.cluster_statistics = dlstbx.util.cluster.ClusterStatistics()
 
         self.slurm_api: slurm.SlurmRestApi = (
             slurm.SlurmRestApi.from_zocalo_configuration(self.config)
@@ -37,6 +34,11 @@ class DLSClusterMonitor(CommonService):
             slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
         )
 
+        self.cluster_api = {
+            "slurm": self.slurm_api,
+            "iris": self.iris_api,
+        }
+        self.scheduler = self.config.storage.get("scheduler", "slurm")
         self.stats_log = logging.getLogger(self._logger_name + ".stats")
         self.stats_log.setLevel(logging.DEBUG)
         self._register_idle(30, self.update_cluster_statistics)
@@ -44,22 +46,20 @@ class DLSClusterMonitor(CommonService):
     def update_cluster_statistics(self):
         """Gather some cluster statistics."""
 
-        for scheduler, cluster_api in [
-            ("slurm", self.slurm_api),
-            ("iris", self.iris_api),
-        ]:
-            try:
-                self.log.debug(f"Gathering {scheduler} job statistics")
-                timestamp = time.time()
-                job_info_resp: slurm.models.OpenapiJobInfoResp = cluster_api.get_jobs()
-            except requests.HTTPError as e:
-                self.log.error(f"Failed Slurm API call: {e}\n" f"{e.response.text}")
-                raise e
-            else:
-                self.calculate_slurm_statistics(scheduler, job_info_resp, timestamp)
-            # Add timeout between making SLURM REST API calls.
-            # Trying to address https://support.schedmd.com/show_bug.cgi?id=21123
-            time.sleep(5)
+        try:
+            self.log.debug(f"Gathering {self.scheduler} job statistics")
+            timestamp = time.time()
+            job_info_resp: slurm.models.OpenapiJobInfoResp = self.cluster_api[
+                self.scheduler
+            ].get_jobs()
+        except requests.HTTPError as e:
+            self.log.error(f"Failed Slurm API call: {e}\n{e.response.text}")
+            raise e
+        else:
+            self.calculate_slurm_statistics(self.scheduler, job_info_resp, timestamp)
+        # Add timeout between making SLURM REST API calls.
+        # Trying to address https://support.schedmd.com/show_bug.cgi?id=21123
+        time.sleep(5)
 
     def calculate_slurm_statistics(
         self, scheduler, response: slurm.models.OpenapiJobInfoResp, timestamp
@@ -68,7 +68,7 @@ class DLSClusterMonitor(CommonService):
         jobs_states = itertools.chain(
             *[
                 job.job_state
-                for job in dict(response.jobs).get("__root__", [])
+                for job in getattr(response.jobs, "root", [])
                 if job.user_name == "gda2"
             ]
         )

@@ -68,7 +68,7 @@ def main(
             time.sleep(per_image_delay)
         data_files[b]["data"][f] = image()
         data_files[b].flush()
-        logger.info(f"data_{b:06d}.h5 {f} {b*block_size+f} {time.time()}")
+        logger.info(f"data_{b:06d}.h5 {f} {b * block_size + f} {time.time()}")
 
 
 if __name__ == "__main__":

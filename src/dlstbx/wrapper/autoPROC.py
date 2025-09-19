@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import time
 import xml.etree.ElementTree
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
@@ -111,9 +112,6 @@ def construct_commandline(
 
     command = [
         "process",
-        "-xml",
-        "-M",
-        "HighResCutOnCChalf",
         "-M",
         "ReportingInlined",
         'AutoProcSmallFootprint="yes"',
@@ -192,8 +190,6 @@ def construct_commandline(
             first_image_or_master_h5,
             macro=macro,
         )
-        if beamline == "i04-1":
-            untrusted_rectangles.append("774 1029 1356 1613")
 
         if beamline == "i24" and first_image_or_master_h5.endswith(".cbf"):
             # i24 can run in tray mode (horizontal gonio) or pin mode
@@ -287,6 +283,8 @@ class autoPROCWrapper(Wrapper):
         special_program_name: str | None = None,
         attachments: list[tuple[str, Path, str, int]] | None = None,
         res_i_sig_i_2: float | None = None,
+        mtz_file: str | None = None,
+        dimple_symlink: str | None = None,
     ):
         ispyb_command_list = []
 
@@ -341,7 +339,7 @@ class autoPROCWrapper(Wrapper):
         APSC = autoproc_xml.get("AutoProcScalingContainer", {})
         if isinstance(APSC, list):
             # For multiple sweeps autoPROC duplicates this container
-            APSC = APSC[0]
+            APSC = APSC[-1]
         if "AutoProcScalingStatistics" in APSC:
             insert_scaling: dict[str, Any] = {
                 "ispyb_command": "insert_scaling",
@@ -462,7 +460,17 @@ class autoPROCWrapper(Wrapper):
             len(ispyb_command_list),
             str(ispyb_command_list),
         )
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        # Store parameters in recwrap environment to be used by downstream jobs
+        self.recwrap.environment.update(
+            {
+                "mtz_file": mtz_file,
+                "dimple_symlink": dimple_symlink,
+            }
+        )
+        self.recwrap.send_to(
+            "ispyb" if success else "result-files",
+            {"ispyb_command_list": ispyb_command_list},
+        )
         return success
 
     def setup(self, working_directory: Path, params: dict):
@@ -622,6 +630,20 @@ class autoPROCWrapper(Wrapper):
                 os.fspath(results_directory), params["create_symlink"]
             )
 
+        if pipeine_final_params := params.get("pipeline-final", []):
+            final_directory = Path(pipeine_final_params["path"]) / "autoPROC"
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params["create_symlink"]
+                )
+
+            def is_final_result(final_file: Path) -> bool:
+                return any(
+                    fnmatch(str(final_file.name), patt)
+                    for patt in pipeine_final_params["patterns"]
+                )
+
         copy_extensions = {
             ".cif",
             ".dat",
@@ -634,7 +656,13 @@ class autoPROCWrapper(Wrapper):
             ".sca",
             ".stats",
         }
-        keep = {"summary.tar.gz": "result", "iotbx-merging-stats.json": "graph"}
+        keep = {
+            "summary.tar.gz": "result",
+            "aimless_unmerged.mtz": "result",
+            "summary.html": "log",
+            "report.pdf": "log",
+            "iotbx-merging-stats.json": "graph",
+        }
         if autoproc_xml:
             for entry in autoproc_xml.get("AutoProcProgramContainer", {}).get(
                 "AutoProcProgramAttachment", []
@@ -642,9 +670,8 @@ class autoPROCWrapper(Wrapper):
                 keep[entry["fileName"]] = {"log": "log"}.get(
                     entry["fileType"].lower(), "result"
                 )
-        else:
-            success = False
         if staraniso_xml:
+            keep["report_staraniso.pdf"] = "log"
             for entry in staraniso_xml.get("AutoProcProgramContainer", {}).get(
                 "AutoProcProgramAttachment", []
             ):
@@ -653,7 +680,6 @@ class autoPROCWrapper(Wrapper):
                 )
         for filename in working_directory.glob("staraniso*ell"):
             keep[filename.name] = "result"
-        allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
         for filename in working_directory.iterdir():
@@ -666,6 +692,9 @@ class autoPROCWrapper(Wrapper):
             destination = results_directory / filename.name
             self.log.debug(f"Copying {filename} to {destination}")
             shutil.copy2(filename, destination, follow_symlinks=False)
+            if pipeine_final_params and is_final_result(filename):
+                destination = final_directory / filename.name
+                shutil.copy2(filename, destination)
 
             # Fix symlinks to point to a file in the processing directory
             if destination.is_symlink():
@@ -695,8 +724,8 @@ class autoPROCWrapper(Wrapper):
                     )
                 )
             else:
-                if keep_as == "log":
-                    # also record log files for staraniso
+                if (keep_as == "log") or ("unmerged" in filename.name):
+                    # also record log and umnerged data files for staraniso
                     anisofiles.append(
                         (
                             destination.name,
@@ -713,11 +742,6 @@ class autoPROCWrapper(Wrapper):
                         importance_rank,
                     )
                 )
-                allfiles.append(os.fspath(destination))
-        if allfiles:
-            self.record_result_all_files({"filelist": allfiles})
-        else:
-            success = False
 
         # Calculate the resolution at which the mean merged I/sig(I) = 2
         # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
@@ -742,6 +766,8 @@ class autoPROCWrapper(Wrapper):
                 success,
                 attachments=attachments,
                 res_i_sig_i_2=res_i_sig_i_2,
+                mtz_file=(results_directory / "truncate-unique.mtz").as_posix(),
+                dimple_symlink="dimple-autoPROC",
             )
         if staraniso_xml:
             self.send_results_to_ispyb(
@@ -749,6 +775,10 @@ class autoPROCWrapper(Wrapper):
                 success,
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
+                mtz_file=(
+                    results_directory / "staraniso_alldata-unique.mtz"
+                ).as_posix(),
+                dimple_symlink="dimple-autoPROC+staraniso",
             )
 
         return success

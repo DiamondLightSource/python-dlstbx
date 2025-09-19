@@ -176,9 +176,9 @@ def rewrite(
 
         for i in range(vds_nblocks):
             filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
-            assert (
-                not filename.exists()
-            ), f"Refusing to overwrite existing file {filename}"
+            assert not filename.exists(), (
+                f"Refusing to overwrite existing file {filename}"
+            )
             data_file = h5py.File(filename, "w", libver="latest")
             data_file.create_dataset(
                 "data",

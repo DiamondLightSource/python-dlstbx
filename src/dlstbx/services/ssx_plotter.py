@@ -47,20 +47,20 @@ class Payload(pydantic.BaseModel):
     every: int = 1
     spot_count_cutoff: pydantic.NonNegativeInt = 16
     files_expected: Optional[pydantic.NonNegativeInt] = pydantic.Field(
-        alias="files-expected"
+        default=None, alias="files-expected"
     )
     images_expected: Optional[pydantic.NonNegativeInt] = pydantic.Field(
-        alias="images-expected"
+        default=None, alias="images-expected"
     )
     timeout: pydantic.PositiveFloat = 3600
     status: Optional[Status] = None
 
     @pydantic.model_validator(mode="after")
     def check_files_expected_or_images_expected(cls, values):
-        if (
-            values.get("files_expected") is None
-            and values.get("images_expected") is None
-        ):
+        assert isinstance(values, Payload), (
+            f"Expected values to be passed to validator a Payload class object, instead received: {type(values)}"
+        )
+        if values.files_expected is None and values.images_expected is None:
             raise ValueError("Either files-expected or images-expected must be defined")
         return values
 

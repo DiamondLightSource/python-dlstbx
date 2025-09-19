@@ -11,7 +11,7 @@ import pathlib
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, TypedDict, Union, cast
 
 import gemmi
 import ispyb.sqlalchemy as isa
@@ -72,6 +72,13 @@ def setup_marshmallow_schema(session):
                 },
             )
             setattr(class_, "__marshmallow__", schema_class)
+
+
+class PinInfoDict(TypedDict):
+    loopType: str | None
+    containerId: int | None
+    subLocation: int | None
+    location: int | None
 
 
 class ispybtbx:
@@ -656,11 +663,61 @@ class ispybtbx:
             and not (
                 experiment_type == "Serial Fixed" or experiment_type == "Serial Jet"
             ),
+            "characterization": experiment_type == "Characterization",
             "rotation": self.dc_info_is_rotation_scan(dc_info),
             "serial_fixed": experiment_type == "Serial Fixed",
             "serial_jet": experiment_type == "Serial Jet",
             "diamond_anvil_cell": experiment_type == "Diamond Anvil High Pressure",
         }
+
+    def get_pin_info_from_sample_id(
+        self, sample_id: int | None, session: sqlalchemy.orm.session.Session
+    ) -> PinInfoDict | None:
+        if not sample_id:
+            return None
+
+        result = (
+            session.query(
+                isa.BLSample.containerId,
+                isa.BLSample.location,
+                isa.BLSample.subLocation,
+                isa.BLSample.loopType,
+            )
+            .filter(isa.BLSample.blSampleId == sample_id)
+            .one()
+        )
+        pin_info: PinInfoDict = {
+            "containerId": cast(int | None, result.containerId),
+            "location": cast(int | None, result.location),
+            "subLocation": cast(int | None, result.subLocation),
+            "loopType": cast(str | None, result.loopType),
+        }
+        return pin_info
+
+    def get_all_sample_ids_for_multisample_pin(
+        self,
+        pin_info: PinInfoDict,
+        session: sqlalchemy.orm.session.Session,
+    ) -> dict[int, int]:
+        """
+        Returns a dictionary with key value pairs of sub_location : sample_id for a multisample pin.
+        If looptype not specified or doesn't start with multipin, returns empty.
+        """
+        if pin_info["loopType"] is None or not pin_info["loopType"].startswith(
+            "multipin"
+        ):
+            return {}
+
+        result = (
+            session.query(isa.BLSample.blSampleId, isa.BLSample.subLocation)
+            .filter(
+                isa.BLSample.containerId == pin_info["containerId"],
+                isa.BLSample.location == pin_info["location"],
+            )
+            .all()
+        )
+
+        return {sub_location: sample_id for sample_id, sub_location in result}
 
     @staticmethod
     def get_visit_directory_from_image_directory(
@@ -707,7 +764,7 @@ class ispybtbx:
             visit, "tmp", "zocalo", rest, collection_path, dc_info["uuid"]
         )
 
-    def dc_info_to_results_directory(self, dc_info):
+    def dc_info_to_results_directory(self, dc_info, final=False):
         directory = dc_info.get("imageDirectory")
         if not directory:
             return None
@@ -718,7 +775,14 @@ class ispybtbx:
         dc_number = dc_info["dataCollectionNumber"] or ""
         if collection_path or dc_number:
             collection_path = f"{collection_path}_{dc_number}"
-        return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
+        return os.path.join(
+            visit,
+            "processed",
+            "pipeline-final" if final else "",
+            rest,
+            collection_path,
+            dc_info["uuid"],
+        )
 
     def get_diffractionplan_from_dcid(
         self, dcid: int, session: sqlalchemy.orm.session.Session
@@ -825,6 +889,9 @@ def ispyb_filter(
     parameters["ispyb_visit_directory"] = visit_directory
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
+    parameters["ispyb_final_directory"] = i.dc_info_to_results_directory(
+        dc_info, final=True
+    )
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
     parameters["ispyb_reference_geometry"] = None
@@ -883,6 +950,14 @@ def ispyb_filter(
         dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
     )
 
+    pin_info = i.get_pin_info_from_sample_id(
+        parameters["ispyb_dc_info"].get("BLSAMPLEID"), session
+    )
+    parameters["ispyb_pin_info"] = pin_info or {}
+    parameters["ispyb_msp_sample_ids"] = (
+        i.get_all_sample_ids_for_multisample_pin(pin_info, session) if pin_info else {}
+    )
+
     if (
         "ispyb_processing_job" in parameters
         and parameters["ispyb_processing_job"]["recipe"]
@@ -931,7 +1006,7 @@ def ispyb_filter(
 
         related_images = []
 
-        for dc in session.execute(stmt).all():
+        for dc in session.execute(stmt).mappings():
             start, end = i.dc_info_to_start_end(dc)
             parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
 

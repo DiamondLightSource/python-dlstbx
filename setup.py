@@ -18,7 +18,6 @@ console_scripts = [
     "dlstbx.ep_predict_results=dlstbx.cli.ep_predict_results:runmain",
     "dlstbx.find_funny_eiger_frames=dlstbx.cli.find_funny_eiger_frames:run",
     "dlstbx.find_in_ispyb=dlstbx.cli.find_in_ispyb:run",
-    "dlstbx.fix_cluster_jobs=dlstbx.cli.fix_cluster_jobs:run",
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
     "dlstbx.get_dcids_for_visit=dlstbx.cli.get_dcids_for_visit:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",
@@ -28,6 +27,7 @@ console_scripts = [
     "dlstbx.h5rewrite=dlstbx.cli.h5rewrite:cli",
     "dlstbx.hdf5_missing_frames=dlstbx.cli.hdf5_missing_frames:run",
     "dlstbx.mimas=dlstbx.cli.mimas:run",
+    "dlstbx.mmcif_gen_dls_json=dlstbx.cli.mmcif_gen_dls_json:run",
     "dlstbx.mr_predict_results=dlstbx.cli.mr_predict_results:runmain",
     "dlstbx.pickup=dlstbx.cli.pickup:run",
     "dlstbx.pilatus_settings_check=dlstbx.cli.pilatus_settings_check:run",
@@ -59,6 +59,7 @@ swirltbx_hacks = [
 
 known_wrappers = [  # please keep alphabetically sorted
     "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
+    "align_crystal_downstream = dlstbx.wrapper.dials_align_crystal:AlignCrystalWrapper",
     "AlphaFold = dlstbx.wrapper.alphafold:AlphaFoldWrapper",
     "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
     "best = dlstbx.wrapper.best:BESTWrapper",
@@ -159,6 +160,7 @@ health_checks = [
 ]
 
 mimas_scenario_handlers = [
+    "characterization = dlstbx.mimas.core:handle_characterization",
     "eiger_screening = dlstbx.mimas.core:handle_eiger_screening",
     "eiger_serial_end = dlstbx.mimas.ssx:handle_eiger_serial_end",
     "eiger_serial_start = dlstbx.mimas.ssx:handle_eiger_serial_start",

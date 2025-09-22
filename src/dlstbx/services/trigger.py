@@ -69,8 +69,8 @@ class DataCollectionInfo(pydantic.BaseModel):
 
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
-    sample_id: Optional[int] = pydantic.Field(gt=0)
-    sample_group_id: Optional[int] = pydantic.Field(gt=0)
+    sample_id: Optional[int] = pydantic.Field(gt=0, default=None)
+    sample_group_id: Optional[int] = pydantic.Field(gt=0, default=None)
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -760,7 +760,6 @@ class DLSTrigger(CommonService):
                 dcids = sorted(dcids)[-2::]
 
             self.log.info(f"Metal ID trigger: found dcids {dcids}")
-            return {"success": True}
 
         proc_prog = parameters.proc_prog
 

@@ -23,11 +23,6 @@ class XOalignWrapper(Wrapper):
             substitutions=self.recwrap.environment,
         )
 
-        beamline = params["beamline"]
-        if beamline not in ("i03", "i04"):
-            # Only run XOalign on these beamlines
-            return True
-
         if isinstance(params["experiment_file"], list):
             experiment_file = Path(params["experiment_file"][0])
         else:
@@ -62,6 +57,7 @@ class XOalignWrapper(Wrapper):
         else:
             datum = ""
 
+        beamline = params["beamline"]
         subprocess_environment = os.environ.copy()
         subprocess_environment["XOALIGN_CALIB"] = (
             f"/dls_sw/{beamline}/etc/xoalign_config.py"
@@ -94,7 +90,7 @@ class XOalignWrapper(Wrapper):
         with open(working_directory / "XOalign.log", "w") as log_file:
             log_file.write(result.stdout)
 
-        self.insertXOalignStrategies(params["dcid"], result.stdout)
+        self.insertXOalignStrategies(result.stdout)
 
         results_directory.mkdir(parents=True, exist_ok=True)
 
@@ -110,7 +106,7 @@ class XOalignWrapper(Wrapper):
                 shutil.copy(path, results_directory)
         return success
 
-    def insertXOalignStrategies(self, dcid, xoalign_log):
+    def insertXOalignStrategies(self, xoalign_log):
         smargon = False
         found_solutions = False
 
@@ -152,18 +148,7 @@ class XOalignWrapper(Wrapper):
                 chi = "%.2f" % chi
             phi = "%.2f" % phi
 
-            # Step 1: Add new record to Screening table, keep the ScreeningId
-            d = {
-                "dcid": dcid,
-                "programversion": "XOalign",
-                "comments": settings_str,
-                "shortcomments": "XOalign %i" % solution_id,
-                "ispyb_command": "insert_screening",
-                "store_result": "ispyb_screening_id_%i" % solution_id,
-            }
-            ispyb_command_list.append(d)
-
-            # Step 2: Store screeningOutput results, linked to the screeningId
+            # Step 1: Store screeningOutput results, linked to the screeningId
             #         Keep the screeningOutputId
             d = {
                 "program": "XOalign",
@@ -171,22 +156,22 @@ class XOalignWrapper(Wrapper):
                 "strategysuccess": 1,
                 "alignmentsuccess": 1,
                 "ispyb_command": "insert_screening_output",
-                "screening_id": "$ispyb_screening_id_%i" % solution_id,
-                "store_result": "ispyb_screening_output_id_%i" % solution_id,
+                "screening_id": "$ispyb_screening_id",
+                "store_result": f"ispyb_screening_output_id_{solution_id}",
             }
             ispyb_command_list.append(d)
 
-            # Step 3: Store screeningStrategy results, linked to the screeningOutputId
+            # Step 2: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
                 "program": "XOalign",
                 "ispyb_command": "insert_screening_strategy",
-                "screening_output_id": "$ispyb_screening_output_id_%i" % solution_id,
-                "store_result": "ispyb_screening_strategy_id_%i" % solution_id,
+                "screening_output_id": f"$ispyb_screening_output_id_{solution_id}",
+                "store_result": f"ispyb_screening_strategy_id_{solution_id}",
             }
             ispyb_command_list.append(d)
 
-            # Step 4: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            # Step 3: Store screeningStrategyWedge results, linked to the screeningStrategyId
             #         Keep the screeningStrategyWedgeId
             d = {
                 "wedgenumber": 1,
@@ -194,15 +179,29 @@ class XOalignWrapper(Wrapper):
                 "chi": chi,
                 "comments": settings_str,
                 "ispyb_command": "insert_screening_strategy_wedge",
-                "screening_strategy_id": "$ispyb_screening_strategy_id_%i"
-                % solution_id,
-                "store_result": "ispyb_screening_strategy_wedge_id_%i" % solution_id,
+                "screening_strategy_id": f"$ispyb_screening_strategy_id_{solution_id}",
+                "store_result": f"ispyb_screening_strategy_wedge_id_{solution_id}",
             }
             ispyb_command_list.append(d)
 
         if ispyb_command_list:
-            self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
-            self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-            self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+            d = {
+                "ispyb_command": "update_processing_status",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": "Processing successful",
+                "status": "success",
+            }
+            ispyb_command_list.append(d)
         else:
-            self.log.info("There is no valid XOalign strategy here")
+            d = {
+                "ispyb_command": "update_processing_status",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": "No achievable alignment within range of goniometer",
+                "status": "failure",
+            }
+            ispyb_command_list.append(d)
+            self.log.info("No achievable alignment within range of goniometer")
+
+        self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))

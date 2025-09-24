@@ -62,18 +62,7 @@ class AlignCrystalWrapper(Wrapper):
                 chi = "%.2f" % chi
             phi = "%.2f" % phi
 
-            # Step 1: Add new record to Screening table, keep the ScreeningId
-            d = {
-                "dcid": dcid,
-                "programversion": "dials.align_crystal",
-                "comments": settings_str,
-                "shortcomments": "dials.align_crystal %i" % solution_id,
-                "ispyb_command": "insert_screening",
-                "store_result": "ispyb_screening_id_%i" % solution_id,
-            }
-            ispyb_command_list.append(d)
-
-            # Step 2: Store screeningOutput results, linked to the screeningId
+            # Step 1: Store screeningOutput results, linked to the screeningId
             #         Keep the screeningOutputId
             d = {
                 "program": "dials.align_crystal",
@@ -81,17 +70,17 @@ class AlignCrystalWrapper(Wrapper):
                 "strategysuccess": 1,
                 "alignmentsuccess": 1,
                 "ispyb_command": "insert_screening_output",
-                "screening_id": "$ispyb_screening_id_%i" % solution_id,
-                "store_result": "ispyb_screening_output_id_%i" % solution_id,
+                "screening_id": "$ispyb_screening_id",
+                "store_result": f"ispyb_screening_output_id_{solution_id}",
             }
             ispyb_command_list.append(d)
 
-            # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
+            # Step 2: Store screeningOutputLattice results, linked to the screeningOutputId
             #         Keep the screeningOutputLatticeId
             d = {
                 "ispyb_command": "insert_screening_output_lattice",
-                "screening_output_id": "$ispyb_screening_output_id_%i" % solution_id,
-                "store_result": "ispyb_screening_output_lattice_id_%i" % solution_id,
+                "screening_output_id": f"$ispyb_screening_output_id_{solution_id}",
+                "store_result": f"ispyb_screening_output_lattice_id_{solution_id}",
             }
             uc_params = crystal_symmetry.unit_cell().parameters()
             for i, p in enumerate(("a", "b", "c", "alpha", "beta", "gamma")):
@@ -99,17 +88,17 @@ class AlignCrystalWrapper(Wrapper):
             d["spacegroup"] = crystal_symmetry.space_group_info().type().lookup_symbol()
             ispyb_command_list.append(d)
 
-            # Step 4: Store screeningStrategy results, linked to the screeningOutputId
+            # Step 3: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
-                "program": "dials.align_crystal %i" % solution_id,
+                "program": "dials.align_crystal",
                 "ispyb_command": "insert_screening_strategy",
-                "screening_output_id": "$ispyb_screening_output_id_%i" % solution_id,
-                "store_result": "ispyb_screening_strategy_id_%i" % solution_id,
+                "screening_output_id": f"$ispyb_screening_output_id_{solution_id}",
+                "store_result": f"ispyb_screening_strategy_id_{solution_id}",
             }
             ispyb_command_list.append(d)
 
-            # Step 5: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            # Step 4: Store screeningStrategyWedge results, linked to the screeningStrategyId
             #         Keep the screeningStrategyWedgeId
             d = {
                 "wedgenumber": 1,
@@ -117,18 +106,31 @@ class AlignCrystalWrapper(Wrapper):
                 "chi": chi,
                 "comments": settings_str,
                 "ispyb_command": "insert_screening_strategy_wedge",
-                "screening_strategy_id": "$ispyb_screening_strategy_id_%i"
-                % solution_id,
-                "store_result": "ispyb_screening_strategy_wedge_id_%i" % solution_id,
+                "screening_strategy_id": f"$ispyb_screening_strategy_id_{solution_id}",
+                "store_result": f"ispyb_screening_strategy_wedge_id_{solution_id}",
             }
             ispyb_command_list.append(d)
 
         if ispyb_command_list:
+            d = {
+                "ispyb_command": "update_processing_status",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": "Processing successful",
+                "status": "success",
+            }
+            ispyb_command_list.append(d)
             self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
             self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
             self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
         else:
-            self.log.info("There is no valid dials.align_crystal strategy here")
+            d = {
+                "ispyb_command": "update_processing_status",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": "No achievable alignment within range of goniometer",
+                "status": "failure",
+            }
+            self.recwrap.send_to("ispyb", {"ispyb_command_list": [d]})
+            self.log.info("No achievable alignment within range of goniometer")
 
     def construct_commandline(self, params):
         """Construct dlstbx.align_crystal command line.
@@ -232,5 +234,6 @@ class AlignCrystalWrapper(Wrapper):
             )
         else:
             self.log.warning("Expected JSON output file missing")
+            return False
 
         return True

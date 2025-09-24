@@ -119,9 +119,7 @@ class AlignCrystalWrapper(Wrapper):
                 "status": "success",
             }
             ispyb_command_list.append(d)
-            self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
-            self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-            self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+
         else:
             d = {
                 "ispyb_command": "update_processing_status",
@@ -129,8 +127,12 @@ class AlignCrystalWrapper(Wrapper):
                 "message": "No achievable alignment within range of goniometer",
                 "status": "failure",
             }
-            self.recwrap.send_to("ispyb", {"ispyb_command_list": [d]})
+            ispyb_command_list.append(d)
             self.log.info("No achievable alignment within range of goniometer")
+
+        self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def construct_commandline(self, params):
         """Construct dlstbx.align_crystal command line.

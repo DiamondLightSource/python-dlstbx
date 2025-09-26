@@ -62,11 +62,11 @@ def dcids_from_related_dcids(
         )
         return []
 
-    if match := re.search(r"E(\d+)$", str(dc_info.imagePrefix)):
+    if match := re.search(r"_E(\d+)$", str(dc_info.imagePrefix)):
         energy_num = int(match.group(1))
     else:
         logger.info(
-            "Skipping metal id trigger: Image prefix does not end with E# where # is an integer"
+            "Skipping metal id trigger: Image prefix does not end with _E# where # is an integer"
         )
         return []
 
@@ -79,7 +79,7 @@ def dcids_from_related_dcids(
         .filter(DataCollection.dataCollectionId.in_(dcids))
         .filter(DataCollection.numberOfImages == dc_info.numberOfImages)
         .filter(DataCollection.startImageNumber == dc_info.startImageNumber)
-        .filter(DataCollection.imagePrefix.endswith(f"E{energy_num - 1}"))
+        .filter(DataCollection.imagePrefix.endswith(f"_E{energy_num - 1}"))
         .filter(DataCollection.SESSIONID == dc_info.SESSIONID)
     )
     if not len(query.all()):

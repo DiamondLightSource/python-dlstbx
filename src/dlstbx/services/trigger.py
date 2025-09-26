@@ -656,7 +656,7 @@ class DLSTrigger(CommonService):
             "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
         }
 
-        if proc_prog not in input_file_patterns.keys():
+        if proc_prog not in input_file_patterns:
             self.log.info(
                 f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
             )

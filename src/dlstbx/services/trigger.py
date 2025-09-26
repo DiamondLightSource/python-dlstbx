@@ -644,6 +644,24 @@ class DLSTrigger(CommonService):
         pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
+        proc_prog = parameters.proc_prog
+
+        # Dict of file patterns for each of the autoprocessing pipelines
+        input_file_patterns = {
+            "fast_dp": "fast_dp.mtz",
+            "xia2 dials": "_free.mtz",
+            "xia2 3dii": "_free.mtz",
+            "xia2.multiplex": "scaled.mtz",
+            "autoPROC": "truncate-unique.mtz",
+            "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
+        }
+
+        if proc_prog not in input_file_patterns.keys():
+            self.log.info(
+                f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
+            )
+            return {"success": True}
+
         # Look for dcids in checkpointed message
         dcids = message.get("dcids")
         if not dcids:
@@ -673,24 +691,6 @@ class DLSTrigger(CommonService):
                 dcids = sorted(dcids)[-2::]
 
             self.log.info(f"Metal ID trigger: found dcids {dcids}")
-
-        proc_prog = parameters.proc_prog
-
-        # Dict of file patterns for each of the autoprocessing pipelines
-        input_file_patterns = {
-            "fast_dp": "fast_dp.mtz",
-            "xia2 dials": "_free.mtz",
-            "xia2 3dii": "_free.mtz",
-            "xia2.multiplex": "scaled.mtz",
-            "autoPROC": "truncate-unique.mtz",
-            "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
-        }
-
-        if proc_prog not in input_file_patterns.keys():
-            self.log.info(
-                f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
-            )
-            return {"success": True}
 
         # On first time processing the message check that the photon energy is different enough between the two data collections
         ntry = message.get("ntry", 0)

@@ -35,6 +35,7 @@ from workflows.services.common_service import CommonService
 import dlstbx.ispybtbx
 from dlstbx.crud import get_protein_for_dcid
 from dlstbx.util import INDUSTRIAL_CODES, ChainMapWithReplacement
+from dlstbx.util.metal_id_helpers import dcids_from_related_dcids
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
@@ -665,83 +666,9 @@ class DLSTrigger(CommonService):
             ID pipeline triggered by the final multiplex pipeline call will be the most useful.
             """
             if parameters.beamline == "i23":
-                related_dcids = parameters.related_dcids
-
-                for related_dcid_set in related_dcids:
-                    if related_dcid_set.sample_id:
-                        dcids = related_dcid_set.dcids
+                dcids = dcids_from_related_dcids(self.log, parameters, session)
                 if not dcids:
-                    self.log.info(
-                        f"Skipping metal id trigger: No sample-specific related DCIDs for {parameters.dcid}"
-                    )
                     return {"success": True}
-
-                dc_info = parameters.dc_info
-                if any(
-                    getattr(dc_info, field) is None
-                    for field in [
-                        "numberOfImages",
-                        "startImageNumber",
-                        "imagePrefix",
-                        "SESSIONID",
-                    ]
-                ):
-                    self.log.info(
-                        f"Skipping metal id trigger: dcid info missing for dcid '{parameters.dcid}'"
-                    )
-                    return {"success": True}
-
-                if match := re.search(r"E(\d+)$", str(dc_info.imagePrefix)):
-                    energy_num = int(match.group(1))
-                else:
-                    self.log.info(
-                        "Skipping metal id trigger: Image prefix does not end with E# where # is an integer"
-                    )
-                    return {"success": True}
-
-                self.log.info(
-                    f"dcids: '{dcids}', number of images: '{dc_info.numberOfImages}', start image: '{dc_info.startImageNumber}', image prefix: '{dc_info.imagePrefix}', session id: '{dc_info.SESSIONID}', energy num: '{energy_num}'"
-                )
-
-                query = (
-                    (session.query(DataCollection))
-                    .filter(DataCollection.dataCollectionId.in_(dcids))
-                    .filter(DataCollection.numberOfImages == dc_info.numberOfImages)
-                    .filter(DataCollection.startImageNumber == dc_info.startImageNumber)
-                    .filter(DataCollection.imagePrefix.endswith(f"E{energy_num - 1}"))
-                    .filter(DataCollection.SESSIONID == dc_info.SESSIONID)
-                )
-                if not len(query.all()):
-                    self.log.info(
-                        "Skipping metal id trigger: No matching data collections found"
-                    )
-                    return {"success": True}
-                elif len(query.all()) == 1:
-                    dcid_2 = query[0].dataCollectionId
-                else:
-                    self.log.info(
-                        "Metal ID trigger: found multiple matching data collections - looking for matching data collection number"
-                    )
-                    query = query.filter(
-                        DataCollection.dataCollectionNumber
-                        == dc_info.dataCollectionNumber
-                    )
-                    if not len(query.all()):
-                        self.log.info(
-                            "Skipping metal id trigger: No matching data collection number found"
-                        )
-                        return {"success": True}
-                    elif len(query.all()) == 1:
-                        dcid_2 = query[0].dataCollectionId
-                    elif len(query.all() > 1):
-                        self.log.info(
-                            "Metal ID trigger - found multiple matching data collections with matching data collection number, picking most recent"
-                        )
-                        sorted_query = sorted(
-                            query, key=lambda q: (q.dataCollectionId), reverse=True
-                        )
-                        dcid_2 = sorted_query[0].dataCollectionId
-                dcids = [dcid_2, parameters.dcid]
             else:
                 # Get a list of collections in the data collection group that include and are older than the present dcid
                 dcids = parameters.dcg_dcids

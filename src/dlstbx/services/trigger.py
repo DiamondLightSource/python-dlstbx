@@ -542,13 +542,14 @@ class DLSTrigger(CommonService):
         transaction: int,
         **kwargs,
     ):
-        """Trigger a metal job for a given data collection.
+        """Trigger a metal_id job for a given data collection.
 
-        Requires experiment type to be "Metal ID" (or any compatible experiment type for
-        beamline i23) and for data collections to be in the same data collection group.
-        Metal ID will trigger for every other data collection in the group, with the
-        assumption that data collections alternate above and below metal absorption
-        edges.
+        Requires experiment type to be "Metal ID" and for data collections to be in
+        the same data collection group, or for data collections to be recorded for
+        the same sample in the same visit and for the image prefix to contain E# where
+        # is an integer. Metal ID will trigger for every other data collection in the
+        group, with the assumption that data collections alternate above and below
+        metal absorption edges.
 
         Trigger also requires a PDB file or code to be associated with the given data
         collection:
@@ -594,8 +595,9 @@ class DLSTrigger(CommonService):
         Example recipe parameters:
         { "target": "metal_id",
             "dcid": 123456,
-            "dcids": [123453, 123454, 123455],
+            "dcg_dcids": [123453, 123454, 123455],
             "experiment_type": "Metal ID",
+            "related_dcids":[{'dcids': [123453, 123454, 123455], 'sample_id': 54321, 'name': 'test_sample'}],
             "beamline": "i03"
             "proc_prog": "xia2 dials",
             "comment": "Metal_ID triggered by xia2 dials",
@@ -649,22 +651,6 @@ class DLSTrigger(CommonService):
                 f"Metal ID trigger: looking for matching data collection for dcid {parameters.dcid}"
             )
 
-            # I23 specific routine for finding matching data collections
-            """
-            For metal ID experiments, I23 take a series of data collections where the image prefix
-            ends in E#, where # is an integer assigned to each different photon energy used in the
-            series of metal ID data collections. This routine looks to find a corresponding data
-            collection at E(#-1) for the same sample in the same visit, to match with the current
-            data collection and run metal ID. This routine also looks for a matching start image
-            number and number of images in the data collections to handle interleaving type
-            experiments. If more than one result comes back, the routine checks for a matching data
-            collection number to handle cases where multiple sweeps have been taken. If more than
-            one match is still found, the most recent one will be used. The expectation is that the
-            same number of sweeps and same collection parameters have been used in all data
-            collections in the series. For interleaving experiments, a consequence of this routine
-            is that metal ID will run for all matching partial data sets but ultimately the metal
-            ID pipeline triggered by the final multiplex pipeline call will be the most useful.
-            """
             if parameters.beamline == "i23":
                 dcids = dcids_from_related_dcids(self.log, parameters, session)
                 if not dcids:

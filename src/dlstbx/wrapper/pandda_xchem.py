@@ -18,7 +18,7 @@ class LigandFitWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         job_type = params.get("job_type")
-        CompoundSMILES = params.get("CompoundSMILES")
+        # CompoundSMILES = params.get("CompoundSMILES")
         processing_dir = params.get("processing_dir")
         dtag = params.get("dtag")
 
@@ -27,15 +27,40 @@ class LigandFitWrapper(Wrapper):
         # results_directory = pathlib.Path(params["results_directory"])
         # results_directory.mkdir(parents=True, exist_ok=True)
         analysis_dir = processing_dir / "analysis"
-        model_dir = analysis_dir / "model_building"
+        model_dir = analysis_dir / "model_building_auto"
         well_dir = model_dir / dtag
 
-        with open(well_dir / "ligand.smi", "w") as smi_file:
-            smi_file.write(CompoundSMILES)
+        # -------------------------------------------------------
+        # if job_type == "prep":
+        #     # offer grade and elbow options?
+        #     acedrg_command = f"module load ccp4; acedrg -i {well_dir / 'ligand.smi'} -o {well_dir / 'lig'}"
+
+        #     try:
+        #         result = subprocess.run(
+        #             acedrg_command,
+        #             shell=True,
+        #             capture_output=True,
+        #             text=True,
+        #             cwd=well_dir,
+        #             check=True,
+        #             timeout=params.get("timeout-minutes")
+        #             * 60,  # have seperate timeouts?
+        #         )
+
+        #     except subprocess.CalledProcessError as e:
+        #         self.log.error(
+        #             f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
+        #         )
+        #         self.log.info(e.stdout)
+        #         self.log.error(e.stderr)
+        #         return False
+
+        #     with open(well_dir / "acedrg.log", "w") as log_file:
+        #         log_file.write(result.stdout)
 
         # -------------------------------------------------------
-        if job_type == "prep":
-            # offer grade and elbow options?
+        if job_type == "single":
+            # need to make restraints first, fix! or check that they exist if reprocessing due to failure
             acedrg_command = f"module load ccp4; acedrg -i {well_dir / 'ligand.smi'} -o {well_dir / 'lig'}"
 
             try:
@@ -52,17 +77,16 @@ class LigandFitWrapper(Wrapper):
 
             except subprocess.CalledProcessError as e:
                 self.log.error(
-                    f"Ligand restraint generation command: '{acedrg_command}' failed"
+                    f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
                 )
                 self.log.info(e.stdout)
                 self.log.error(e.stderr)
+                # update the yaml?
                 return False
 
             with open(well_dir / "acedrg.log", "w") as log_file:
                 log_file.write(result.stdout)
 
-        # -------------------------------------------------------
-        if job_type == "single":
             pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
             conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
             python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'} --dtag={dtag}"
@@ -85,7 +109,7 @@ class LigandFitWrapper(Wrapper):
                 return False
 
         # -------------------------------------------------------
-        if job_type == "prerun":
+        elif job_type == "prerun":
             pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
             conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
             python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'}"
@@ -108,27 +132,27 @@ class LigandFitWrapper(Wrapper):
                 return False
 
         # -------------------------------------------------------
-        if job_type == "postrun":
-            pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
-            conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
-            python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/postrun.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'} --use_ligand_data=False --debug=True --local_cpus=36"
+        # elif job_type == "postrun":
+        #     pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
+        #     conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
+        #     python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/postrun.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'} --use_ligand_data=False --debug=True --local_cpus=36"
 
-            try:
-                result = subprocess.run(
-                    pandda2_command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    cwd=well_dir,
-                    check=True,
-                    timeout=params.get("timeout-minutes") * 60,
-                )
+        #     try:
+        #         result = subprocess.run(
+        #             pandda2_command,
+        #             shell=True,
+        #             capture_output=True,
+        #             text=True,
+        #             cwd=well_dir,
+        #             check=True,
+        #             timeout=params.get("timeout-minutes") * 60,
+        #         )
 
-            except subprocess.CalledProcessError as e:
-                self.log.error(f"PanDDA2 postrun command: '{pandda2_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
-                return False
+        #     except subprocess.CalledProcessError as e:
+        #         self.log.error(f"PanDDA2 postrun command: '{pandda2_command}' failed")
+        #         self.log.info(e.stdout)
+        #         self.log.error(e.stderr)
+        #         return False
 
         # quick json results for synchweb tables
         # data = [["PanDDA dataset", "CompoundSMILES", "result"],[f"{dtag}", f"{CompoundSMILES}", f"{}"]]

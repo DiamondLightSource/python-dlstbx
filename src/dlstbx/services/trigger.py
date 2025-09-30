@@ -251,8 +251,9 @@ class LigandFitParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     pdb: pathlib.Path
     mtz: pathlib.Path
-    pipeline: str
     smiles: str
+    pipeline: str
+    beamline: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
@@ -2596,11 +2597,12 @@ class DLSTrigger(CommonService):
         { "target": "ligand_fit",
             "dcid": 123456,
             "pdb": "/path/to/pdb",
-            "mtz": "/path/to/mtz"
-            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
+            "mtz": "/path/to/mtz",
+            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12",
+            "beamline: i02-2,
             "pipeline": "phenix_pipeline",
             "automatic": true,
-            "comment": "Ligand_fit triggered by xia2 dials",
+            "comment": "Ligand_fit triggered by xia2 multiplex",
             "scaling_id": [123456],
             "min_cc_keep": 0.7,
             "timeout-minutes": 115
@@ -2615,17 +2617,16 @@ class DLSTrigger(CommonService):
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
 
-        protein_id = getattr(protein_info, "proteinId", None)
         proposal_id = getattr(protein_info, "proposalId", None)
         acronym = getattr(protein_info, "acronym", "Protein")
 
-        if protein_id and proposal_id:
-            query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
-            proposal = query.first()
+        query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
+        proposal = query.first()
 
+        if proposal_id:
             if proposal.proposalCode not in {"mx", "cm", "nt"}:
                 self.log.debug(
-                    f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
+                    f"Not triggering ligand fit pipeline for dcid {parameters.dcid} with proposal_code={proposal.proposalCode} due to Phenix licensing."
                 )
                 return {"success": True}
 
@@ -2654,11 +2655,20 @@ class DLSTrigger(CommonService):
             .one()
         )
 
-        if query.processingPrograms != "xia2.multiplex":
-            self.log.info(
-                "Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex."
-            )
-            return {"success": True}
+        allowed_upstream_programs = ["xia2 dials", "xia2.multiplex"]
+
+        if parameters.beamline != "i02-2":
+            if query.processingPrograms not in allowed_upstream_programs:
+                self.log.info(
+                    f"Skipping ligand_fit trigger: Upstream processing program is not in {allowed_upstream_programs} for beamline {parameters.beamline}."
+                )
+                return {"success": True}
+        elif parameters.beamline == "i02-2":
+            if query.processingPrograms != "xia2.multiplex":
+                self.log.info(
+                    f"Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex for beamline {parameters.beamline}."
+                )
+                return {"success": True}
 
         self.log.debug("Ligand_fit trigger: Starting")
 

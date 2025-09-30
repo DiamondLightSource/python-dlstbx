@@ -34,10 +34,9 @@ class LigandFitWrapper(Wrapper):
         CC = float(match.group(1))
         return CC
 
-    def send_attachments_to_ispyb(self, pipeline_directory, min_cc_keep):
-        CC = self.pull_CC_from_log(pipeline_directory)
+    def send_attachments_to_ispyb(self, pipeline_directory):
         for f in pipeline_directory.iterdir():
-            if f.stem.endswith("final") and CC >= min_cc_keep:
+            if f.stem.endswith("final"):
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".html":
@@ -128,6 +127,8 @@ class LigandFitWrapper(Wrapper):
             self.log.error(f"Ligand_fit process '{phenix_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+            self.log.info("Sending log to ISPyB")
+            self.send_attachments_to_ispyb(pipeline_directory)
             return False
 
         with open(working_directory / "ligand_fit.log", "w") as log_file:
@@ -174,7 +175,7 @@ class LigandFitWrapper(Wrapper):
             )
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(pipeline_directory, min_cc_keep)
+        self.send_attachments_to_ispyb(pipeline_directory)
 
         if CC >= min_cc_keep:
             self.log.info("Ligand_fitting pipeline finished successfully")

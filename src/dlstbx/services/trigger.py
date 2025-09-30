@@ -252,6 +252,7 @@ class LigandFitParameters(pydantic.BaseModel):
     pdb: pathlib.Path
     mtz: pathlib.Path
     smiles: str
+    pipeline: str
     beamline: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None

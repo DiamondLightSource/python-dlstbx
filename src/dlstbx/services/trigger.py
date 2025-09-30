@@ -2654,7 +2654,7 @@ class DLSTrigger(CommonService):
         )
         if parameters.beamline != "i02-2":
             if (
-                query.processingPrograms != "xia2-dials"
+                query.processingPrograms != "xia2 dials"
                 or query.processingPrograms != "xia2.multiplex"
             ):
                 self.log.info(

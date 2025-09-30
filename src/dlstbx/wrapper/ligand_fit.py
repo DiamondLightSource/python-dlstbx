@@ -175,7 +175,7 @@ class LigandFitWrapper(Wrapper):
             )
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(pipeline_directory, min_cc_keep)
+        self.send_attachments_to_ispyb(pipeline_directory)
 
         if CC >= min_cc_keep:
             self.log.info("Ligand_fitting pipeline finished successfully")

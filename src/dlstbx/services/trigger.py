@@ -2654,19 +2654,19 @@ class DLSTrigger(CommonService):
             .filter(AutoProcScaling.autoProcScalingId == scaling_id)
             .one()
         )
+
+        allowed_upstream_programs = ["xia2 dials", "xia2.multiplex"]
+
         if parameters.beamline != "i02-2":
-            if (
-                query.processingPrograms != "xia2 dials"
-                or query.processingPrograms != "xia2.multiplex"
-            ):
+            if query.processingPrograms not in allowed_upstream_programs:
                 self.log.info(
-                    "Skipping ligand_fit trigger: Upstream processing program is not xia2-dials or xia2.multiplex for beamline {parameters.beamline}."
+                    f"Skipping ligand_fit trigger: Upstream processing program is not in {allowed_upstream_programs} for beamline {parameters.beamline}."
                 )
                 return {"success": True}
         elif parameters.beamline == "i02-2":
             if query.processingPrograms != "xia2.multiplex":
                 self.log.info(
-                    "Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex for beamline {parameters.beamline}."
+                    f"Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex for beamline {parameters.beamline}."
                 )
                 return {"success": True}
 

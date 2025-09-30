@@ -2623,11 +2623,12 @@ class DLSTrigger(CommonService):
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
         proposal = query.first()
 
-        if proposal.proposalCode not in {"mx", "cm", "nt"}:
-            self.log.debug(
-                f"Not triggering ligand fit pipeline for dcid {parameters.dcid} with proposal_code={proposal.proposalCode} due to Phenix licensing."
-            )
-            return {"success": True}
+        if proposal_id:
+            if proposal.proposalCode not in {"mx", "cm", "nt"}:
+                self.log.debug(
+                    f"Not triggering ligand fit pipeline for dcid {parameters.dcid} with proposal_code={proposal.proposalCode} due to Phenix licensing."
+                )
+                return {"success": True}
 
         if len(parameters.scaling_id) != 1:
             self.log.info(

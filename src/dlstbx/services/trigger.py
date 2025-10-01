@@ -35,7 +35,6 @@ from workflows.services.common_service import CommonService
 import dlstbx.ispybtbx
 from dlstbx.crud import get_protein_for_dcid
 from dlstbx.util import INDUSTRIAL_CODES, ChainMapWithReplacement
-from dlstbx.util.metal_id_helpers import dcids_from_related_dcids
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
@@ -60,28 +59,11 @@ class DimpleParameters(pydantic.BaseModel):
     symlink: str = pydantic.Field(default="")
 
 
-class DataCollectionInfo(pydantic.BaseModel):
-    numberOfImages: Optional[int] = None
-    startImageNumber: Optional[int] = None
-    imagePrefix: Optional[str] = None
-    dataCollectionNumber: Optional[int] = None
-    SESSIONID: Optional[int] = None
-
-
-class RelatedDCIDs(pydantic.BaseModel):
-    dcids: List[int]
-    sample_id: Optional[int] = pydantic.Field(gt=0, default=None)
-    sample_group_id: Optional[int] = pydantic.Field(gt=0, default=None)
-
-
 class MetalIdParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    dcg_dcids: list[int]
-    related_dcids: list[RelatedDCIDs]
-    dc_info: DataCollectionInfo
+    dcids: list[int]
     proc_prog: str
     experiment_type: str
-    beamline: str
     scaling_id: int = pydantic.Field(gt=0)
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
@@ -202,6 +184,12 @@ class BestParameters(pydantic.BaseModel):
     data: pathlib.Path
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+
+
+class RelatedDCIDs(pydantic.BaseModel):
+    dcids: List[int]
+    sample_id: Optional[int] = pydantic.Field(default=None, gt=0)
+    sample_group_id: Optional[int] = pydantic.Field(default=None, gt=0)
 
 
 class MultiplexParameters(pydantic.BaseModel):
@@ -543,14 +531,11 @@ class DLSTrigger(CommonService):
         transaction: int,
         **kwargs,
     ):
-        """Trigger a metal_id job for a given data collection.
+        """Trigger a metal job for a given data collection.
 
-        Requires experiment type to be "Metal ID" and for data collections to be in
-        the same data collection group, or for data collections to be recorded for
-        the same sample in the same visit and for the image prefix to contain E# where
-        # is an integer. Metal ID will trigger for every other data collection in the
-        group, with the assumption that data collections alternate above and below
-        metal absorption edges.
+        Requires experiment type to be "Metal ID" and for data collections to be in the
+        same data collection group. Metal ID will trigger for every other data collection,
+        assuming that data collections alternate above and below metal absorption edges.
 
         Trigger also requires a PDB file or code to be associated with the given data
         collection:
@@ -573,10 +558,8 @@ class DLSTrigger(CommonService):
         collection group. i.e. "{$REPLACE:ispyb_dcg_dcids}"
         - proc_prog: The name, as it appears in ISPyB, of the autoprocessing pipeline
         for which the output will be used as the metal_id input mtz file.
-        - experiment_type: the experiment type of the data collection (i.e.
-         "{ispyb_dcg_experiment_type}").
-        - beamline: The beamline that the data collection was recorded on (i.e.
-        "{ispyb_beamline}").
+        - experiment_type: the experiment type of the data collection.
+        i.e. "{ispyb_dcg_experiment_type}"
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
         - scaling_id: autoProcScalingId that the metal_id results should be linked to
@@ -596,10 +579,8 @@ class DLSTrigger(CommonService):
         Example recipe parameters:
         { "target": "metal_id",
             "dcid": 123456,
-            "dcg_dcids": [123453, 123454, 123455],
+            "dcids": [123453, 123454, 123455],
             "experiment_type": "Metal ID",
-            "related_dcids":[{'dcids': [123453, 123454, 123455], 'sample_id': 54321, 'name': 'test_sample'}],
-            "beamline": "i03"
             "proc_prog": "xia2 dials",
             "comment": "Metal_ID triggered by xia2 dials",
             "automatic": true,
@@ -616,21 +597,9 @@ class DLSTrigger(CommonService):
             "backoff-multiplier": 2
         }
         """
-        if parameters.experiment_type not in (
-            "Metal ID",
-            "OSC",
-            "SAD",
-            "MAD",
-            "Helical",
-        ):
+        if parameters.experiment_type != "Metal ID":
             self.log.info(
                 f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported"
-            )
-            return {"success": True}
-
-        if parameters.experiment_type != "Metal ID" and parameters.beamline != "i23":
-            self.log.info(
-                f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported for beamline {parameters.beamline}"
             )
             return {"success": True}
 
@@ -645,70 +614,23 @@ class DLSTrigger(CommonService):
         pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
-        proc_prog = parameters.proc_prog
+        # Get a list of collections in the data collection group that include and are older than the present dcid
+        dcids = [d for d in parameters.dcids if d <= parameters.dcid]
 
-        # Dict of file patterns for each of the autoprocessing pipelines
-        input_file_patterns = {
-            "fast_dp": "fast_dp.mtz",
-            "xia2 dials": "_free.mtz",
-            "xia2 3dii": "_free.mtz",
-            "xia2.multiplex": "scaled.mtz",
-            "autoPROC": "truncate-unique.mtz",
-            "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
-        }
+        # If dcid is not included in the list of dcg_dcids it needs to be added
+        if parameters.dcid not in dcids:
+            dcids.append(parameters.dcid)
 
-        if proc_prog not in input_file_patterns:
-            self.log.info(
-                f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
-            )
+        # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
+        if len(dcids) % 2:
+            self.log.info("Skipping metal id trigger: Need even number of dcids")
             return {"success": True}
 
-        # Look for dcids in checkpointed message
-        dcids = message.get("dcids")
-        if not dcids:
-            self.log.info(
-                f"Metal ID trigger: looking for matching data collection for dcid {parameters.dcid}"
-            )
+        # Get just the most recent two dcids
+        dcids = sorted(dcids)[-2::]
+        self.log.info(f"Metal ID trigger: found dcids {dcids}")
 
-            if parameters.beamline == "i23":
-                dcids = dcids_from_related_dcids(self.log, parameters, session)
-                if not dcids:
-                    return {"success": True}
-            else:
-                # Get a list of collections in the data collection group that include and are older than the present dcid
-                dcids = parameters.dcg_dcids
-                # If dcid is not included in the list of dcg_dcids it needs to be added
-                if parameters.dcid not in dcids:
-                    dcids.append(parameters.dcid)
-
-                # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
-                if len(dcids) % 2:
-                    self.log.info(
-                        "Skipping metal id trigger: Need even number of dcids"
-                    )
-                    return {"success": True}
-
-                # Get just the most recent two dcids
-                dcids = sorted(dcids)[-2::]
-
-            self.log.info(f"Metal ID trigger: found dcids {dcids}")
-
-        # On first time processing the message check that the photon energy is different enough between the two data collections
-        ntry = message.get("ntry", 0)
-        if not ntry:
-            query = session.query(DataCollection).filter(
-                DataCollection.dataCollectionId.in_(dcids)
-            )
-            wavelengths = []
-            for dc in query.all():
-                wavelengths.append(dc.wavelength)
-
-            energy_diff = abs(12398.0 / wavelengths[0] - 12398.0 / wavelengths[1])
-            if energy_diff < parameters.energy_min_diff:
-                self.log.info(
-                    f"Skipping metal id trigger - data collections {dcids} have energy difference < {parameters.energy_min_diff} eV"
-                )
-                return {"success": True}
+        proc_prog = parameters.proc_prog
 
         # Check that both dcids have finished processing successfully
         query = (
@@ -745,15 +667,31 @@ class DLSTrigger(CommonService):
                 )
                 return {"success": True}
             # Calculate the message delay
+            ntry = message.get("ntry", 0)
             delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
             self.log.info(
                 f"Metal ID trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
             )
             ntry += 1
             rw.checkpoint(
-                {"start_time": start_time, "ntry": ntry, "dcids": dcids},
+                {"start_time": start_time, "ntry": ntry},
                 delay=delay * 60,
                 transaction=transaction,
+            )
+            return {"success": True}
+
+        # Dict of file patterns for each of the autoprocessing pipelines
+        input_file_patterns = {
+            "fast_dp": "fast_dp.mtz",
+            "xia2 dials": "_free.mtz",
+            "xia2 3dii": "_free.mtz",
+            "autoPROC": "truncate-unique.mtz",
+            "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
+        }
+
+        if proc_prog not in input_file_patterns.keys():
+            self.log.info(
+                f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
             )
             return {"success": True}
 
@@ -827,6 +765,14 @@ class DLSTrigger(CommonService):
             if dc.dataCollectionId == parameters.dcid:
                 start_image = dc.startImageNumber
                 end_image = dc.startImageNumber + dc.numberOfImages - 1
+
+        # Check that the photon energy is different enough between the two data collections
+        energy_diff = abs(12398.0 / wavelengths[0] - 12398.0 / wavelengths[1])
+        if energy_diff < parameters.energy_min_diff:
+            self.log.error(
+                f"Metal id - data collections {dcids} have energy difference < {parameters.energy_min_diff} eV"
+            )
+            return {"success": True}
 
         # Sort based on wavelength
         combined = list(zip(wavelengths, dcids, data_files))

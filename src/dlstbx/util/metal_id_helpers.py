@@ -101,7 +101,7 @@ def dcids_from_related_dcids(
             return []
         elif len(query.all()) == 1:
             dcid_2 = query[0].dataCollectionId
-        elif len(query.all() > 1):
+        elif len(query.all()) > 1:
             logger.info(
                 "Metal ID trigger - found multiple matching data collections with matching data collection number, picking most recent"
             )

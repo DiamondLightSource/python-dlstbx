@@ -55,6 +55,7 @@ def dcids_from_related_dcids(
             "startImageNumber",
             "imagePrefix",
             "SESSIONID",
+            "dataCollectionNumber",
         ]
     ):
         logger.info(
@@ -71,7 +72,7 @@ def dcids_from_related_dcids(
         return []
 
     logger.info(
-        f"dcids: '{dcids}', number of images: '{dc_info.numberOfImages}', start image: '{dc_info.startImageNumber}', image prefix: '{dc_info.imagePrefix}', session id: '{dc_info.SESSIONID}', energy num: '{energy_num}'"
+        f"dcids: '{dcids}', number of images: '{dc_info.numberOfImages}', start image: '{dc_info.startImageNumber}', image prefix: '{dc_info.imagePrefix}', session id: '{dc_info.SESSIONID}', energy num: '{energy_num}', data collection number: '{dc_info.dataCollectionNumber}'"
     )
 
     query = (
@@ -81,32 +82,15 @@ def dcids_from_related_dcids(
         .filter(DataCollection.startImageNumber == dc_info.startImageNumber)
         .filter(DataCollection.imagePrefix.endswith(f"_E{energy_num - 1}"))
         .filter(DataCollection.SESSIONID == dc_info.SESSIONID)
+        .filter(DataCollection.dataCollectionNumber == dc_info.dataCollectionNumber)
     )
     if not len(query.all()):
         logger.info("Skipping metal id trigger: No matching data collections found")
         return []
     elif len(query.all()) == 1:
-        dcid_2 = query[0].dataCollectionId
+        return [query[0].dataCollectionId, parameters.dcid]
     else:
-        logger.info(
-            "Metal ID trigger: found multiple matching data collections - looking for matching data collection number"
+        logger.error(
+            "Skipping metal ID trigger - found multiple matching data collections. This should not be possible"
         )
-        query = query.filter(
-            DataCollection.dataCollectionNumber == dc_info.dataCollectionNumber
-        )
-        if not len(query.all()):
-            logger.info(
-                "Skipping metal id trigger: No matching data collection number found"
-            )
-            return []
-        elif len(query.all()) == 1:
-            dcid_2 = query[0].dataCollectionId
-        elif len(query.all()) > 1:
-            logger.info(
-                "Metal ID trigger - found multiple matching data collections with matching data collection number, picking most recent"
-            )
-            sorted_query = sorted(
-                query, key=lambda q: (q.dataCollectionId), reverse=True
-            )
-            dcid_2 = sorted_query[0].dataCollectionId
-    return [dcid_2, parameters.dcid]
+        return []

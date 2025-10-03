@@ -792,6 +792,8 @@ class DLSTrigger(CommonService):
                 Load(DataCollection).load_only(
                     DataCollection.dataCollectionId,
                     DataCollection.wavelength,
+                    DataCollection.startImageNumber,
+                    DataCollection.numberOfImages,
                     raiseload=True,
                 ),
             )

@@ -718,20 +718,14 @@ class DLSTrigger(CommonService):
 
         # Check that both dcids have finished processing successfully
         # Query the autoProcProgram table for the current job
-        processing_environment = (
-            session.query(AutoProcProgram.processingEnvironment)
-            .filter(
-                AutoProcProgram.autoProcProgramId == parameters.autoprocprogram_id,
-            )
-            .one()[0]
-        )
-
         query = (
             session.query(
-                AutoProcProgramAttachment.filePath, (AutoProcProgramAttachment.fileName)
+                AutoProcProgram.processingEnvironment,
+                AutoProcProgramAttachment.filePath,
+                AutoProcProgramAttachment.fileName,
             )
             .join(
-                AutoProcProgram,
+                AutoProcProgramAttachment,
                 AutoProcProgram.autoProcProgramId
                 == AutoProcProgramAttachment.autoProcProgramId,
             )
@@ -746,11 +740,12 @@ class DLSTrigger(CommonService):
 
         if not query:
             self.log.info(
-                f"Skipping metal id trigger: No result file found for autoProcProgramId {parameters.autoprocprogram_id}"
+                f"Skipping metal id trigger: No record found for autoProcProgramId {parameters.autoprocprogram_id}"
             )
             return {"success": True}
 
-        mtz_file_1 = pathlib.Path(query[0]) / query[1]
+        processing_environment, file_path, file_name = query
+        mtz_file_1 = pathlib.Path(file_path) / file_name
         self.log.info(f"Retrieved mtz file {mtz_file_1} from current data collection")
 
         # Find a matching data processing run for the other dcid. Must match proc_prog and processing_environment

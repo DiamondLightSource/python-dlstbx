@@ -716,37 +716,46 @@ class DLSTrigger(CommonService):
                 )
                 return {"success": True}
 
-        # Check that both dcids have finished processing successfully
-        # Query the autoProcProgram table for the current job
-        query = (
-            session.query(
-                AutoProcProgram.processingEnvironment,
-                AutoProcProgramAttachment.filePath,
-                AutoProcProgramAttachment.fileName,
-            )
-            .join(
-                AutoProcProgramAttachment,
-                AutoProcProgram.autoProcProgramId
-                == AutoProcProgramAttachment.autoProcProgramId,
-            )
-            .filter(AutoProcProgram.autoProcProgramId == parameters.autoprocprogram_id)
-            .filter(
-                AutoProcProgramAttachment.fileName.endswith(
-                    input_file_patterns[proc_prog]
+            # Check that both dcids have finished processing successfully
+            # Query the autoProcProgram table for the current job
+            query = (
+                session.query(
+                    AutoProcProgram.processingEnvironment,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
                 )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcProgramAttachment.autoProcProgramId,
+                )
+                .filter(
+                    AutoProcProgram.autoProcProgramId == parameters.autoprocprogram_id
+                )
+                .filter(
+                    AutoProcProgramAttachment.fileName.endswith(
+                        input_file_patterns[proc_prog]
+                    )
+                )
+                .one_or_none()
             )
-            .one_or_none()
-        )
 
-        if not query:
+            if not query:
+                self.log.info(
+                    f"Skipping metal id trigger: No record found for autoProcProgramId {parameters.autoprocprogram_id}"
+                )
+                return {"success": True}
+
+            processing_environment, file_path, file_name = query
+            mtz_file_1 = pathlib.Path(file_path) / file_name
             self.log.info(
-                f"Skipping metal id trigger: No record found for autoProcProgramId {parameters.autoprocprogram_id}"
+                f"Retrieved mtz file {mtz_file_1} from current data collection"
             )
-            return {"success": True}
 
-        processing_environment, file_path, file_name = query
-        mtz_file_1 = pathlib.Path(file_path) / file_name
-        self.log.info(f"Retrieved mtz file {mtz_file_1} from current data collection")
+        # Get processing environment from message if checkpointed
+        processing_environment = message.get(
+            "processing_environment", processing_environment
+        )
 
         # Find a matching data processing run for the other dcid. Must match proc_prog and processing_environment
         query = (
@@ -775,7 +784,7 @@ class DLSTrigger(CommonService):
                 break
         else:
             self.log.info(
-                f"Metal ID trigger: Waiting for processing to finish for autoProcProgramIds: {[job.autoProcProgramId for job in query.all()]}"
+                f"Metal ID trigger: Waiting for processing to finish for autoProcProgramId(s): {[job.autoProcProgramId for job in query.all()]}"
             )
             # Get previous checkpoint history
             start_time = message.get("start_time", time())
@@ -797,6 +806,8 @@ class DLSTrigger(CommonService):
                     "ntry": ntry,
                     "dcids": dcids,
                     "wavelengths": wavelengths,
+                    "processing_environment": processing_environment,
+                    "mtz_file_1": mtz_file_1.as_posix(),
                 },
                 delay=delay * 60,
                 transaction=transaction,
@@ -824,8 +835,9 @@ class DLSTrigger(CommonService):
 
         mtz_file_2 = pathlib.Path(query.filePath) / query.fileName
         self.log.info(f"Retrieved mtz file {mtz_file_2} from matching data collection")
-
+        # Get parameters from message if checkpointed
         wavelengths = message.get("wavelengths", wavelengths)
+        mtz_file_1 = pathlib.Path(message.get("mtz_file_1", mtz_file_1.as_posix()))
         if any(
             wavelength < parameters.dc_info.wavelength for wavelength in wavelengths
         ):

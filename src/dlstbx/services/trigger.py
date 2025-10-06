@@ -61,11 +61,12 @@ class DimpleParameters(pydantic.BaseModel):
 
 
 class DataCollectionInfo(pydantic.BaseModel):
-    numberOfImages: Optional[int] = None
-    startImageNumber: Optional[int] = None
+    numberOfImages: int
+    startImageNumber: int
     imagePrefix: Optional[str] = None
     dataCollectionNumber: Optional[int] = None
     SESSIONID: Optional[int] = None
+    wavelength: float = pydantic.Field(gt=0)
 
 
 class RelatedDCIDs(pydantic.BaseModel):
@@ -83,6 +84,7 @@ class MetalIdParameters(pydantic.BaseModel):
     experiment_type: str
     beamline: str
     scaling_id: int = pydantic.Field(gt=0)
+    autoprocprogram_id: int = pydantic.Field(gt=0)
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
@@ -676,7 +678,11 @@ class DLSTrigger(CommonService):
                     return {"success": True}
             else:
                 # Get a list of collections in the data collection group that include and are older than the present dcid
-                dcids = parameters.dcg_dcids
+                dcids = [
+                    dcid_value
+                    for dcid_value in parameters.dcg_dcids
+                    if dcid_value < parameters.dcid
+                ]
                 # If dcid is not included in the list of dcg_dcids it needs to be added
                 if parameters.dcid not in dcids:
                     dcids.append(parameters.dcid)
@@ -711,136 +717,132 @@ class DLSTrigger(CommonService):
                 return {"success": True}
 
         # Check that both dcids have finished processing successfully
-        query = (
-            (
-                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
-                    ProcessingJob,
-                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-                )
-            )
-            .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == proc_prog)
+        # Query the autoProcProgram table for the current job
+        processing_environment = (
+            session.query(AutoProcProgram.processingEnvironment)
             .filter(
-                or_(
-                    AutoProcProgram.processingStatus == None,  # noqa E711
-                    AutoProcProgram.processingStartTime == None,  # noqa E711
-                )
+                AutoProcProgram.autoProcProgramId == parameters.autoprocprogram_id,
             )
+            .one()[0]
         )
-        waiting_jobs = query.all()
-        if len(waiting_jobs):
-            waiting_dcids = []
-            for _pj, waiting_dcid in waiting_jobs:
-                self.log.info(
-                    f"Metal ID trigger: Waiting for dcid: {waiting_dcid} to finish"
-                )
-                waiting_dcids.append(waiting_dcid)
-            # Get previous checkpoint history
-            start_time = message.get("start_time", time())
-            run_time = time() - start_time
-            if run_time > parameters.timeout * 60:
-                self.log.warning(
-                    f"Metal ID trigger: timeout exceeded waiting for dcids: {waiting_dcids}. Skipping trigger"
-                )
-                return {"success": True}
-            # Calculate the message delay
-            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
-            self.log.info(
-                f"Metal ID trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
-            )
-            ntry += 1
-            rw.checkpoint(
-                {"start_time": start_time, "ntry": ntry, "dcids": dcids},
-                delay=delay * 60,
-                transaction=transaction,
-            )
-            return {"success": True}
 
-        # Get data collection information for all collections in dcids
         query = (
-            (
-                session.query(DataCollection, AutoProcProgram, ProcessingJob)
-                .join(
-                    AutoProcIntegration,
-                    AutoProcIntegration.dataCollectionId
-                    == DataCollection.dataCollectionId,
-                )
-                .join(
-                    AutoProcProgram,
-                    AutoProcProgram.autoProcProgramId
-                    == AutoProcIntegration.autoProcProgramId,
-                )
-                .join(
-                    ProcessingJob,
-                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-                )
-                .join(AutoProcProgram.AutoProcProgramAttachments)
+            session.query(
+                AutoProcProgramAttachment.filePath, (AutoProcProgramAttachment.fileName)
             )
-            .filter(DataCollection.dataCollectionId.in_(dcids))
-            .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == (proc_prog))
-            .filter(AutoProcProgram.processingStatus == 1)
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.autoProcProgramId
+                == AutoProcProgramAttachment.autoProcProgramId,
+            )
+            .filter(AutoProcProgram.autoProcProgramId == parameters.autoprocprogram_id)
             .filter(
                 AutoProcProgramAttachment.fileName.endswith(
                     input_file_patterns[proc_prog]
                 )
             )
-            .options(
-                contains_eager(AutoProcProgram.AutoProcProgramAttachments),
-                joinedload(ProcessingJob.ProcessingJobParameters),
-                Load(DataCollection).load_only(
-                    DataCollection.dataCollectionId,
-                    DataCollection.wavelength,
-                    DataCollection.startImageNumber,
-                    DataCollection.numberOfImages,
-                    raiseload=True,
-                ),
-            )
-            .populate_existing()
+            .one_or_none()
         )
 
-        if len(query.all()) < 2:
+        if not query:
             self.log.info(
-                f"Metal ID trigger: waiting for {proc_prog} processing to finish for dcids: {dcids}"
+                f"Skipping metal id trigger: No result file found for autoProcProgramId {parameters.autoprocprogram_id}"
             )
+            return {"success": True}
 
-        dcids = []
-        wavelengths = []
-        data_files = []
-        for dc, app, _pj in query.all():
-            attachments = app.AutoProcProgramAttachments
-            if len(attachments) == 0:
-                self.log.error(
-                    f"No file found for appid {app.autoProcProgramId}: Skipping metal_id"
+        mtz_file_1 = pathlib.Path(query[0]) / query[1]
+        self.log.info(f"Retrieved mtz file {mtz_file_1} from current data collection")
+
+        # Find a matching data processing run for the other dcid. Must match proc_prog and processing_environment
+        query = (
+            (
+                session.query(AutoProcProgram).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcids[0])
+            .filter(ProcessingJob.automatic == True)  # noqa E712
+            .filter(AutoProcProgram.processingPrograms == proc_prog)
+            .filter(AutoProcProgram.processingEnvironment == processing_environment)
+        )
+        if not len(query.all()):
+            self.log.info(
+                f"Skipping metal id trigger: No matching processing job found for autoProcProgramId {parameters.autoprocprogram_id} on dcid {dcids[0]}"
+            )
+            return {"success": True}
+        # Look to see if any matching jobs have finished running - take the first one that has
+        for matching_job in query.all():
+            if matching_job.processingStatus == 1:
+                self.log.info(
+                    f"Metal ID trigger: Found matching job {matching_job.autoProcProgramId} - using as input to metal_id"
+                )
+                break
+        else:
+            self.log.info(
+                f"Metal ID trigger: Waiting for processing to finish for autoProcProgramIds: {[job.autoProcProgramId for job in query.all()]}"
+            )
+            # Get previous checkpoint history
+            start_time = message.get("start_time", time())
+            run_time = time() - start_time
+            if run_time > parameters.timeout * 60:
+                self.log.warning(
+                    f"Metal ID trigger: timeout exceeded waiting for matching job for dcid '{parameters.dcid}' and autoProcProgramId '{parameters.autoprocprogram_id}' to finish. Skipping trigger"
                 )
                 return {"success": True}
-            if len(attachments) > 1:
-                self.log.error(
-                    f"Multiple files found for appid {app.autoProcProgramId}: Skipping metal_id"
+            # Calculate the message delay
+            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
+            self.log.info(
+                f"Metal ID trigger: Checkpointing for dcid '{parameters.dcid}' autoProcProgramId '{parameters.autoprocprogram_id}' with delay of {delay} minutes"
+            )
+            ntry += 1
+            rw.checkpoint(
+                {
+                    "start_time": start_time,
+                    "ntry": ntry,
+                    "dcids": dcids,
+                    "wavelengths": wavelengths,
+                },
+                delay=delay * 60,
+                transaction=transaction,
+            )
+            return {"success": True}
+
+        query = (
+            session.query(AutoProcProgramAttachment)
+            .filter(
+                AutoProcProgramAttachment.autoProcProgramId
+                == matching_job.autoProcProgramId
+            )
+            .filter(
+                AutoProcProgramAttachment.fileName.endswith(
+                    input_file_patterns[proc_prog]
                 )
-                return {"success": True}
-            att = attachments[0]
-            data_file = str(pathlib.Path(att.filePath) / att.fileName)
-            data_files.append(data_file)
-            wavelengths.append(dc.wavelength)
-            dcids.append(dc.dataCollectionId)
-            # Get parameters for job image sweep parameters
-            if dc.dataCollectionId == parameters.dcid:
-                start_image = dc.startImageNumber
-                end_image = dc.startImageNumber + dc.numberOfImages - 1
+            )
+        ).one_or_none()
 
-        # Sort based on wavelength
-        combined = list(zip(wavelengths, dcids, data_files))
-        sorted_combined = sorted(combined)
-        wavelengths, dcids, data_files = [list(v) for v in zip(*sorted_combined)]
+        if not query:
+            self.log.error(
+                f"Skipping metal_id trigger: No result file found for appid {matching_job.autoProcProgramId}"
+            )
+            return {"success": True}
 
-        # Get parameters for metal_id recipe
-        mtz_file_below = data_files[1]
-        mtz_file_above = data_files[0]
+        mtz_file_2 = pathlib.Path(query.filePath) / query.fileName
+        self.log.info(f"Retrieved mtz file {mtz_file_2} from matching data collection")
+
+        wavelengths = message.get("wavelengths", wavelengths)
+        if any(
+            wavelength < parameters.dc_info.wavelength for wavelength in wavelengths
+        ):
+            mtz_file_above = mtz_file_2
+            mtz_file_below = mtz_file_1
+        else:
+            mtz_file_above = mtz_file_1
+            mtz_file_below = mtz_file_2
+
         metal_id_parameters: dict[str, list[Any]] = {
             "dcids": dcids,
-            "data": [mtz_file_below, mtz_file_above],
+            "data": [mtz_file_below.as_posix(), mtz_file_above.as_posix()],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
         }
@@ -859,9 +861,10 @@ class DLSTrigger(CommonService):
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = parameters.dcid
-        jisp["start_image"] = start_image
-        jisp["end_image"] = end_image
-
+        jisp["start_image"] = parameters.dc_info.startImageNumber
+        jisp["end_image"] = (
+            parameters.dc_info.startImageNumber + parameters.dc_info.numberOfImages - 1
+        )
         for key, values in metal_id_parameters.items():
             for value in values:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()

@@ -37,7 +37,7 @@ def dcids_from_related_dcids(
     """
 
     related_dcids = parameters.related_dcids
-
+    dcids = []
     for related_dcid_set in related_dcids:
         if related_dcid_set.sample_id:
             dcids = related_dcid_set.dcids

@@ -2702,6 +2702,7 @@ class DLSTrigger(CommonService):
         # program_id = parameters.program_id
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
+        visit_proposal = visit.split("-")[0]
         # visit_dir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
         # results_dir = pathlib.Path(ispyb_info.get("ispyb_results_directory", ""))
 
@@ -2720,7 +2721,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit}")
+        xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit_proposal}")
         names = []
         visit_dirs = []
 
@@ -2745,7 +2746,7 @@ class DLSTrigger(CommonService):
             )
         else:
             self.log.debug(
-                f"Could not find a corresponding .sqlite database in XChem visit {visit} for target {acronym}, can't continue"
+                f"Could not find a corresponding .sqlite database in XChem visit {xchem_dir} for target {acronym}, can't continue"
             )
             return {"success": True}
 
@@ -2800,20 +2801,21 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
         )
 
-        query = query.with_entities(BLSample.location, Container.code)
+        query = query.with_entities(BLSample.location, BLSample.name, Container.code)
         location = int(query.one()[0])
-        code = query.one()[1]
+        name = query.one()[1]
+        code = query.one()[2]
 
         # Read XChem SQLite row into a pandas DataFrame
         con = sqlite3.connect(sqlite_db)
         df = pd.read_sql_query(
-            f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location}",
+            f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{name}'",
             con,
         )
 
         if len(df) != 1:
             self.log.info(
-                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found, can't continue."
+                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {sqlite_db}, can't continue."
             )
             return {"success": True}
 

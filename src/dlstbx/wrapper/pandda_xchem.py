@@ -19,16 +19,16 @@ class LigandFitWrapper(Wrapper):
 
         job_type = params.get("job_type")
         # CompoundSMILES = params.get("CompoundSMILES")
-        processing_dir = params.get("processing_dir")
+        processing_dir = params.get("processing_directory")
+        analysis_dir = processing_dir + "/analysis"
+        model_dir = params.get("model_directory")
         dtag = params.get("dtag")
+        well_dir = params.get("dataset_directory")
 
         # working_directory = pathlib.Path(params["working_directory"])
         # working_directory.mkdir(parents=True, exist_ok=True)
         # results_directory = pathlib.Path(params["results_directory"])
         # results_directory.mkdir(parents=True, exist_ok=True)
-        analysis_dir = processing_dir / "analysis"
-        model_dir = analysis_dir / "model_building_auto"
-        well_dir = model_dir / dtag
 
         # -------------------------------------------------------
         # if job_type == "prep":
@@ -109,29 +109,6 @@ class LigandFitWrapper(Wrapper):
                 return False
 
         # -------------------------------------------------------
-        elif job_type == "prerun":
-            pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
-            conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
-            python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'}"
-
-            try:
-                result = subprocess.run(
-                    pandda2_command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    cwd=well_dir,
-                    check=True,
-                    timeout=params.get("timeout-minutes") * 60,
-                )
-
-            except subprocess.CalledProcessError as e:
-                self.log.error(f"PanDDA2 command: '{pandda2_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
-                return False
-
-        # -------------------------------------------------------
         # elif job_type == "postrun":
         #     pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
         #     conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
@@ -178,7 +155,7 @@ class LigandFitWrapper(Wrapper):
         # self.log.info("Sending results to ISPyB")
         # self.send_attachments_to_ispyb(results_directory)
 
-        self.log.info("Auto PanDDApipeline finished successfully")
+        self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True
 
     def send_attachments_to_ispyb(self, well_dir):

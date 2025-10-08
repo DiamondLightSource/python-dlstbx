@@ -51,8 +51,6 @@ def dcids_from_related_dcids(
     if any(
         getattr(dc_info, field) is None
         for field in [
-            "numberOfImages",
-            "startImageNumber",
             "imagePrefix",
             "SESSIONID",
             "dataCollectionNumber",

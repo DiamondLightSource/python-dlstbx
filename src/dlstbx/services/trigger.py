@@ -699,9 +699,13 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"Metal ID trigger: found dcids {dcids}")
 
-        # On first time processing the message check that the photon energy is different enough between the two data collections
+        # Get parameters from previously checkpointed message else find them from database
         ntry = message.get("ntry", 0)
-        if not ntry:
+        if ntry:
+            processing_environment = message["processing_environment"]
+            mtz_file_1 = pathlib.Path(message["mtz_file_1"])
+            wavelengths = message["wavelengths"]
+        else:
             query = session.query(DataCollection).filter(
                 DataCollection.dataCollectionId.in_(dcids)
             )
@@ -752,13 +756,8 @@ class DLSTrigger(CommonService):
                 f"Retrieved mtz file {mtz_file_1} from current data collection"
             )
 
-        # Get processing environment from message if checkpointed
-        processing_environment = message.get(
-            "processing_environment", processing_environment
-        )
-
         # Find a matching data processing run for the other dcid. Must match proc_prog and processing_environment
-        query = (
+        matching_jobs = (
             (
                 session.query(AutoProcProgram).join(
                     ProcessingJob,
@@ -769,22 +768,33 @@ class DLSTrigger(CommonService):
             .filter(ProcessingJob.automatic == True)  # noqa E712
             .filter(AutoProcProgram.processingPrograms == proc_prog)
             .filter(AutoProcProgram.processingEnvironment == processing_environment)
-        )
-        if not len(query.all()):
+        ).all()
+        self.log.info(f"matching_jobs: {matching_jobs}")
+
+        if not matching_jobs:
             self.log.info(
                 f"Skipping metal id trigger: No matching processing job found for autoProcProgramId {parameters.autoprocprogram_id} on dcid {dcids[0]}"
             )
             return {"success": True}
         # Look to see if any matching jobs have finished running - take the first one that has
-        for matching_job in query.all():
+        failed_job_counter = 0
+        for matching_job in matching_jobs:
             if matching_job.processingStatus == 1:
                 self.log.info(
                     f"Metal ID trigger: Found matching job {matching_job.autoProcProgramId} - using as input to metal_id"
                 )
                 break
+            elif matching_job.processingStatus == 0:
+                failed_job_counter += 1
         else:
+            # If no matching jobs have finished check if they have all failed
+            if failed_job_counter == len(matching_jobs):
+                self.log.info(
+                    f"Skipping metal id trigger: All matching processing jobs found for autoProcProgramId {parameters.autoprocprogram_id} have failed"
+                )
+                return {"success": True}
             self.log.info(
-                f"Metal ID trigger: Waiting for processing to finish for autoProcProgramId(s): {[job.autoProcProgramId for job in query.all()]}"
+                f"Metal ID trigger: Waiting for processing to finish for autoProcProgramId(s): {[job.autoProcProgramId for job in matching_jobs if job.processingStatus == 0]}"
             )
             # Get previous checkpoint history
             start_time = message.get("start_time", time())
@@ -836,8 +846,6 @@ class DLSTrigger(CommonService):
         mtz_file_2 = pathlib.Path(query.filePath) / query.fileName
         self.log.info(f"Retrieved mtz file {mtz_file_2} from matching data collection")
         # Get parameters from message if checkpointed
-        wavelengths = message.get("wavelengths", wavelengths)
-        mtz_file_1 = pathlib.Path(message.get("mtz_file_1", mtz_file_1.as_posix()))
         if any(
             wavelength < parameters.dc_info.wavelength for wavelength in wavelengths
         ):

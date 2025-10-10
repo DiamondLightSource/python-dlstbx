@@ -539,7 +539,7 @@ class DLSISPyB(EM_Mixin, CommonService):
 
     def do_insert_screening(self, parameters, **kwargs):
         """Write entry to the Screening table."""
-        # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments']
+        # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments', 'autoprocprogramid']
         screening_params = self.ispyb.mx_screening.get_screening_params()
         for k in screening_params.keys():
             screening_params[k] = parameters(k)

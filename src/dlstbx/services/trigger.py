@@ -720,8 +720,6 @@ class DLSTrigger(CommonService):
                 )
                 return {"success": True}
 
-            # Check that both dcids have finished processing successfully
-            # Query the autoProcProgram table for the current job
             query = (
                 session.query(
                     AutoProcProgram.processingEnvironment,
@@ -787,7 +785,7 @@ class DLSTrigger(CommonService):
             elif matching_job.processingStatus == 0:
                 failed_job_counter += 1
         else:
-            # If no matching jobs have finished check if they have all failed
+            # If no matching jobs have finished check if they have all failed. Skip if they have, checkpoint if not
             if failed_job_counter == len(matching_jobs):
                 self.log.info(
                     f"Skipping metal id trigger: All matching processing jobs found for autoProcProgramId {parameters.autoprocprogram_id} have failed"

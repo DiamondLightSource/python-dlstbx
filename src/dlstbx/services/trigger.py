@@ -2625,6 +2625,7 @@ class DLSTrigger(CommonService):
             "smiles": parameters.smiles,
             "pipeline": parameters.pipeline,
             "acronym": acronym,
+            "scaling_id": scaling_id,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()

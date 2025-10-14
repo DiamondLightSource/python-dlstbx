@@ -169,7 +169,8 @@ def handle_eiger_screening(
             recipe="strategy-align-crystal",
             source="automatic",
             displayname="align_crystal",
-        )
+        ),
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 
 
@@ -185,7 +186,7 @@ def handle_characterization(
             recipe="strategy-align-crystal",
             source="automatic",
             displayname="align_crystal",
-        )
+        ),
     ]
 
 
@@ -203,7 +204,8 @@ def handle_pilatus_screening(
             recipe="strategy-align-crystal",
             source="automatic",
             displayname="align_crystal",
-        )
+        ),
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 
 

@@ -40,7 +40,7 @@ class XOalignWrapper(Wrapper):
         # Create working directory
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        symlink = self.params.get("create_symlink")
+        symlink = params.get("create_symlink")
         if isinstance(symlink, list):
             symlink = symlink[0]
         if symlink:

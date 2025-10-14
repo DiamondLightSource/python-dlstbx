@@ -237,12 +237,15 @@ class MetalIdWrapper(Wrapper):
             self.log.info("Copying file")
             shutil.copy(f, results_directory)
 
-        if self.params.get("create_symlink"):
+        symlink = self.params.get("create_symlink")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(output_directory), self.params["create_symlink"]
+                os.fspath(output_directory), symlink
             )
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(results_directory), self.params["create_symlink"]
+                os.fspath(results_directory), symlink
             )
 
         self.log.info("Sending results to ISPyB")

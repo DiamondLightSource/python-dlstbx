@@ -163,11 +163,12 @@ def handle_eiger_screening(
     **kwargs,
 ) -> List[mimas.Invocation]:
     return [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in (
-            "strategy-align-crystal",
-            "strategy-mosflm",
-            "strategy-edna-eiger",
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-align-crystal",
+            source="automatic",
+            displayname="align_crystal",
         )
     ]
 
@@ -177,10 +178,15 @@ def handle_characterization(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    tasks: List[mimas.Invocation] = [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-align-crystal")
+    return [
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-align-crystal",
+            source="automatic",
+            displayname="align_crystal",
+        )
     ]
-    return tasks
 
 
 @mimas.match_specification(
@@ -191,10 +197,12 @@ def handle_pilatus_screening(
     **kwargs,
 ) -> List[mimas.Invocation]:
     return [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in (
-            "strategy-mosflm",
-            "strategy-edna",
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-align-crystal",
+            source="automatic",
+            displayname="align_crystal",
         )
     ]
 

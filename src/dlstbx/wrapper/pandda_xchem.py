@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
 # import molviewspec as mvs
 from dlstbx.wrapper import Wrapper
 
 
-class LigandFitWrapper(Wrapper):
+class PanDDAWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.pandda_xchem"
 
     def run(self):
@@ -15,15 +16,20 @@ class LigandFitWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
+        # slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")  # starts from 1
+        # self.log.debug((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         params = self.recwrap.recipe_step["job_parameters"]
 
-        job_type = params.get("job_type")
-        # CompoundSMILES = params.get("CompoundSMILES")
-        processing_dir = params.get("processing_directory")
-        analysis_dir = processing_dir + "/analysis"
-        model_dir = params.get("model_directory")
-        dtag = params.get("dtag")
-        well_dir = params.get("dataset_directory")
+        processing_dir = Path(params.get("processing_directory"))
+        analysis_dir = Path(processing_dir / "analysis")
+        model_dir = Path(params.get("model_directory"))
+
+        # datasets = json.loads(params.get("datasets"))
+        # dtag = datasets[int(slurm_task_id) - 1]
+        dtag = params.get("dataset")
+        self.log.info(f"Processing dtag: {dtag}")
+        well_dir = model_dir / dtag
+        compound_dir = well_dir / "compound"
 
         # working_directory = pathlib.Path(params["working_directory"])
         # working_directory.mkdir(parents=True, exist_ok=True)
@@ -31,82 +37,50 @@ class LigandFitWrapper(Wrapper):
         # results_directory.mkdir(parents=True, exist_ok=True)
 
         # -------------------------------------------------------
-        # if job_type == "prep":
-        #     # offer grade and elbow options?
-        #     acedrg_command = f"module load ccp4; acedrg -i {well_dir / 'ligand.smi'} -o {well_dir / 'lig'}"
+        acedrg_command = f"module load ccp4; acedrg -i {compound_dir / 'LIG.smi'} -o {compound_dir / 'LIG'}"
 
-        #     try:
-        #         result = subprocess.run(
-        #             acedrg_command,
-        #             shell=True,
-        #             capture_output=True,
-        #             text=True,
-        #             cwd=well_dir,
-        #             check=True,
-        #             timeout=params.get("timeout-minutes")
-        #             * 60,  # have seperate timeouts?
-        #         )
+        try:
+            result = subprocess.run(
+                acedrg_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=well_dir,
+                check=True,
+                timeout=params.get("timeout-minutes") * 60,  # have seperate timeouts?
+            )
 
-        #     except subprocess.CalledProcessError as e:
-        #         self.log.error(
-        #             f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
-        #         )
-        #         self.log.info(e.stdout)
-        #         self.log.error(e.stderr)
-        #         return False
+        except subprocess.CalledProcessError as e:
+            self.log.error(
+                f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
+            )
+            self.log.info(e.stdout)
+            self.log.error(e.stderr)
+            return False
 
-        #     with open(well_dir / "acedrg.log", "w") as log_file:
-        #         log_file.write(result.stdout)
+        with open(well_dir / "acedrg.log", "w") as log_file:
+            log_file.write(result.stdout)
 
-        # -------------------------------------------------------
-        if job_type == "single":
-            # need to make restraints first, fix! or check that they exist if reprocessing due to failure
-            acedrg_command = f"module load ccp4; acedrg -i {well_dir / 'ligand.smi'} -o {well_dir / 'lig'}"
+        pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
+        conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
+        python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={analysis_dir / 'auto_panddas'} --dtag={dtag}"
 
-            try:
-                result = subprocess.run(
-                    acedrg_command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    cwd=well_dir,
-                    check=True,
-                    timeout=params.get("timeout-minutes")
-                    * 60,  # have seperate timeouts?
-                )
+        try:
+            result = subprocess.run(
+                pandda2_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=well_dir,
+                check=True,
+                timeout=params.get("timeout-minutes") * 60,
+            )
 
-            except subprocess.CalledProcessError as e:
-                self.log.error(
-                    f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
-                )
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
-                # update the yaml?
-                return False
-
-            with open(well_dir / "acedrg.log", "w") as log_file:
-                log_file.write(result.stdout)
-
-            pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
-            conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
-            python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'} --dtag={dtag}"
-
-            try:
-                result = subprocess.run(
-                    pandda2_command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    cwd=well_dir,
-                    check=True,
-                    timeout=params.get("timeout-minutes") * 60,
-                )
-
-            except subprocess.CalledProcessError as e:
-                self.log.error(f"PanDDA2 command: '{pandda2_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
-                return False
+        except subprocess.CalledProcessError as e:
+            self.log.error(f"PanDDA2 command: '{pandda2_command}' failed")
+            self.log.info(e.stdout)
+            self.log.error(e.stderr)
+            return False
 
         # -------------------------------------------------------
         # elif job_type == "postrun":

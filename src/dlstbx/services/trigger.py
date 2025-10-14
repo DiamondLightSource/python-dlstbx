@@ -257,7 +257,7 @@ class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     pdb: pathlib.Path
     mtz: pathlib.Path
-    prerun_threshold: float = pydantic.Field(default=300)
+    prerun_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
@@ -2755,25 +2755,22 @@ class DLSTrigger(CommonService):
 
         # 1. For now only allow xia2 dials jobs as the upstream source
         scaling_id = parameters.scaling_id[0]
+        self.log.debug(f"Scaling_id is {scaling_id}")
 
         # Get data collection information
         query = (
-            (
-                session.query(AutoProcProgram)
-                .join(
-                    AutoProc,
-                    AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
-                )
-                .join(
-                    AutoProcScaling,
-                    AutoProc.autoProcId == AutoProcScaling.autoProcId,
-                )
+            session.query(AutoProcProgram)
+            .join(
+                AutoProc,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
             )
-            .filter(AutoProcScaling.autoProcScalingId == scaling_id)
-            .one()
-        )
+            .join(
+                AutoProcScaling,
+                AutoProc.autoProcId == AutoProcScaling.autoProcId,
+            )
+        ).filter(AutoProcScaling.autoProcScalingId == scaling_id)
 
-        if query.processingPrograms != "xia2 dials":
+        if query.one().processingPrograms != "xia2 dials":
             self.log.info(
                 "Skipping PanDDA2 trigger: Upstream processing program is not xia2 dials."
             )
@@ -2803,13 +2800,13 @@ class DLSTrigger(CommonService):
 
         query = query.with_entities(BLSample.location, BLSample.name, Container.code)
         location = int(query.one()[0])
-        name = query.one()[1]
+        dtag = query.one()[1]
         code = query.one()[2]
 
-        # Read XChem SQLite row into a pandas DataFrame
+        # Read XChem SQLite row
         con = sqlite3.connect(sqlite_db)
         df = pd.read_sql_query(
-            f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{name}'",
+            f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
             con,
         )
 
@@ -2845,18 +2842,11 @@ class DLSTrigger(CommonService):
         mtz = str(parameters.mtz)
 
         model_dir = processing_dir / "analysis" / "tmp"  # auto_model_building
-        dtag = pathlib.Path(ispyb_info.get("ispyb_working_directory", "")).parent.parts[
-            -1
-        ]
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
-        pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
+        pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)  # False?
 
         self.log.info(f"Creating directory {well_dir}.")
-
-        dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
-        self.log.info(f"dataset_list is: {dataset_list}")
-        dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
 
         # Update the experiment yaml for tracking
         # yaml_datasets = expt_yaml["datasets"]
@@ -2874,8 +2864,13 @@ class DLSTrigger(CommonService):
         shutil.copy(pdb, str(well_dir / "dimple.pdb"))
         shutil.copy(mtz, str(well_dir / "dimple.mtz"))
 
-        with open(well_dir / "ligand.smi", "w") as smi_file:
-            smi_file.write(CompoundSMILES)  # save SMILES
+        if CompoundSMILES:
+            with open(compound_dir / "LIG.smi", "w") as smi_file:
+                smi_file.write(CompoundSMILES)  # save SMILES
+
+        dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
+        self.log.info(f"dataset_list is: {dataset_list}")
+        dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
 
         # 3. Job launch logic
         prerun_threshold = parameters.prerun_threshold
@@ -2887,31 +2882,51 @@ class DLSTrigger(CommonService):
             return {"success": True}
         elif dataset_count == prerun_threshold:
             datasets = dataset_list  # list of datasets to process
-            job_type = "batch"
             self.log.info(
                 f"Dataset dataset_count {dataset_count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 in batch mode"
             )
         elif dataset_count > prerun_threshold:
             datasets = [dtag]
-            job_type = "single"
             self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
 
-        # loop over datasets
+        self.log.debug("PanDDA2 trigger: Starting")
+        self.log.info(f"datasets: {datasets}")
         for dataset in datasets:
-            self.log.debug("PanDDA2 trigger: Starting")
+            # get dcid, best to save these beforehand to yaml?
+            # query = (
+            #     session.query(DataCollection.dataCollectionId)
+            #     .join(
+            #         BLSample,
+            #         BLSample.blSampleId == DataCollection.BLSAMPLEID,
+            #     )
+            #     .join(
+            #         ProcessingJob,
+            #         ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
+            #     )
+            #     .join(
+            #         AutoProcProgram,
+            #         AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            #     )
+            #     .filter(BLSample.name == dataset)
+            #     .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+            # )
+
+            # df = pd.read_sql(query.statement, query.session.bind)
+            # dcid = max(df["dataCollectionId"])  # latest dcid? fix
+
+            self.log.debug(f"launching job for dataset: {dataset}")
             pandda_parameters = {
-                "dcid": dcid,
+                "dcid": dcid,  #
                 "processing_directory": str(processing_dir),
                 "model_directory": str(model_dir),
                 "dataset_directory": str(well_dir),
-                "job_type": job_type,
-                "dtag": str(dataset),
+                "dataset": dataset,
             }
 
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             # jp["comments"] = parameters.comment
-            jp["datacollectionid"] = parameters.dcid
+            jp["datacollectionid"] = dcid
             jp["display_name"] = "PanDDA2"
             jp["recipe"] = "postprocessing-pandda2"
             self.log.info(jp)

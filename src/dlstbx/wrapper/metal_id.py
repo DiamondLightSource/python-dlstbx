@@ -22,7 +22,7 @@ class MetalIdWrapper(Wrapper):
         with open(peak_data_file, "r") as file:
             for line in file:
                 match = re.match(
-                    r"Peak \d+: Electron Density = ([\d.]+) e/Å\^3, RMSD = ([\d.]+), XYZ = \(([\d.]+), ([\d.]+), ([\d.]+)\)",
+                    r"Peak \d+: Electron Density = ([\d.]+) e/Å\^3, RMSD = ([\d.]+), XYZ = \((-?[\d.]+), (-?[\d.]+), (-?[\d.]+)\)",
                     line,
                 )
                 if match:

@@ -7,18 +7,27 @@ import pathlib
 import re
 import shutil
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import dlstbx.util.symlink
 from dlstbx import schemas
 from dlstbx.wrapper import Wrapper
 
 
+@dataclass
+class PeakData:
+    density: float
+    rmsd: float
+    xyz: tuple[float, float, float]
+
+
 class MetalIdWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.metal_id"
 
-    def parse_peak_data(self, peak_data_file):
-        peak_data = []
+    def parse_peak_data(self, peak_data_file: pathlib.Path) -> list[PeakData]:
+        peak_data: list[PeakData] = []
         with open(peak_data_file, "r") as file:
             for line in file:
                 match = re.match(
@@ -26,40 +35,25 @@ class MetalIdWrapper(Wrapper):
                     line,
                 )
                 if match:
-                    electron_density = float(match.group(1))
+                    density = float(match.group(1))
                     rmsd = float(match.group(2))
                     xyz = (
                         float(match.group(3)),
                         float(match.group(4)),
                         float(match.group(5)),
                     )
-                    peak_data.append(
-                        {"electron_density": electron_density, "rmsd": rmsd, "xyz": xyz}
-                    )
+                    peak_data.append(PeakData(density=density, rmsd=rmsd, xyz=xyz))
         return peak_data
 
     def send_results_to_ispyb(
         self,
-        peak_data,
-        metal_id_command,
-        dimple_log_file,
-        results_directory,
-        start_time,
-    ):
-        scaling_id = self.params.get("scaling_id", [])
-        if len(scaling_id) != 1:
-            self.log.info(f"Scaling ID {scaling_id} provided")
-            self.log.error(
-                "Exactly one scaling_id must be provided - cannot insert metal_id results to ISPyB"
-            )
-            return False
-        scaling_id = scaling_id[0]
-
-        if not dimple_log_file.is_file():
-            self.log.error(
-                f"dimple log file '{dimple_log_file}' not found - cannot insert metal_id results to ISPyB"
-            )
-            return False
+        peak_data: list[PeakData],
+        metal_id_command: str,
+        dimple_log_file: pathlib.Path,
+        results_directory: pathlib.Path,
+        start_time: datetime,
+        scaling_id: int,
+    ) -> dict[str, Any]:
         self.log.info(
             f"Autoproc_prog_id: '{self.recwrap.environment.get('ispyb_autoprocprogram_id')}'"
         )
@@ -82,12 +76,12 @@ class MetalIdWrapper(Wrapper):
         blobs = []
         for n_peak, peak in enumerate(peak_data, start=1):
             self.log.info(
-                f"Adding blob {n_peak} to ispyb results - Density: {peak['electron_density']}, rmsd: {peak['rmsd']}, xyz: {peak['xyz']}"
+                f"Adding blob {n_peak} to ispyb results - Density: {peak.density}, rmsd: {peak.rmsd}, xyz: {peak.xyz}"
             )
             blobs.append(
                 schemas.Blob(
-                    xyz=peak["xyz"],
-                    height=peak["electron_density"],
+                    xyz=peak.xyz,
+                    height=peak.density,
                     # nearest_atom=nearest_atom,
                     # nearest_atom_distance=distance,
                     map_type="difference",  # TODO change this to anomalous_difference once enum exists.
@@ -151,6 +145,15 @@ class MetalIdWrapper(Wrapper):
         )
         # Get parameters from the recipe file
         self.params = self.recwrap.recipe_step["job_parameters"]
+
+        scaling_id = self.params.get("scaling_id", [])
+        if len(scaling_id) != 1:
+            self.log.info(f"Scaling ID {scaling_id} provided")
+            self.log.error(
+                "Exactly one scaling_id must be provided - cannot run metal_id"
+            )
+            return False
+        scaling_id = scaling_id[0]
 
         src_mtz_files = self.params.get("data", [])
         if not src_mtz_files:
@@ -224,7 +227,12 @@ class MetalIdWrapper(Wrapper):
         )
 
         self.log.debug("Reading in peak data")
-        peak_data = self.parse_peak_data(output_directory / "found_peaks.dat")
+        peak_file = output_directory / "found_peaks.dat"
+        if not peak_file.is_file():
+            self.log.info("Metal_ID: No peaks found")
+            peak_data = []
+        else:
+            peak_data = self.parse_peak_data(peak_file)
 
         for f in output_directory.iterdir():
             self.log.info(f"Searching for files to copy. Current file is : {f}")
@@ -251,9 +259,19 @@ class MetalIdWrapper(Wrapper):
         self.log.info("Sending results to ISPyB")
 
         dimple_log = working_directory / "metal_id" / "dimple_below" / "dimple.log"
+        if not dimple_log.is_file():
+            self.log.error(
+                f"dimple log file '{dimple_log}' not found - cannot insert metal_id results to ISPyB"
+            )
+            return False
 
         ispyb_results = self.send_results_to_ispyb(
-            peak_data, metal_id_command, dimple_log, results_directory, start_time
+            peak_data,
+            metal_id_command,
+            dimple_log,
+            results_directory,
+            start_time,
+            scaling_id,
         )
 
         self.log.info(f"Sending {str(ispyb_results)} to ispyb service")

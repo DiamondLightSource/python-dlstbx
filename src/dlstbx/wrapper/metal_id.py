@@ -100,20 +100,18 @@ class MetalIdWrapper(Wrapper):
         )
 
         attachments = []
+
+        primary_result_files = self.params.get("primary_result_files", {})
         self.log.info("Adding attachments for upload to ispyb")
         for f in results_directory.iterdir():
-            if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb", ".dat"]:
-                self.log.info(f"Skipping file {f.name}")
-                continue
-            elif f.suffix in [".map", ".pdb", ".dat"]:
-                file_type = "result"
-                importance_rank = 1
-            elif f.suffix in [".pha", ".mtz"]:
+            if f.name in primary_result_files:
+                file_type = primary_result_files[f.name]["type"]
+                importance_rank = primary_result_files[f.name]["rank"]
+            elif f.suffix in [".map", ".pdb", ".dat", ".pha", ".mtz"]:
                 file_type = "result"
                 importance_rank = 2
             else:
-                file_type = "log"
-                importance_rank = 3
+                continue
 
             attachments.append(
                 schemas.Attachment(
@@ -125,6 +123,16 @@ class MetalIdWrapper(Wrapper):
                 )
             )
             self.log.info(f"Added {f.name} as an attachment")
+
+        if getattr(self, "final_directory", None):
+            for att in attachments:
+                if att.file_name in primary_result_files:
+                    shutil.copy(att.file_path / att.file_name, self.final_directory)
+                    att.file_path = self.final_directory
+            for blob in blobs:
+                if blob.filepath and blob.view1:
+                    shutil.copy(blob.filepath / blob.view1, self.final_directory)
+                    blob.filepath = self.final_directory
 
         ispyb_results = {
             "mxmrrun": json.loads(mxmrrun.model_dump_json()),
@@ -235,14 +243,12 @@ class MetalIdWrapper(Wrapper):
             peak_data = self.parse_peak_data(peak_file)
 
         for f in output_directory.iterdir():
-            self.log.info(f"Searching for files to copy. Current file is : {f}")
+            self.log.debug(f"Searching for files to copy. Current file is : {f}")
             if f.is_dir():
                 continue
             if f.name.startswith("."):
                 continue
-            if any(f.suffix == skipext for skipext in [".r3d"]):
-                continue
-            self.log.info("Copying file")
+            self.log.debug("Copying file")
             shutil.copy(f, results_directory)
 
         symlink = self.params.get("create_symlink")
@@ -264,6 +270,12 @@ class MetalIdWrapper(Wrapper):
                 f"dimple log file '{dimple_log}' not found - cannot insert metal_id results to ISPyB"
             )
             return False
+
+        if pipeine_final_params := self.params.get("pipeline-final", []):
+            self.final_directory = pathlib.Path(pipeine_final_params["path"])
+            self.final_directory.mkdir(parents=True, exist_ok=True)
+            if self.params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(self.final_directory, symlink)
 
         ispyb_results = self.send_results_to_ispyb(
             peak_data,

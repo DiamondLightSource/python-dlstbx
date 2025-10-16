@@ -92,6 +92,7 @@ class MetalIdParameters(pydantic.BaseModel):
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    symlink: str = pydantic.Field(default="")
 
 
 class ProteinInfo(pydantic.BaseModel):
@@ -858,6 +859,7 @@ class DLSTrigger(CommonService):
             "data": [mtz_file_below.as_posix(), mtz_file_above.as_posix()],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
+            "symlink": [parameters.symlink] if parameters.symlink else [],
         }
 
         self.log.debug("Metal_id trigger: Starting")

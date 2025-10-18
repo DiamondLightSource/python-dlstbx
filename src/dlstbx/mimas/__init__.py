@@ -4,6 +4,7 @@ import dataclasses
 import enum
 import functools
 import numbers
+import pathlib
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import gemmi
@@ -11,15 +12,21 @@ import pkg_resources
 import zocalo.configuration
 
 from dlstbx.mimas.specification import BaseSpecification
+from dlstbx.util.pdb import PDBFileOrCode
 
 MimasDCClass = enum.Enum(
     "MimasDCClass",
-    "CHARACTERIZATION DIAMOND_ANVIL_CELL GRIDSCAN ROTATION SCREENING SERIAL_FIXED SERIAL_JET UNDEFINED",
+    "CHARACTERIZATION DIAMOND_ANVIL_CELL GRIDSCAN HELICAL MAD METAL_ID OSC ROTATION SAD SCREENING SERIAL_FIXED SERIAL_JET UNDEFINED",
 )
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 
-MimasEvent = enum.Enum("MimasEvent", "START END START_GROUP END_GROUP")
+MimasEvent = enum.Enum("MimasEvent", "START END START_GROUP END_GROUP PROCESSING")
+
+MimasTarget = enum.Enum(
+    "MimasTarget",
+    "ALPHAFOLD BIG_EP BIG_EP_LAUNCHER DIMPLE FAST_EP MRBUMP MULTIPLEX SHELXT",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -76,6 +83,15 @@ class MimasScenario:
     detectorclass: Optional[MimasDetectorClass] = None
     anomalous_scatterer: Optional[MimasISPyBAnomalousScatterer] = None
     cloudbursting: Optional[list[dict[str, Any]]] = None
+    target: Optional[MimasTarget] = None
+    mtz: Optional[pathlib.Path] = None
+    scaled_unmerged_mtz: Optional[pathlib.Path] = None
+    pdb_files_or_codes: Optional[list[PDBFileOrCode]] = None
+    autoprocprogram_id: Optional[int] = None
+    autoprocscaling_id: Optional[int] = None
+    comment: Optional[str] = None
+    tag: Optional[str] = None
+    upstream_source: Optional[str] = None
 
 
 @dataclasses.dataclass(frozen=True)

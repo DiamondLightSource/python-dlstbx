@@ -105,6 +105,20 @@ class VisitSpecification(ScenarioSpecification):
         ) or False
 
 
+@dataclass(frozen=True)
+class TargetSpecification(ScenarioSpecification):
+    target: dlstbx.mimas.MimasTarget
+
+    def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
+        return candidate.target == self.target
+
+
+@dataclass(frozen=True)
+class AnomalousScattererSpecification(ScenarioSpecification):
+    def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
+        return bool(candidate.anomalous_scatterer)
+
+
 # class HasSpaceGroupSpecification(ScenarioSpecification):
 #     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
 #         return candidate.spacegroup is not None

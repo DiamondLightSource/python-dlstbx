@@ -81,6 +81,13 @@ class PinInfoDict(TypedDict):
     location: int | None
 
 
+class AutoProcScalingDict(TypedDict):
+    processingPrograms: str | None
+    autoProcProgramId: int | None
+    autoProcScalingId: int | None
+    attachments: list[str] | None
+
+
 class ispybtbx:
     def __init__(self):
         with Session() as session:
@@ -797,6 +804,66 @@ class ispybtbx:
     ):
         return crud.get_priority_processing_for_sample_id(sample_id, session)
 
+    def get_processing_info_from_scaling_id(
+        self, scaling_id: int | None, session: sqlalchemy.orm.session.Session
+    ) -> AutoProcScalingDict | None:
+        if not scaling_id:
+            return None
+
+        result = (
+            session.query(
+                isa.AutoProcScaling.autoProcScalingId,
+                isa.AutoProcProgram.autoProcProgramId,
+                isa.AutoProcProgram.processingPrograms,
+                isa.AutoProcProgramAttachment.filePath,
+                isa.AutoProcProgramAttachment.fileName,
+            )
+            .join(
+                isa.AutoProcScalingHasInt,
+                isa.AutoProcScalingHasInt.autoProcScalingId
+                == isa.AutoProcScaling.autoProcScalingId,
+            )
+            .join(
+                isa.AutoProcIntegration,
+                isa.AutoProcIntegration.autoProcIntegrationId
+                == isa.AutoProcScalingHasInt.autoProcIntegrationId,
+            )
+            .join(
+                isa.AutoProcProgram,
+                isa.AutoProcProgram.autoProcProgramId
+                == isa.AutoProcIntegration.autoProcProgramId,
+            )
+            .join(
+                isa.AutoProcProgramAttachment,
+                isa.AutoProcProgramAttachment.autoProcProgramId
+                == isa.AutoProcProgram.autoProcProgramId,
+            )
+            .filter(isa.AutoProcScaling.autoProcScalingId == scaling_id)
+            .all()
+        )
+        processing_programs = set()
+        program_id = set()
+        attachment_list = []
+        for row in result:
+            processing_programs.add(row.processingPrograms)
+            program_id.add(row.autoProcProgramId)
+            attachment_list.append(str(Path(row.filePath) / row.fileName))
+        if len(processing_programs) > 1:
+            self.log.error(
+                f"Multiple processing prgrams found for scaling_id {scaling_id}"
+            )
+        if len(processing_programs) > 1:
+            self.log.error(
+                f"Multiple autoProcProgramId values found for scaling_id {scaling_id}"
+            )
+        scaling_info: AutoProcScalingDict = {
+            "processingPrograms": cast(str | None, processing_programs.pop()),
+            "autoProcProgramId": cast(int | None, program_id.pop()),
+            "autoProcScalingId": scaling_id,
+            "attachments": attachment_list,
+        }
+        return scaling_info
+
 
 def ready_for_processing(
     message, parameters, session: sqlalchemy.orm.session.Session | None = None
@@ -957,6 +1024,16 @@ def ispyb_filter(
     parameters["ispyb_msp_sample_ids"] = (
         i.get_all_sample_ids_for_multisample_pin(pin_info, session) if pin_info else {}
     )
+
+    try:
+        parameters["ispyb_autoprocscaling_info"] = (
+            i.get_processing_info_from_scaling_id(
+                int(parameters.get("ispyb_autoprocscalingid")), session
+            )
+            or {}
+        )
+    except Exception:
+        parameters["ispyb_autoprocscaling_info"] = {}
 
     if (
         "ispyb_processing_job" in parameters

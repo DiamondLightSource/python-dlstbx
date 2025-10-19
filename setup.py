@@ -186,6 +186,13 @@ mimas_scenario_handlers = [
     "vmxi_gridscan = dlstbx.mimas.vmxi:handle_vmxi_gridscan",
     "vmxi_rotation = dlstbx.mimas.vmxi:handle_vmxi_rotation_scan",
     "vmxi_start = dlstbx.mimas.vmxi:handle_vmxi_start",
+    "processing_dimple = dlstbx.mimas.processing:handle_dimple",
+    "processing_mrbump = dlstbx.mimas.processing:handle_mrbump",
+    "processing_shelxt = dlstbx.mimas.processing:handle_shelxt",
+    "processing_fast_ep = dlstbx.mimas.processing:handle_fast_ep",
+    "processing_big_ep = dlstbx.mimas.processing:handle_big_ep",
+    "processing_big_ep_launcher = dlstbx.mimas.processing:handle_big_ep_launcher",
+    "processing_multiplex = dlstbx.mimas.processing:handle_multiplex",
 ]
 
 

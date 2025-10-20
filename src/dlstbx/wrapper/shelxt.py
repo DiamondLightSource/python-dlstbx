@@ -8,6 +8,7 @@ import subprocess
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import get_file_from_autoprocscaling_info
 
 
 class ShelxtWrapper(Wrapper):
@@ -40,12 +41,18 @@ class ShelxtWrapper(Wrapper):
             )
 
         # we need the ins and the hkl file here
-        ispyb_params = params.get("ispyb_parameters", {})
-        previous_directory = ispyb_params.get("ins_file_location", ["."])
-        previous_directory = pathlib.Path(previous_directory[0])
+        if autoprocscaling_info := params.get("autoprocscaling_info"):
+            try:
+                filename = get_file_from_autoprocscaling_info(
+                    autoprocscaling_info, ".ins"
+                )
+                previous_directory = pathlib.Path(filename).parent
+            except ValueError:
+                self.log.error("Cannot find .ins file location")
+                return False
 
         # get the file prefix from the parameters
-        prefix = ispyb_params.get("prefix", ["shelxt_#"])
+        prefix = params.get("prefix", ["shelxt_#"])
         if "#" in prefix[0]:
             prefix = prefix[0].split("#")[0][0:-1]
         else:

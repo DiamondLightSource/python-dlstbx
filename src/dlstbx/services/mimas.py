@@ -9,6 +9,7 @@ from workflows.services.common_service import CommonService
 
 from dlstbx import mimas
 from dlstbx.mimas import specification
+from dlstbx.util import iris
 
 
 class DLSMimas(CommonService):
@@ -44,6 +45,14 @@ class DLSMimas(CommonService):
             self._transport,
             "mimas",
             self.process,
+            acknowledgement=True,
+            log_extender=self.extend_log,
+        )
+
+        workflows.recipe.wrap_subscribe(
+            self._transport,
+            "mimas.cloud",
+            self.preprocess_cloud,
             acknowledgement=True,
             log_extender=self.extend_log,
         )
@@ -152,6 +161,10 @@ class DLSMimas(CommonService):
             "pilatus": mimas.MimasDetectorClass.PILATUS,
         }.get(step.get("detectorclass", "").lower())
 
+        cloudbursting = (
+            self.get_cloudbursting_spec() if step.get("cloudbursting") else None
+        )
+
         return mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dc_class_mimas,
@@ -165,7 +178,7 @@ class DLSMimas(CommonService):
             preferred_processing=step.get("preferred_processing"),
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
-            cloudbursting=self.get_cloudbursting_spec(),
+            cloudbursting=cloudbursting,
         )
 
     def on_statistics_cluster(self, header, message):
@@ -240,30 +253,28 @@ class DLSMimas(CommonService):
                     beamlines=set(group.get("beamlines", []))
                 )
                 group_max_jobs_waiting = group.get("max_jobs_waiting", max_jobs_waiting)
-                if (
-                    (
-                        (
-                            self.cluster_stats["slurm"]["jobs_waiting"]
-                            > group_max_jobs_waiting["slurm"]
-                        )
-                        or (
-                            self.cluster_stats["slurm"]["last_cluster_update"]
-                            < timeout_threshold
-                        )
+                is_slurm_max_jobs = (
+                    self.cluster_stats["slurm"]["jobs_waiting"]
+                    > group_max_jobs_waiting["slurm"]
+                )
+                is_slurm_timeout = (
+                    self.cluster_stats["slurm"]["last_cluster_update"]
+                    < timeout_threshold
+                )
+                is_iris_max_jobs = (
+                    self.cluster_stats["iris"]["jobs_waiting"]
+                    < group_max_jobs_waiting["iris"]
+                )
+                self.log.debug(
+                    pformat(
+                        {
+                            "is_slurm_max_jobs": is_slurm_max_jobs,
+                            "is_slurm_timeout": is_slurm_timeout,
+                            "is_iris_max_jobs": is_iris_max_jobs,
+                        }
                     )
-                    and (
-                        self.cluster_stats["iris"]["jobs_waiting"]
-                        < group_max_jobs_waiting["iris"]
-                    )
-                    and (
-                        self.cluster_stats["iris"]["last_cluster_update"]
-                        > timeout_threshold
-                    )
-                    and (
-                        self.cluster_stats["s3echo"]["last_cluster_update"]
-                        > timeout_threshold
-                    )
-                ):
+                )
+                if (is_slurm_max_jobs or is_slurm_timeout) and is_iris_max_jobs:
                     cloud_spec_list.append(
                         {
                             "cloud_spec": cloud_spec,
@@ -342,4 +353,78 @@ class DLSMimas(CommonService):
                 rw.send_to("ispyb", ttd_zocalo, transaction=txn)
 
         rw.transport.ack(header, transaction=txn)
+        rw.transport.transaction_commit(txn)
+
+    def preprocess_cloud(self, rw, header, message):
+        """Process an incoming event."""
+
+        # Pass incoming event information into Mimas scenario object
+
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
+        rw.transport.ack(header, transaction=txn)
+
+        try:
+            timeout = self.config.storage.get("timeout", 300)
+            s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
+            timeout_threshold = time.time() - timeout
+            self.log.debug(f"Slurm cluster stats: {self.cluster_stats['slurm']}")
+            self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
+            self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
+            self.log.debug(
+                "Cloudbursting threshold values\n"
+                f"  s3echo_quota: {s3echo_quota}"
+                f"  timeout_threshold: {timeout_threshold}"
+            )
+            # Check if global cloudbursting flag is False or if S3 Echo is full
+            if not self.config.storage.get("cloudbursting", False):
+                self.log.debug(
+                    "Cloudbursting disabled:\n"
+                    f"  is_cludbursting {self.config.storage.get('cloudbursting', False)}\n"
+                    f"  s3echo_storage: {self.cluster_stats['s3echo']['total']}"
+                )
+                return False
+            # Create cloud specification entry for each element in zocalo.mimas.cloud
+            # Add specification to the list if science cluster if oversubscribed
+            # and cluster statistics are up-to-date
+            is_iris_live = (
+                self.cluster_stats["iris"]["last_cluster_update"] > timeout_threshold
+            )
+            is_s3echo_live = (
+                self.cluster_stats["s3echo"]["last_cluster_update"] > timeout_threshold
+            )
+            is_s3echo_quota = self.cluster_stats["s3echo"]["total"] < s3echo_quota
+            cloudbursting = is_iris_live and is_s3echo_live and is_s3echo_quota
+
+            self.log.debug(
+                pformat(
+                    {
+                        "is_iris_live": is_iris_live,
+                        "is_s3echo_live": is_s3echo_live,
+                        "is_s3echo_quota": is_s3echo_quota,
+                    }
+                )
+            )
+        except AttributeError:
+            self.log.exception("Error reading cluster statistics")
+            cloudbursting = False
+
+        if cloudbursting:
+            try:
+                image_files = iris.get_image_files(
+                    None, rw.recipe_step["parameters"]["data"], self.log
+                )
+                rw.environment.update({"s3echo_upload": image_files})
+            except Exception:
+                self.log.exception(
+                    "Error retrieving image files for uploading to S3 Echo"
+                )
+                cloudbursting = False
+            else:
+                self.log.debug("Sending message to upload endpoint")
+                rw.send_to("upload", message, transaction=txn)
+
+        if not cloudbursting:
+            self.log.debug("Sending message to process endpoint")
+            rw.send_to("process", message, transaction=txn)
+
         rw.transport.transaction_commit(txn)

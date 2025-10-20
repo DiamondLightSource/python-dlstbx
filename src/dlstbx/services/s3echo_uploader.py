@@ -21,7 +21,7 @@ class S3EchoUploader(CommonService):
     """
 
     # Human readable service name
-    _service_name = "S3Echouploader"
+    _service_name = "S3EchoUploader"
 
     # Logger name
     _logger_name = "dlstbx.services.s3echouploader"
@@ -92,10 +92,11 @@ class S3EchoUploader(CommonService):
                 upload_s3_url = get_presigned_urls(
                     minio_client,
                     params["bucket"],
-                    params["rpid"],
+                    params["dcid"],
                     [
                         filepath,
                     ],
+                    True,
                     self.log,
                 )
             except S3Error as err:
@@ -123,7 +124,7 @@ class S3EchoUploader(CommonService):
 
     def on_download(self, rw, header, message):
         """
-        Download files from S3 Echo object store tto DLS filesystem. Remove image files, if requested.
+        Download files from S3 Echo object store to DLS filesystem. Remove image files, if requested.
         """
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
@@ -148,7 +149,9 @@ class S3EchoUploader(CommonService):
         else:
             rw.send_to("success", message, transaction=txn)
 
-        if s3_urls := rw.environment.get("s3_urls"):
+        # For downstream tasks processing data are removed here as uploads are done per prcessing job.
+        # For data reduction tasks data is shared between different pipelines as removed by S3EchoCollector service.
+        if s3_urls := rw.environment.get("s3_urls") and params.get("cleanup", True):
             remove_objects_from_s3(minio_client, params["bucket"], s3_urls, self.log)
 
         # Commit transaction

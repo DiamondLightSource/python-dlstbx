@@ -96,6 +96,14 @@ class DetectorClassSpecification(ScenarioSpecification):
 
 
 @dataclass(frozen=True)
+class ImageKindSpecification(ScenarioSpecification):
+    imagekind: dlstbx.mimas.MimasImageKind
+
+    def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
+        return candidate.imagekind == self.imagekind
+
+
+@dataclass(frozen=True)
 class VisitSpecification(ScenarioSpecification):
     visits: Set[str]
 

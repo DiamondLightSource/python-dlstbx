@@ -19,6 +19,14 @@ MimasDCClass = enum.Enum(
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 
+
+class MimasImageKind(enum.StrEnum):
+    """The kind of image file that was written for this collection"""
+
+    CBF = enum.auto()
+    NEXUS = enum.auto()
+
+
 MimasEvent = enum.Enum("MimasEvent", "START END START_GROUP END_GROUP")
 
 
@@ -74,6 +82,7 @@ class MimasScenario:
     getsweepslistfromsamedcg: Tuple[MimasISPyBSweep, ...] = ()
     preferred_processing: Optional[str] = None
     detectorclass: Optional[MimasDetectorClass] = None
+    imagekind: MimasImageKind | None = None
     anomalous_scatterer: Optional[MimasISPyBAnomalousScatterer] = None
     cloudbursting: Optional[list[dict[str, Any]]] = None
 
@@ -142,6 +151,8 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(mimasobject.spacegroup, expectedtype=MimasISPyBSpaceGroup)
     if mimasobject.detectorclass is not None:
         validate(mimasobject.detectorclass, expectedtype=MimasDetectorClass)
+    if mimasobject.imagekind is not None:
+        validate(mimasobject.imagekind, expectedtype=MimasImageKind)
     if mimasobject.anomalous_scatterer:
         validate(
             mimasobject.anomalous_scatterer, expectedtype=MimasISPyBAnomalousScatterer
@@ -162,6 +173,12 @@ def _(mimasobject: MimasEvent, expectedtype=None):
 
 @validate.register(MimasDetectorClass)  # type: ignore
 def _(mimasobject: MimasDetectorClass, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+
+
+@validate.register(MimasImageKind)  # type: ignore
+def _(mimasobject: MimasImageKind, expectedtype=None) -> None:
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
 

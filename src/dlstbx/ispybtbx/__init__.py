@@ -11,7 +11,7 @@ import pathlib
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Optional, Tuple, TypedDict, Union, cast
+from typing import Any, Literal, Optional, Tuple, TypedDict, Union, cast
 
 import gemmi
 import ispyb.sqlalchemy as isa
@@ -177,7 +177,7 @@ class ispybtbx:
 
     def dc_info_to_detectorclass(
         self, dc_info, session: sqlalchemy.orm.session.Session
-    ):
+    ) -> Literal["pilatus", "eiger"] | None:
         det_id = dc_info.get("detectorId")
         if det_id is not None and (det := crud.get_detector(det_id, session)):
             if det.detectorModel.lower().startswith("eiger"):
@@ -186,13 +186,38 @@ class ispybtbx:
                 return "pilatus"
 
         # Fallback on examining the file extension if nothing recorded in ISPyB
-        template = dc_info.get("fileTemplate")
-        if not template:
-            return None
-        if template.endswith("master.h5"):
-            return "eiger"
-        elif template.endswith(".cbf"):
-            return "pilatus"
+        if template := dc_info.get("fileTemplate"):
+            if template.endswith("master.h5"):
+                return "eiger"
+            elif template.endswith(".cbf"):
+                return "pilatus"
+
+        return None
+
+    def dc_info_to_imagekind(
+        self, dc_info, session: sqlalchemy.orm.session.Session
+    ) -> Literal["cbf", "nexus"] | None:
+        """Classify the image files for this data collection"""
+
+        # Check what the actual file was written as
+        if template := dc_info.get("fileTemplate"):
+            if template.endswith("master.h5") or template.endswith(".nxs"):
+                return "nexus"
+            elif template.endswith(".cbf"):
+                return "cbf"
+
+        # Otherwise, use an educated guess depending on the detector class
+
+        if (det_id := dc_info.get("detectorId")) and (
+            det := crud.get_detector(det_id, session)
+        ):
+            if det.detectorModel.lower().startswith("eiger"):
+                return "nexus"
+            elif det.detectorModel.lower().startswith("pilatus"):
+                return "cbf"
+
+        # Otherwise, we couldn't determine
+        return None
 
     def get_sample_group_dcids(
         self,
@@ -847,6 +872,7 @@ def ispyb_filter(
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
 
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
+    parameters["ispyb_imagekind"] = i.dc_info_to_imagekind(dc_id, session)
     parameters["ispyb_dc_info"] = dc_info
     parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(
         dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session

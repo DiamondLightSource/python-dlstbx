@@ -29,6 +29,7 @@ from ispyb.sqlalchemy import (
     Container,
     DataCollection,
     ProcessingJob,
+    ProcessingJobParameter,
     Proposal,
     Protein,
 )
@@ -262,10 +263,9 @@ class PanDDAParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     scaling_id: list[int]
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
-    # backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
-    # backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    # backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
-    # program_id: int = pydantic.Field(gt=0)
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
 
 
 class DLSTrigger(CommonService):
@@ -2694,7 +2694,7 @@ class DLSTrigger(CommonService):
             "scaling_id": [123456],
             "automatic": true,
             "comment": "PanDDA2 triggered by dimple",
-            "timeout-minutes": 120,
+            "timeout-minutes": 60,
         }
         """
 
@@ -2714,7 +2714,7 @@ class DLSTrigger(CommonService):
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
         proposal = query.first()
 
-        # 0. Check that this is an XChem expt, find .sqlite
+        # 0. Check that this is an XChem expt, find .sqlite database
         if proposal.proposalCode not in {"lb"}:
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
@@ -2725,6 +2725,7 @@ class DLSTrigger(CommonService):
         names = []
         visit_dirs = []
 
+        # Temporary solution to link visits
         for dir in xchem_dir.iterdir():
             try:
                 con = sqlite3.connect(
@@ -2753,28 +2754,195 @@ class DLSTrigger(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         sqlite_db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
-        # 1. For now only allow xia2 dials jobs as the upstream source
-        scaling_id = parameters.scaling_id[0]
-        self.log.debug(f"Scaling_id is {scaling_id}")
+        # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
-        # Get data collection information
+        program_list = [
+            "xia2 dials",
+            "xia2 3dii",
+            "autoPROC",
+            "autoPROC+STARANISO",
+            "xia2.multiplex",
+            "fast_dp",
+        ]
+
+        # Check upstream in allowed program_list
+        # scaling_id = parameters.scaling_id[0]
+        # query = (
+        #     (
+        #         session.query(AutoProcProgram)
+        #         .join(
+        #             AutoProc,
+        #             AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+        #         )
+        #         .join(
+        #             AutoProcScaling,
+        #             AutoProc.autoProcId == AutoProcScaling.autoProcId,
+        #         )
+        #     )
+        #     .filter(AutoProcScaling.autoProcScalingId == scaling_id)
+        #     .one()
+        # )
+
+        # if query.processingPrograms not in program_list:
+        #     self.log.info(
+        #         f"Skipping PanDDA2 trigger: Upstream processing program not in {program_list}"
+        #     )
+        #     return {"success": True}
+
+        # If other dimple job is running, quit
+        # dimple set to trigger even if failed
+        min_start_time = datetime.now() - timedelta(hours=12)
+
         query = (
-            session.query(AutoProcProgram)
-            .join(
-                AutoProc,
-                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
             )
-            .join(
-                AutoProcScaling,
-                AutoProc.autoProcId == AutoProcScaling.autoProcId,
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.processingPrograms == "dimple")
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus == None,
+                    AutoProcProgram.processingStartTime == None,
+                )
             )
-        ).filter(AutoProcScaling.autoProcScalingId == scaling_id)
+        )
 
-        if query.one().processingPrograms != "xia2 dials":
+        if triggered_processing_job := query.first():
             self.log.info(
-                "Skipping PanDDA2 trigger: Upstream processing program is not xia2 dials."
+                f"Aborting PanDDA2 trigger as another dimple job has started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
+
+        # Now check if other upstream pipeline is running and if so, checkpoint
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+            .filter(AutoProcProgram.processingPrograms.in_(program_list))
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus == None,
+                    AutoProcProgram.processingStartTime == None,
+                )
+            )
+        )
+
+        # Calculate message delay for exponential backoff in case an upstream
+        # processing program  is still running, in which case we checkpoint
+        # with the calculated message delay
+        status = {
+            "ntry": 0,
+        }
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        message_delay = int(
+            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
+        )
+        status["ntry"] += 1
+        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
+
+        # If there are any running (or yet to start) jobs, then checkpoint with delay
+        waiting_processing_jobs = query.all()
+        if n_waiting_processing_jobs := len(waiting_processing_jobs):
+            self.log.info(
+                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
+            )
+            waiting_appids = [
+                row.AutoProcProgram.autoProcProgramId for row in waiting_processing_jobs
+            ]
+            if status["ntry"] >= parameters.backoff_max_try:
+                # Give up waiting for this program to finish and trigger
+                # multiplex with remaining related results are available
+                self.log.info(
+                    f"max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
+                )
+            else:
+                # Send results to myself for next round of processing
+                self.log.debug(f"Waiting for appids={waiting_appids}")
+                rw.checkpoint(
+                    {
+                        "trigger-status": status,
+                    },
+                    delay=message_delay,
+                    transaction=transaction,
+                )
+
+                return {"success": True}
+
+        # A few extra checks?
+        query = (
+            (
+                session.query(
+                    AutoProcProgram,
+                    AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+                .join(
+                    AutoProc,
+                    AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+                )
+                .join(
+                    AutoProcScaling, AutoProc.autoProcId == AutoProcScaling.autoProcId
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.processingPrograms.in_(program_list))
+            .filter(AutoProcProgram.processingStatus == 1)
+        )
+
+        scaling_ids = [j.autoProcScalingId for j in query.all()]
+        n_successful_upstream = len(query.all())
+
+        query = (
+            (
+                session.query(
+                    AutoProcProgram,
+                    ProcessingJobParameter.parameterKey,
+                    ProcessingJobParameter.parameterValue,
+                )
+                .join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+                .join(
+                    ProcessingJobParameter,
+                    ProcessingJobParameter.processingJobId
+                    == ProcessingJob.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.processingPrograms == "dimple")
+            .filter(AutoProcProgram.processingStatus != None)
+            .filter(ProcessingJobParameter.parameterKey == "scaling_id")
+            .filter(ProcessingJobParameter.parameterValue.in_(scaling_ids))
+        )
+
+        # Number of dimple jobs finished = number successful upstream?
+        n_finished_dimple = len(query.all())
+        if n_finished_dimple == n_successful_upstream:
+            self.log.info(
+                f"Number of finished dimple jobs = number of successful upstream jobs ({n_finished_dimple})"
+            )
+        else:
+            self.log.debug(
+                f"Number of finished dimple jobs ({n_finished_dimple}) != number of successful upstream jobs ({n_successful_upstream}), caution!"
+            )
 
         self.log.debug("PanDDA2 trigger: Starting")
 
@@ -2819,7 +2987,7 @@ class DLSTrigger(CommonService):
         # ProteinName = df["ProteinName"].item()
         LibraryName = df["LibraryName"].item()
         # SourceWell = df["SourceWell"].item()
-        # insert double check that Library source well info matches that in sqlite?
+        # add a double check that Library source well info matches that in sqlite?
         CompoundSMILES = df["CompoundSMILES"].item()
 
         if LibraryName == "DMSO":  # DMSO screen datasets
@@ -2837,6 +3005,9 @@ class DLSTrigger(CommonService):
         #     / "LibraryName"
         # )  # make a parameter?
 
+        # 3. Choose the 'best' dataset to take forward
+        #
+
         # 3. Create the dataset directory/find ligand files (if they exist)
         pdb = str(parameters.pdb)
         mtz = str(parameters.mtz)
@@ -2844,9 +3015,9 @@ class DLSTrigger(CommonService):
         model_dir = processing_dir / "analysis" / "tmp"  # auto_model_building
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
+        self.log.info(f"Creating directory {well_dir}")
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)  # False?
-
-        self.log.info(f"Creating directory {well_dir}.")
+        dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
 
         # Update the experiment yaml for tracking
         # yaml_datasets = expt_yaml["datasets"]
@@ -2868,7 +3039,6 @@ class DLSTrigger(CommonService):
             with open(compound_dir / "LIG.smi", "w") as smi_file:
                 smi_file.write(CompoundSMILES)  # save SMILES
 
-        dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
         self.log.info(f"dataset_list is: {dataset_list}")
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
 
@@ -2892,27 +3062,26 @@ class DLSTrigger(CommonService):
         self.log.debug("PanDDA2 trigger: Starting")
         self.log.info(f"datasets: {datasets}")
         for dataset in datasets:
-            # get dcid, best to save these beforehand to yaml?
-            # query = (
-            #     session.query(DataCollection.dataCollectionId)
-            #     .join(
-            #         BLSample,
-            #         BLSample.blSampleId == DataCollection.BLSAMPLEID,
-            #     )
-            #     .join(
-            #         ProcessingJob,
-            #         ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
-            #     )
-            #     .join(
-            #         AutoProcProgram,
-            #         AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
-            #     )
-            #     .filter(BLSample.name == dataset)
-            #     .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-            # )
+            # get the dcid from dtag
+            query = (
+                session.query(DataCollection.dataCollectionId)
+                .join(
+                    BLSample,
+                    BLSample.blSampleId == DataCollection.BLSAMPLEID,
+                )
+                .join(
+                    ProcessingJob,
+                    ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+                )
+                .filter(BLSample.name == dataset)
+            )
 
-            # df = pd.read_sql(query.statement, query.session.bind)
-            # dcid = max(df["dataCollectionId"])  # latest dcid? fix
+            df = pd.read_sql(query.statement, query.session.bind)
+            dcid = max(df["dataCollectionId"])  # latest dcid? check for i04-1 _2?
 
             self.log.debug(f"launching job for dataset: {dataset}")
             pandda_parameters = {
@@ -2936,7 +3105,7 @@ class DLSTrigger(CommonService):
             for key, value in pandda_parameters.items():
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
-                jpp["parameter_key"] = key  # make a list for batch mode?
+                jpp["parameter_key"] = key
                 jpp["parameter_value"] = value
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())

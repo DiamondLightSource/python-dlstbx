@@ -24,6 +24,9 @@ class PanDDAWrapper(Wrapper):
         analysis_dir = Path(processing_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
 
+        auto_panddas_dir = Path(analysis_dir / "auto_panddas")
+        Path(auto_panddas_dir).mkdir(exist_ok=True)
+
         # datasets = json.loads(params.get("datasets"))
         # dtag = datasets[int(slurm_task_id) - 1]
         dtag = params.get("dataset")
@@ -37,7 +40,9 @@ class PanDDAWrapper(Wrapper):
         # results_directory.mkdir(parents=True, exist_ok=True)
 
         # -------------------------------------------------------
-        acedrg_command = f"module load ccp4; acedrg -i {compound_dir / 'LIG.smi'} -o {compound_dir / 'LIG'}"
+        acedrg_command = (
+            f"module load ccp4; acedrg -i {compound_dir / 'LIG.smi'} -o {'LIG'}"
+        )
 
         try:
             result = subprocess.run(
@@ -45,7 +50,7 @@ class PanDDAWrapper(Wrapper):
                 shell=True,
                 capture_output=True,
                 text=True,
-                cwd=well_dir,
+                cwd=compound_dir,
                 check=True,
                 timeout=params.get("timeout-minutes") * 60,  # have seperate timeouts?
             )
@@ -61,9 +66,8 @@ class PanDDAWrapper(Wrapper):
         with open(well_dir / "acedrg.log", "w") as log_file:
             log_file.write(result.stdout)
 
-        pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
-        conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
-        python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={analysis_dir / 'auto_panddas'} --dtag={dtag}"
+        pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
+        python -u /dls_sw/i04-1/software/PanDDA2/pandda_gemmi/pandda/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {auto_panddas_dir / dtag / 'pandda2.log'}"
 
         try:
             result = subprocess.run(

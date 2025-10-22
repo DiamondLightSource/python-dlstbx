@@ -34,7 +34,7 @@ class LigandFitWrapper(Wrapper):
         CC = float(match.group(1))
         return CC
 
-    def send_attachments_to_ispyb(self, pipeline_directory):
+    def send_attachments_to_ispyb(self, pipeline_directory, final_directory):
         for f in pipeline_directory.iterdir():
             if f.stem.endswith("final"):
                 file_type = "Result"
@@ -62,6 +62,7 @@ class LigandFitWrapper(Wrapper):
                 }
                 self.record_result_individual_file(result_dict)
                 self.log.info(f"Uploaded {f.name} as an attachment")
+                shutil.copy(pipeline_directory / f.name, final_directory)
             except Exception:
                 self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
@@ -102,6 +103,15 @@ class LigandFitWrapper(Wrapper):
         working_directory.mkdir(parents=True, exist_ok=True)
         results_directory = pathlib.Path(params["results_directory"])
         results_directory.mkdir(parents=True, exist_ok=True)
+
+        if pipeline_final_params := params.get("pipeline-final", []):
+            final_directory = pathlib.Path(pipeline_final_params["path"])
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params.get("create_symlink")
+                )
+
         with open(working_directory / "LIG.smi", "w") as smi_file:
             smi_file.write(smiles)
 
@@ -145,7 +155,7 @@ class LigandFitWrapper(Wrapper):
             acr = params.get("acronym", "Protein")
 
             os.system(
-                f"module load molviewspec; gen_html.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
+                f"module load molviewspec; gen_html_ligandfit.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
             )
 
         self.generate_smiles_png(smiles, pipeline_directory)

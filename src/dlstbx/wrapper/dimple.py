@@ -153,6 +153,10 @@ class DimpleWrapper(Wrapper):
                     schemas.AttachmentFileType.RESULT,
                     2,
                 ),
+                self.results_directory / "anode.html": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
             }
             attachments.extend(
                 [
@@ -307,6 +311,14 @@ class DimpleWrapper(Wrapper):
                     )
                 )
         if success:
+            self.log.info("Creating anode html visualisation")
+            try:
+                os.system(
+                    f"module load molviewspec; gen_html_anode.py --results_directory {str(self.results_directory)} --peaks 10"
+                )
+            except Exception as e:
+                self.log.info(f"Exception creating anode html visualisation: {e}")
+
             self.log.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
 

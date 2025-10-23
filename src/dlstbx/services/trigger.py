@@ -24,6 +24,7 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcScaling,
     AutoProcScalingHasInt,
+    AutoProcScalingStatistics,
     BLSample,
     BLSession,
     Container,
@@ -2754,6 +2755,16 @@ class DLSTrigger(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         sqlite_db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
+        # Load any user specified processing parameters from experiment .yaml
+        # yaml_file = processing_dir / "experiment.yaml"
+        # if yaml_file.exists():
+        #     with open(yaml_file, "r") as file:
+        #         expt_yaml = yaml.safe_load(file)
+        # else:
+        #     self.log.info(
+        #         f"No user yaml found in processing directory {xchem_visit_dir / 'processing'}, proceeding with default settings."
+        #     )
+
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
         program_list = [
@@ -2762,10 +2773,9 @@ class DLSTrigger(CommonService):
             "autoPROC",
             "autoPROC+STARANISO",
             "xia2.multiplex",
-            "fast_dp",
-        ]
+        ]  # will consider dimple output from these jobs to take forward
 
-        # Check upstream in allowed program_list
+        # Check upstream in allowed program_list? or just wait for everything
         # scaling_id = parameters.scaling_id[0]
         # query = (
         #     (
@@ -2789,8 +2799,7 @@ class DLSTrigger(CommonService):
         #     )
         #     return {"success": True}
 
-        # If other dimple job is running, quit
-        # dimple set to trigger even if failed
+        # If other dimple job is running, quit, dimple set to trigger even if it fails
         min_start_time = datetime.now() - timedelta(hours=12)
 
         query = (
@@ -2880,11 +2889,14 @@ class DLSTrigger(CommonService):
 
                 return {"success": True}
 
-        # A few extra checks?
+        # Find the 'best' dataset to take forward based on selection criteria
+        # default is I/sigI*completeness*#unique reflections,
+        # others: highest resolution, lowest Rfree, dials only etc
         query = (
             (
                 session.query(
                     AutoProcProgram,
+                    AutoProcScalingStatistics,
                     AutoProcScaling.autoProcScalingId,
                 )
                 .join(
@@ -2898,20 +2910,35 @@ class DLSTrigger(CommonService):
                 .join(
                     AutoProcScaling, AutoProc.autoProcId == AutoProcScaling.autoProcId
                 )
+                .join(
+                    AutoProcScalingStatistics,
+                    AutoProcScalingStatistics.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
             .filter(ProcessingJob.automatic == True)
             .filter(AutoProcProgram.processingPrograms.in_(program_list))
             .filter(AutoProcProgram.processingStatus == 1)
+            .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
         )
 
-        scaling_ids = [j.autoProcScalingId for j in query.all()]
-        n_successful_upstream = len(query.all())
+        df = pd.read_sql(query.statement, query.session.bind)
+        df["heuristic"] = (
+            df["meanIOverSigI"].astype(float)
+            * df["completeness"].astype(float)
+            * df["nTotalUniqueObservations"].astype(float)
+        )
+        # I/sigI*completeness*# unique reflections
+        df = df[["autoProcScalingId", "heuristic"]].copy()
+        scaling_ids = df["autoProcScalingId"].tolist()
 
+        # find associated dimple jobs
         query = (
             (
                 session.query(
                     AutoProcProgram,
+                    AutoProcProgramAttachment,
                     ProcessingJobParameter.parameterKey,
                     ProcessingJobParameter.parameterValue,
                 )
@@ -2924,41 +2951,53 @@ class DLSTrigger(CommonService):
                     ProcessingJobParameter.processingJobId
                     == ProcessingJob.processingJobId,
                 )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
             .filter(ProcessingJob.automatic == True)
             .filter(AutoProcProgram.processingPrograms == "dimple")
-            .filter(AutoProcProgram.processingStatus != None)
+            .filter(AutoProcProgram.processingStatus == 1)  #!= None
             .filter(ProcessingJobParameter.parameterKey == "scaling_id")
-            .filter(ProcessingJobParameter.parameterValue.in_(scaling_ids))
+            .filter(ProcessingJobParameter.parameterValue.in_(scaling_ids))  #
+            .filter(AutoProcProgramAttachment.fileName == "final.pdb")
         )
 
-        # Number of dimple jobs finished = number successful upstream?
-        n_finished_dimple = len(query.all())
-        if n_finished_dimple == n_successful_upstream:
+        df2 = pd.read_sql(query.statement, query.session.bind)
+        if df2.empty:
             self.log.info(
-                f"Number of finished dimple jobs = number of successful upstream jobs ({n_finished_dimple})"
+                f"No successful dimple jobs for dcid {dcid}, can't continue..."
             )
-        else:
-            self.log.debug(
-                f"Number of finished dimple jobs ({n_finished_dimple}) != number of successful upstream jobs ({n_successful_upstream}), caution!"
-            )
+            return {"success": True}
+
+        n_success_upstream = len(df)
+        n_success_dimple = len(df2)  #
+
+        self.log.info(
+            f"There are {n_success_upstream} successful upstream jobs & {n_success_dimple} successful dimple jobs (excl fast-dp), \
+            selecting the best one based on heuristic: I/sigI*completeness * #unique reflections"
+        )
+
+        df2["parameterValue"] = pd.to_numeric(df2["parameterValue"]).astype("Int64")
+        df3 = pd.merge(
+            df2, df, left_on="parameterValue", right_on="autoProcScalingId", how="inner"
+        ).sort_values("heuristic", ascending=False)
+
+        if df3.empty:
+            self.log.info("Problem finding 'best' dataset to take forward")
+            return {"success": True}
+
+        chosen_dataset_path = df3["filePath"][0]
+        pdb = chosen_dataset_path + "/final.pdb"
+        mtz = chosen_dataset_path + "/final.mtz"
 
         self.log.debug("PanDDA2 trigger: Starting")
 
-        # 2. Get ligand information & any user specified settings
+        # 2. Get ligand information, location & container code
 
-        # Load the experiment yaml with any user specified processing parameters
-        # yaml_file = processing_dir / "experiment.yaml"
-        # if yaml_file.exists():
-        #     with open(yaml_file, "r") as file:
-        #         expt_yaml = yaml.safe_load(file)
-        # else:
-        #     self.log.info(
-        #         f"No user yaml found in processing directory {xchem_visit_dir / 'processing'}, proceeding with default settings."
-        #     )
-
-        # Obtain location and container code
         query = (
             session.query(DataCollection, BLSample)
             .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
@@ -2986,8 +3025,6 @@ class DLSTrigger(CommonService):
 
         # ProteinName = df["ProteinName"].item()
         LibraryName = df["LibraryName"].item()
-        # SourceWell = df["SourceWell"].item()
-        # add a double check that Library source well info matches that in sqlite?
         CompoundSMILES = df["CompoundSMILES"].item()
 
         if LibraryName == "DMSO":  # DMSO screen datasets
@@ -3000,19 +3037,9 @@ class DLSTrigger(CommonService):
                 f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, considering as an apo dataset"
             )
 
-        # cif_dir = (
-        #     pathlib.Path("/dls/science/groups/i04-1/software/ligand_libraries")
-        #     / "LibraryName"
-        # )  # make a parameter?
+        # 3. Create the dataset directory
 
-        # 3. Choose the 'best' dataset to take forward
-        #
-
-        # 3. Create the dataset directory/find ligand files (if they exist)
-        pdb = str(parameters.pdb)
-        mtz = str(parameters.mtz)
-
-        model_dir = processing_dir / "analysis" / "tmp"  # auto_model_building
+        model_dir = processing_dir / "analysis" / "auto_model_building"
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
         self.log.info(f"Creating directory {well_dir}")
@@ -3029,9 +3056,7 @@ class DLSTrigger(CommonService):
         # with open(yaml_file, "w") as f:
         #     yaml.safe_dump(expt_yaml, f, sort_keys=False)
 
-        # Create the necessary files
-        # os.symlink(pdb, well_dir / "dimple.pdb")
-        # os.symlink(mtz, well_dir / "dimple.mtz")
+        # Copy the dimple files of the chosen dataset
         shutil.copy(pdb, str(well_dir / "dimple.pdb"))
         shutil.copy(mtz, str(well_dir / "dimple.mtz"))
 

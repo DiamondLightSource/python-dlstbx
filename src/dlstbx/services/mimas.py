@@ -356,72 +356,102 @@ class DLSMimas(CommonService):
         rw.transport.transaction_commit(txn)
 
     def preprocess_cloud(self, rw, header, message):
-        """Process an incoming event."""
-
-        # Pass incoming event information into Mimas scenario object
+        """Check if cloud services are live for END mimas incoming event to decide
+        if cloud processing should be enabled and dat uploaded to S3 Echo object store.
+        """
 
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        try:
-            timeout = self.config.storage.get("timeout", 300)
-            s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
-            timeout_threshold = time.time() - timeout
-            self.log.debug(f"Slurm cluster stats: {self.cluster_stats['slurm']}")
-            self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
-            self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
-            self.log.debug(
-                "Cloudbursting threshold values\n"
-                f"  s3echo_quota: {s3echo_quota}"
-                f"  timeout_threshold: {timeout_threshold}"
-            )
-            # Check if global cloudbursting flag is False or if S3 Echo is full
-            if not self.config.storage.get("cloudbursting", False):
-                self.log.debug(
-                    "Cloudbursting disabled:\n"
-                    f"  is_cludbursting {self.config.storage.get('cloudbursting', False)}\n"
-                    f"  s3echo_storage: {self.cluster_stats['s3echo']['total']}"
-                )
-                return False
-            # Create cloud specification entry for each element in zocalo.mimas.cloud
-            # Add specification to the list if science cluster if oversubscribed
-            # and cluster statistics are up-to-date
-            is_iris_live = (
-                self.cluster_stats["iris"]["last_cluster_update"] > timeout_threshold
-            )
-            is_s3echo_live = (
-                self.cluster_stats["s3echo"]["last_cluster_update"] > timeout_threshold
-            )
-            is_s3echo_quota = self.cluster_stats["s3echo"]["total"] < s3echo_quota
-            cloudbursting = is_iris_live and is_s3echo_live and is_s3echo_quota
+        cloudbursting = None
 
-            self.log.debug(
-                pformat(
-                    {
-                        "is_iris_live": is_iris_live,
-                        "is_s3echo_live": is_s3echo_live,
-                        "is_s3echo_quota": is_s3echo_quota,
-                    }
+        event = rw.recipe_step["parameters"]["event"]
+        if not isinstance(event, str):
+            event = repr(event)
+        try:
+            event = mimas.MimasEvent[event.upper()]
+        except KeyError:
+            return f"Invalid Mimas request rejected (Event = {event})"
+
+        if event == mimas.MimasEvent.END:
+            try:
+                timeout = self.config.storage.get("timeout", 300)
+                s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
+                timeout_threshold = time.time() - timeout
+                self.log.debug(f"Slurm cluster stats: {self.cluster_stats['slurm']}")
+                self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
+                self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
+                self.log.debug(
+                    "Cloudbursting threshold values\n"
+                    f"  s3echo_quota: {s3echo_quota}"
+                    f"  timeout_threshold: {timeout_threshold}"
                 )
-            )
-        except AttributeError:
-            self.log.exception("Error reading cluster statistics")
-            cloudbursting = False
+                # Check if global cloudbursting flag is False or if S3 Echo is full
+                if not self.config.storage.get("cloudbursting", False):
+                    self.log.debug(
+                        "Cloudbursting disabled:\n"
+                        f"  is_cludbursting {self.config.storage.get('cloudbursting', False)}\n"
+                        f"  s3echo_storage: {self.cluster_stats['s3echo']['total']}"
+                    )
+                    return False
+                # Create cloud specification entry for each element in zocalo.mimas.cloud
+                # Add specification to the list if science cluster if oversubscribed
+                # and cluster statistics are up-to-date
+                is_iris_live = (
+                    self.cluster_stats["iris"]["last_cluster_update"]
+                    > timeout_threshold
+                )
+                is_s3echo_live = (
+                    self.cluster_stats["s3echo"]["last_cluster_update"]
+                    > timeout_threshold
+                )
+                is_s3echo_quota = self.cluster_stats["s3echo"]["total"] < s3echo_quota
+                cloudbursting = is_iris_live and is_s3echo_live and is_s3echo_quota
+
+                self.log.debug(
+                    pformat(
+                        {
+                            "is_iris_live": is_iris_live,
+                            "is_s3echo_live": is_s3echo_live,
+                            "is_s3echo_quota": is_s3echo_quota,
+                        }
+                    )
+                )
+            except AttributeError:
+                self.log.exception("Error reading cluster statistics")
+                cloudbursting = False
 
         if cloudbursting:
-            try:
-                image_files = iris.get_image_files(
-                    None, rw.recipe_step["parameters"]["data"], self.log
+            cloud_spec = []
+            for group in self.config.storage.get("zocalo.mimas.cloud", []):
+                if not group.get("cloudbursting", True):
+                    continue
+                cloud_spec.append(
+                    specification.VisitSpecification(
+                        set(group.get("visit_pattern", []))
+                    )
+                    & specification.BeamlineSpecification(
+                        beamlines=set(group.get("beamlines", []))
+                    )
                 )
-                rw.environment.update({"s3echo_upload": image_files})
-            except Exception:
-                self.log.exception(
-                    "Error retrieving image files for uploading to S3 Echo"
-                )
-                cloudbursting = False
+
+            scenario = self._extract_scenario(rw.recipe_step["parameters"])
+            if any(el.is_satisfied_by(scenario) for el in cloud_spec):
+                try:
+                    image_files = iris.get_image_files(
+                        None, rw.recipe_step["parameters"]["data"], self.log
+                    )
+                    rw.environment.update({"s3echo_upload": image_files})
+                except Exception:
+                    self.log.exception(
+                        "Error retrieving image files for uploading to S3 Echo"
+                    )
+                    cloudbursting = False
+                else:
+                    self.log.debug("Sending message to upload endpoint")
+                    rw.send_to("upload", message, transaction=txn)
             else:
-                self.log.debug("Sending message to upload endpoint")
-                rw.send_to("upload", message, transaction=txn)
+                cloudbursting = False
 
         if not cloudbursting:
             self.log.debug("Sending message to process endpoint")

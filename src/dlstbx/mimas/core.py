@@ -10,6 +10,7 @@ from dlstbx.mimas.specification import (
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
+    ImageKindSpecification,
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
@@ -21,6 +22,8 @@ is_i24 = BeamlineSpecification("i24")
 is_mx_beamline = BeamlineSpecification(beamlines=MX_BEAMLINES)
 is_pilatus = DetectorClassSpecification(mimas.MimasDetectorClass.PILATUS)
 is_eiger = DetectorClassSpecification(mimas.MimasDetectorClass.EIGER)
+is_nexus = ImageKindSpecification(mimas.MimasImageKind.NEXUS)
+is_cbf = ImageKindSpecification(mimas.MimasImageKind.CBF)
 is_start = EventSpecification(mimas.MimasEvent.START)
 is_end = EventSpecification(mimas.MimasEvent.END)
 is_start_group = EventSpecification(mimas.MimasEvent.START_GROUP)
@@ -53,9 +56,7 @@ def xia2_dials_absorption_params(
     return (mimas.MimasISPyBParameter(key="absorption_level", value=absorption_level),)
 
 
-@mimas.match_specification(
-    is_pilatus & is_gridscan & is_start & is_mx_beamline & ~is_vmxi
-)
+@mimas.match_specification(is_cbf & is_gridscan & is_start & is_mx_beamline & ~is_vmxi)
 def handle_pilatus_gridscan_start(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -69,7 +70,7 @@ def handle_pilatus_gridscan_start(
 
 
 @mimas.match_specification(
-    is_pilatus & ~is_gridscan & ~is_serial & is_start & is_mx_beamline & ~is_vmxi
+    is_cbf & ~is_gridscan & ~is_serial & is_start & is_mx_beamline & ~is_vmxi
 )
 def handle_pilatus_not_gridscan_start(
     scenario: mimas.MimasScenario,
@@ -83,7 +84,7 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@mimas.match_specification(is_eiger & is_start & is_i03 & is_gridscan)
+@mimas.match_specification(is_nexus & is_start & is_i03 & is_gridscan)
 def handle_eiger_start_i03_gridscan(
     scenario: mimas.MimasScenario, **kwargs
 ) -> List[mimas.Invocation]:
@@ -94,7 +95,7 @@ def handle_eiger_start_i03_gridscan(
     ]
 
 
-@mimas.match_specification(is_eiger & is_end & is_mx_beamline & is_i03)
+@mimas.match_specification(is_nexus & is_end & is_mx_beamline & is_i03)
 def handle_eiger_end_i03_and_i03_only(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -108,7 +109,7 @@ def handle_eiger_end_i03_and_i03_only(
 
 
 @mimas.match_specification(
-    is_eiger & is_end & is_mx_beamline & ~is_vmxi & ~is_serial & ~is_i03
+    is_nexus & is_end & is_mx_beamline & ~is_vmxi & ~is_serial & ~is_i03
 )
 def handle_eiger_end_i03(
     scenario: mimas.MimasScenario,
@@ -124,7 +125,7 @@ def handle_eiger_end_i03(
     return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 
 
-@mimas.match_specification(is_eiger & is_end & is_mx_beamline & ~is_vmxi)
+@mimas.match_specification(is_nexus & is_end & is_mx_beamline & ~is_vmxi)
 def handle_eiger_end(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -145,7 +146,7 @@ def handle_eiger_end(
     return tasks
 
 
-@mimas.match_specification(is_pilatus & is_end & is_mx_beamline & ~is_vmxi & ~is_serial)
+@mimas.match_specification(is_cbf & is_end & is_mx_beamline & ~is_vmxi & ~is_serial)
 def handle_pilatus_end(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -157,7 +158,7 @@ def handle_pilatus_end(
     ]
 
 
-@mimas.match_specification(is_eiger & is_screening & is_end & is_mx_beamline & ~is_vmxi)
+@mimas.match_specification(is_nexus & is_screening & is_end & is_mx_beamline & ~is_vmxi)
 def handle_eiger_screening(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -183,9 +184,7 @@ def handle_characterization(
     return tasks
 
 
-@mimas.match_specification(
-    is_pilatus & is_screening & is_end & is_mx_beamline & ~is_vmxi
-)
+@mimas.match_specification(is_cbf & is_screening & is_end & is_mx_beamline & ~is_vmxi)
 def handle_pilatus_screening(
     scenario: mimas.MimasScenario,
     **kwargs,

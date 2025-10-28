@@ -6,7 +6,7 @@ import re
 import shutil
 import sqlite3
 from datetime import datetime, timedelta
-from time import sleep, time
+from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
@@ -3086,65 +3086,45 @@ class DLSTrigger(CommonService):
 
         self.log.debug("PanDDA2 trigger: Starting")
         self.log.info(f"datasets: {datasets}")
-        for dataset in datasets:
-            # get the dcid from dtag
-            query = (
-                session.query(DataCollection.dataCollectionId)
-                .join(
-                    BLSample,
-                    BLSample.blSampleId == DataCollection.BLSAMPLEID,
-                )
-                .join(
-                    ProcessingJob,
-                    ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
-                )
-                .join(
-                    AutoProcProgram,
-                    AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
-                )
-                .filter(BLSample.name == dataset)
+
+        df = pd.read_sql(query.statement, query.session.bind)
+        dcid = max(df["dataCollectionId"])  # latest dcid? check for i04-1 _2 case
+
+        self.log.debug(f"launching job for datasets: {datasets}")
+        pandda_parameters = {
+            "dcid": dcid,  #
+            "processing_directory": str(processing_dir),
+            "model_directory": str(model_dir),
+            "dataset_directory": str(well_dir),
+            "datasets": datasets,
+            "n_datasets": len(datasets),
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        # jp["comments"] = parameters.comment
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "PanDDA2"
+        jp["recipe"] = "postprocessing-pandda2"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"PanDDA2 trigger: generated JobID {jobid}")
+
+        for key, value in pandda_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
             )
 
-            df = pd.read_sql(query.statement, query.session.bind)
-            dcid = max(df["dataCollectionId"])  # latest dcid? check for i04-1 _2?
+        self.log.debug(f"PanDDA2_id trigger: Processing job {jobid} created")
 
-            self.log.debug(f"launching job for dataset: {dataset}")
-            pandda_parameters = {
-                "dcid": dcid,  #
-                "processing_directory": str(processing_dir),
-                "model_directory": str(model_dir),
-                "dataset_directory": str(well_dir),
-                "dataset": dataset,
-            }
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
 
-            jp = self.ispyb.mx_processing.get_job_params()
-            jp["automatic"] = parameters.automatic
-            # jp["comments"] = parameters.comment
-            jp["datacollectionid"] = dcid
-            jp["display_name"] = "PanDDA2"
-            jp["recipe"] = "postprocessing-pandda2"
-            self.log.info(jp)
-            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-            self.log.debug(f"PanDDA2 trigger: generated JobID {jobid}")
-
-            for key, value in pandda_parameters.items():
-                jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                jpp["job_id"] = jobid
-                jpp["parameter_key"] = key
-                jpp["parameter_value"] = value
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                    list(jpp.values())
-                )
-                self.log.debug(
-                    f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
-                )
-
-            self.log.debug(f"PanDDA2_id trigger: Processing job {jobid} created")
-
-            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-            rw.transport.send("processing_recipe", message)
-
-            self.log.info(f"PanDDA2_id trigger: Processing job {jobid} triggered")
-            sleep(0.5)  # throttle
+        self.log.info(f"PanDDA2_id trigger: Processing job {jobid} triggered")
 
         return {"success": True}

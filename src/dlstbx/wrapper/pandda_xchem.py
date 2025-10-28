@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -12,12 +14,12 @@ class PanDDAWrapper(Wrapper):
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        self.log.debug(
+        self.log.info(
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
-        # slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")  # starts from 1
-        # self.log.debug((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
+        slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")  # starts from 1
+        self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         params = self.recwrap.recipe_step["job_parameters"]
 
         processing_dir = Path(params.get("processing_directory"))
@@ -27,9 +29,9 @@ class PanDDAWrapper(Wrapper):
         auto_panddas_dir = Path(analysis_dir / "auto_panddas")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
-        # datasets = json.loads(params.get("datasets"))
-        # dtag = datasets[int(slurm_task_id) - 1]
-        dtag = params.get("dataset")
+        datasets = json.loads(params.get("datasets"))
+        dtag = datasets[int(slurm_task_id) - 1]
+        # dtag = params.get("dataset")
         self.log.info(f"Processing dtag: {dtag}")
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
@@ -67,7 +69,7 @@ class PanDDAWrapper(Wrapper):
             log_file.write(result.stdout)
 
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/pandda_gemmi/pandda/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {auto_panddas_dir / dtag / 'pandda2.log'}"
+        python -u /dls_sw/i04-1/software/PanDDA2/pandda_gemmi/pandda/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {model_dir / dtag / 'pandda2.log'}"
 
         try:
             result = subprocess.run(

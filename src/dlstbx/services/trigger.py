@@ -17,6 +17,7 @@ import pydantic
 import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
+import yaml
 from ispyb.sqlalchemy import (
     AutoProc,
     AutoProcIntegration,
@@ -2700,6 +2701,7 @@ class DLSTrigger(CommonService):
         """
 
         dcid = parameters.dcid
+        scaling_id = parameters.scaling_id[0]
         # program_id = parameters.program_id
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
@@ -2722,11 +2724,18 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        # TEMPORARY, OPENBIND TEST VISIT
+        if proposal.proposalId != 42888:
+            self.log.debug(
+                f"Not triggering PanDDA2 pipeline for dcid={dcid}, only accepting data collections from lb42888 during test phase"
+            )
+            return {"success": True}
+
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit_proposal}")
         names = []
         visit_dirs = []
 
-        # Temporary solution to link visits
+        # Temporary solution to link i04-1 and xchem visits
         for dir in xchem_dir.iterdir():
             try:
                 con = sqlite3.connect(
@@ -2756,14 +2765,14 @@ class DLSTrigger(CommonService):
         sqlite_db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
         # Load any user specified processing parameters from experiment .yaml
-        # yaml_file = processing_dir / "experiment.yaml"
-        # if yaml_file.exists():
-        #     with open(yaml_file, "r") as file:
-        #         expt_yaml = yaml.safe_load(file)
-        # else:
-        #     self.log.info(
-        #         f"No user yaml found in processing directory {xchem_visit_dir / 'processing'}, proceeding with default settings."
-        #     )
+        yaml_file = processing_dir / "experiment.yaml"
+        if yaml_file.exists():
+            with open(yaml_file, "r") as file:
+                expt_yaml = yaml.safe_load(file)
+        else:
+            self.log.info(
+                f"No user yaml found in processing directory {xchem_visit_dir / 'processing'}, proceeding with default settings."
+            )
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
@@ -2774,30 +2783,6 @@ class DLSTrigger(CommonService):
             "autoPROC+STARANISO",
             "xia2.multiplex",
         ]  # will consider dimple output from these jobs to take forward
-
-        # Check upstream in allowed program_list? or just wait for everything
-        # scaling_id = parameters.scaling_id[0]
-        # query = (
-        #     (
-        #         session.query(AutoProcProgram)
-        #         .join(
-        #             AutoProc,
-        #             AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
-        #         )
-        #         .join(
-        #             AutoProcScaling,
-        #             AutoProc.autoProcId == AutoProcScaling.autoProcId,
-        #         )
-        #     )
-        #     .filter(AutoProcScaling.autoProcScalingId == scaling_id)
-        #     .one()
-        # )
-
-        # if query.processingPrograms not in program_list:
-        #     self.log.info(
-        #         f"Skipping PanDDA2 trigger: Upstream processing program not in {program_list}"
-        #     )
-        #     return {"success": True}
 
         # If other dimple job is running, quit, dimple set to trigger even if it fails
         min_start_time = datetime.now() - timedelta(hours=12)
@@ -2872,7 +2857,7 @@ class DLSTrigger(CommonService):
             ]
             if status["ntry"] >= parameters.backoff_max_try:
                 # Give up waiting for this program to finish and trigger
-                # multiplex with remaining related results are available
+                # pandda with remaining related results are available
                 self.log.info(
                     f"max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
                 )
@@ -2889,7 +2874,7 @@ class DLSTrigger(CommonService):
 
                 return {"success": True}
 
-        # Find the 'best' dataset to take forward based on selection criteria
+        # Select the 'best' dataset to take forward based on criteria
         # default is I/sigI*completeness*#unique reflections,
         # others: highest resolution, lowest Rfree, dials only etc
         query = (
@@ -3006,7 +2991,7 @@ class DLSTrigger(CommonService):
         )
 
         query = query.with_entities(BLSample.location, BLSample.name, Container.code)
-        location = int(query.one()[0])
+        location = int(query.one()[0])  # never multiple?
         dtag = query.one()[1]
         code = query.one()[2]
 
@@ -3045,29 +3030,18 @@ class DLSTrigger(CommonService):
         self.log.info(f"Creating directory {well_dir}")
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)  # False?
         dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
-
-        # Update the experiment yaml for tracking
-        # yaml_datasets = expt_yaml["datasets"]
-        # if yaml_datasets is None:
-        #     yaml_datasets = []  # init
-        # yaml_datasets.append({"name": dtag, "dcid": dcid, "smi": CompoundSMILES})
-        # dataset_count = len(expt_yaml["datasets"])
-        # dataset_list = [dataset["name"] for dataset in datasets]
-        # with open(yaml_file, "w") as f:
-        #     yaml.safe_dump(expt_yaml, f, sort_keys=False)
-
-        # Copy the dimple files of the chosen dataset
-        shutil.copy(pdb, str(well_dir / "dimple.pdb"))
-        shutil.copy(mtz, str(well_dir / "dimple.mtz"))
-
-        if CompoundSMILES:
-            with open(compound_dir / "LIG.smi", "w") as smi_file:
-                smi_file.write(CompoundSMILES)  # save SMILES
-
         self.log.info(f"dataset_list is: {dataset_list}")
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
 
-        # 3. Job launch logic
+        # Copy the dimple files of the selected dataset
+        shutil.copy(pdb, str(well_dir / "dimple.pdb"))
+        shutil.copy(mtz, str(well_dir / "dimple.mtz"))
+
+        with open(compound_dir / "LIG.smi", "w") as smi_file:
+            smi_file.write(CompoundSMILES)
+
+        # 4. Job launch logic
+
         prerun_threshold = parameters.prerun_threshold
 
         if dataset_count < prerun_threshold:
@@ -3087,9 +3061,6 @@ class DLSTrigger(CommonService):
         self.log.debug("PanDDA2 trigger: Starting")
         self.log.info(f"datasets: {datasets}")
 
-        df = pd.read_sql(query.statement, query.session.bind)
-        dcid = max(df["dataCollectionId"])  # latest dcid? check for i04-1 _2 case
-
         self.log.debug(f"launching job for datasets: {datasets}")
         pandda_parameters = {
             "dcid": dcid,  #
@@ -3098,6 +3069,7 @@ class DLSTrigger(CommonService):
             "dataset_directory": str(well_dir),
             "datasets": datasets,
             "n_datasets": len(datasets),
+            "scaling_id": scaling_id,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()

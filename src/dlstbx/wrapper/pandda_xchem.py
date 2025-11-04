@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -18,20 +19,20 @@ class PanDDAWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
-        slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")  # starts from 1
+        slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         params = self.recwrap.recipe_step["job_parameters"]
 
+        database_path = Path(params.get("database_path"))
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = Path(processing_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
 
-        auto_panddas_dir = Path(analysis_dir / "auto_panddas")
+        auto_panddas_dir = Path(analysis_dir / "panddas_auto")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
         datasets = json.loads(params.get("datasets"))
         dtag = datasets[int(slurm_task_id) - 1]
-        # dtag = params.get("dataset")
         self.log.info(f"Processing dtag: {dtag}")
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
@@ -41,10 +42,13 @@ class PanDDAWrapper(Wrapper):
         # results_directory = pathlib.Path(params["results_directory"])
         # results_directory.mkdir(parents=True, exist_ok=True)
 
+        db_dict = {}  # store results to integrate back with soakDB
+
         # -------------------------------------------------------
         acedrg_command = (
             f"module load ccp4; acedrg -i {compound_dir / 'LIG.smi'} -o {'LIG'}"
         )
+        # change to take CompoundCode.smiles!
 
         try:
             result = subprocess.run(
@@ -54,13 +58,14 @@ class PanDDAWrapper(Wrapper):
                 text=True,
                 cwd=compound_dir,
                 check=True,
-                timeout=params.get("timeout-minutes") * 60,  # have seperate timeouts?
+                timeout=params.get("timeout-minutes") * 60,
             )
 
         except subprocess.CalledProcessError as e:
             self.log.error(
                 f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
             )
+
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             return False
@@ -89,27 +94,16 @@ class PanDDAWrapper(Wrapper):
             return False
 
         # -------------------------------------------------------
-        # elif job_type == "postrun":
-        #     pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; \
-        #     conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
-        #     python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/postrun.py --data_dirs={model_dir} --out_dir={analysis_dir / 'panddas'} --use_ligand_data=False --debug=True --local_cpus=36"
+        # Integrate back with XCE
+        db_dict["DimplePANDDAwasRun"] = True
+        # db_dict["DimplePANDDAreject"] = False
+        db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
 
-        #     try:
-        #         result = subprocess.run(
-        #             pandda2_command,
-        #             shell=True,
-        #             capture_output=True,
-        #             text=True,
-        #             cwd=well_dir,
-        #             check=True,
-        #             timeout=params.get("timeout-minutes") * 60,
-        #         )
-
-        #     except subprocess.CalledProcessError as e:
-        #         self.log.error(f"PanDDA2 postrun command: '{pandda2_command}' failed")
-        #         self.log.info(e.stdout)
-        #         self.log.error(e.stderr)
-        #         return False
+        try:
+            self.update_data_source(db_dict, dtag, database_path)
+            self.log.info(f"Updated sqlite database for dataset {dtag}")
+        except Exception as e:
+            self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         # quick json results for synchweb tables
         # data = [["PanDDA dataset", "CompoundSMILES", "result"],[f"{dtag}", f"{CompoundSMILES}", f"{}"]]
@@ -162,3 +156,15 @@ class PanDDAWrapper(Wrapper):
                 self.log.info(f"Uploaded {f.name} as an attachment")
             except Exception:
                 self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
+
+    def update_data_source(self, db_dict, dtag, database_path):
+        sql = (
+            "UPDATE mainTable SET "
+            + ", ".join([f"{k} = :{k}" for k in db_dict])
+            + f" WHERE CrystalName = '{dtag}'"
+        )
+        conn = sqlite3.connect(database_path)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        cursor = conn.cursor()
+        cursor.execute(sql, db_dict)
+        conn.commit()

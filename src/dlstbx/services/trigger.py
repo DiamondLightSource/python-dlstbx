@@ -2764,11 +2764,20 @@ class DLSTrigger(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         sqlite_db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
-        # Load any user specified processing parameters from experiment .yaml
+        # Make a copy of the database for testing purposes
+        sqlite_db_copy = (
+            xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
+        )
+        if not sqlite_db_copy.exists():
+            shutil.copy(str(sqlite_db), str(sqlite_db_copy))
+        else:
+            self.log.info(f"Made a copy of {sqlite_db}, soakDBDataFile_auto.sqlite")
+
+        # Load any user specified processing parameters from user .yaml
         yaml_file = processing_dir / "experiment.yaml"
         if yaml_file.exists():
             with open(yaml_file, "r") as file:
-                expt_yaml = yaml.safe_load(file)
+                user_yaml = yaml.safe_load(file)
         else:
             self.log.info(
                 f"No user yaml found in processing directory {xchem_visit_dir / 'processing'}, proceeding with default settings."
@@ -2995,24 +3004,33 @@ class DLSTrigger(CommonService):
         dtag = query.one()[1]
         code = query.one()[2]
 
-        # Read XChem SQLite row
-        con = sqlite3.connect(sqlite_db)
-        df = pd.read_sql_query(
-            f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
-            con,
-        )
+        # Read SQLite
+        try:
+            conn = sqlite3.connect(sqlite_db_copy)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            df = pd.read_sql_query(
+                f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
+                conn,
+            )
+            conn.close()
+        except Exception as e:
+            self.log.info(
+                f"Could not read database for ligand information for dtag {dtag}: {e}"
+            )
+            return {"success": True}
 
         if len(df) != 1:
             self.log.info(
-                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {sqlite_db}, can't continue."
+                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {sqlite_db_copy}, can't continue."
             )
             return {"success": True}
 
         # ProteinName = df["ProteinName"].item()
         LibraryName = df["LibraryName"].item()
         CompoundSMILES = df["CompoundSMILES"].item()
+        CompoundCode = df["CompoundCode"].item()
 
-        if LibraryName == "DMSO":  # DMSO screen datasets
+        if LibraryName == "DMSO":  # DMSO solvent screen, not for PanDDA analysis
             self.log.info(
                 f"Puck {code}, puck position {location} is from DMSO solvent screen, excluding from PanDDA analysis"
             )
@@ -3024,7 +3042,7 @@ class DLSTrigger(CommonService):
 
         # 3. Create the dataset directory
 
-        model_dir = processing_dir / "analysis" / "auto_model_building"
+        model_dir = processing_dir / "analysis" / "model_building_auto"
         well_dir = model_dir / dtag
         compound_dir = well_dir / "compound"
         self.log.info(f"Creating directory {well_dir}")
@@ -3037,7 +3055,7 @@ class DLSTrigger(CommonService):
         shutil.copy(pdb, str(well_dir / "dimple.pdb"))
         shutil.copy(mtz, str(well_dir / "dimple.mtz"))
 
-        with open(compound_dir / "LIG.smi", "w") as smi_file:
+        with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
 
         # 4. Job launch logic
@@ -3070,6 +3088,7 @@ class DLSTrigger(CommonService):
             "datasets": datasets,
             "n_datasets": len(datasets),
             "scaling_id": scaling_id,
+            "database_path": str(sqlite_db_copy),
         }
 
         jp = self.ispyb.mx_processing.get_job_params()

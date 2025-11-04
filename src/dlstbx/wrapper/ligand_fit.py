@@ -121,7 +121,7 @@ class LigandFitWrapper(Wrapper):
         # if pipeline == "phenix":
         #     phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
         if pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} build=False nproc=8"
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # build=False
 
         try:
             result = subprocess.run(
@@ -159,7 +159,7 @@ class LigandFitWrapper(Wrapper):
                 f"module load molviewspec; gen_html_ligandfit.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
             )
 
-        self.generate_smiles_png(smiles, pipeline_directory, final_directory)
+        self.generate_smiles_png(smiles, pipeline_directory)
         # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)
 
         data = [

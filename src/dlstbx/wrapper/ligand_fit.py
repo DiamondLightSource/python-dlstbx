@@ -8,10 +8,10 @@ import shutil
 import subprocess
 from shutil import ignore_patterns
 
-# import molviewspec as mvs
 from iotbx import pdb
-from rdkit import Chem
-from rdkit.Chem import Draw
+
+# import molviewspec as mvs
+from openbabel import pybel
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
@@ -54,6 +54,7 @@ class LigandFitWrapper(Wrapper):
             else:
                 continue
             try:
+                shutil.copy(pipeline_directory / f.name, final_directory)
                 result_dict = {
                     "file_path": str(pipeline_directory),
                     "file_name": f.name,
@@ -62,7 +63,7 @@ class LigandFitWrapper(Wrapper):
                 }
                 self.record_result_individual_file(result_dict)
                 self.log.info(f"Uploaded {f.name} as an attachment")
-                shutil.copy(pipeline_directory / f.name, final_directory)
+
             except Exception:
                 self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
@@ -120,7 +121,7 @@ class LigandFitWrapper(Wrapper):
         # if pipeline == "phenix":
         #     phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
         if pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} build=False nproc=8"
 
         try:
             result = subprocess.run(
@@ -158,7 +159,7 @@ class LigandFitWrapper(Wrapper):
                 f"module load molviewspec; gen_html_ligandfit.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
             )
 
-        self.generate_smiles_png(smiles, pipeline_directory)
+        self.generate_smiles_png(smiles, pipeline_directory, final_directory)
         # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)
 
         data = [
@@ -185,7 +186,7 @@ class LigandFitWrapper(Wrapper):
             )
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(pipeline_directory)
+        self.send_attachments_to_ispyb(pipeline_directory, final_directory)
 
         if CC >= min_cc_keep:
             self.log.info("Ligand_fitting pipeline finished successfully")
@@ -197,9 +198,9 @@ class LigandFitWrapper(Wrapper):
             return False
 
     def generate_smiles_png(self, smiles, outdir):
-        mol = Chem.MolFromSmiles(smiles)
-        img = Draw.MolToImage(mol, size=(450, 450))
-        img.save(f"{outdir}/SMILES.png")
+        mol = pybel.readstring("smi", smiles)
+        mol.make2D()
+        mol.draw(show=False, filename=(f"{outdir}/SMILES.png"))
 
 
 # def generate_html_visualisation(pdb_file, map_file, outdir, acr, smiles, cc):

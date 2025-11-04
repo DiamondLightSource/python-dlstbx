@@ -4,9 +4,11 @@ ispyb>=11.0.3
 junit-xml>=1.9
 marshmallow-sqlalchemy
 minio>=7.1.0
+molviewspec
 msgpack-python
 networkx
 nxmx
+openbabel
 pandas
 pika
 pint
@@ -19,7 +21,6 @@ python-jose
 python-relion
 pyyaml
 pyzmq
-rdkit
 seaborn
 sqlalchemy>=2.0.39,<3
 stomp.py>=7,<9

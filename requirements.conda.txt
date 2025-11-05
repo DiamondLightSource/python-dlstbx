@@ -8,7 +8,6 @@ molviewspec
 msgpack-python
 networkx
 nxmx
-openbabel
 pandas
 pika
 pint

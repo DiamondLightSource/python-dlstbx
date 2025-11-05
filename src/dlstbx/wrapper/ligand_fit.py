@@ -11,8 +11,6 @@ from shutil import ignore_patterns
 from iotbx import pdb
 
 # import molviewspec as mvs
-from openbabel import pybel
-
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
@@ -159,7 +157,7 @@ class LigandFitWrapper(Wrapper):
                 f"module load molviewspec; gen_html_ligandfit.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
             )
 
-        self.generate_smiles_png(smiles, pipeline_directory)
+        # self.generate_smiles_png(smiles, pipeline_directory)
         # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)
 
         data = [
@@ -197,10 +195,10 @@ class LigandFitWrapper(Wrapper):
             )
             return False
 
-    def generate_smiles_png(self, smiles, outdir):
-        mol = pybel.readstring("smi", smiles)
-        mol.make2D()
-        mol.draw(show=False, filename=(f"{outdir}/SMILES.png"))
+    # def generate_smiles_png(self, smiles, outdir):
+    #     mol = pybel.readstring("smi", smiles)
+    #     mol.make2D()
+    #     mol.draw(show=False, filename=(f"{outdir}/SMILES.png"))
 
 
 # def generate_html_visualisation(pdb_file, map_file, outdir, acr, smiles, cc):

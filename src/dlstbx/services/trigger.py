@@ -264,6 +264,7 @@ class PanDDAParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
+    processing_directory: Optional[str] = None
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
@@ -2771,7 +2772,7 @@ class DLSTrigger(CommonService):
         if not sqlite_db_copy.exists():
             shutil.copy(str(sqlite_db), str(sqlite_db_copy))
         else:
-            self.log.info(f"Made a copy of {sqlite_db}, soakDBDataFile_auto.sqlite")
+            self.log.info(f"Made a copy of {sqlite_db}, auto_soakDBDataFile.sqlite")
 
         # Load any user specified processing parameters from user .yaml
         yaml_file = processing_dir / "experiment.yaml"
@@ -3100,6 +3101,133 @@ class DLSTrigger(CommonService):
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"PanDDA2 trigger: generated JobID {jobid}")
+
+        for key, value in pandda_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        self.log.debug(f"PanDDA2_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"PanDDA2_id trigger: Processing job {jobid} triggered")
+
+        return {"success": True}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_pandda_xchem_post(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        message: Dict,
+        parameters: PanDDAParameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,
+        **kwargs,
+    ):
+        """Trigger a PanDDA post-run job for an XChem fragment screening experiment.
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "pandda_xchem_p2"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
+        - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
+        - prerun_threshold: the minimum number of comparator datasets needed to begin PanDDA
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
+        processing PanDDA jobs
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        Example recipe parameters:
+        { "target": "pandda_xchem_p2",
+            "dcid": 123456,
+            "program_id": 123456,
+            "scaling_id": [123456],
+            "automatic": true,
+            "comment": "PanDDA2 post-run",
+            "timeout-minutes": 60,
+        }
+        """
+
+        dcid = parameters.dcid
+        scaling_id = parameters.scaling_id[0]
+        processing_directory = parameters.processing_directory
+
+        _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
+        visit = ispyb_info.get("ispyb_visit", "")
+        visit_proposal = visit.split("-")[0]
+        visit_number = visit.split("-")[1]
+
+        self.log.debug(
+            f"PanDDA2_postrun: proposal_code {visit_proposal[0:2]}, proposal_number {visit_proposal[2::]}, visit_number {visit_number}"
+        )
+
+        # If other PanDDA2 postrun running, quit
+        min_start_time = datetime.now() - timedelta(hours=12)
+
+        # from proposal and visit get all dcids
+        query = (
+            session.query(Proposal, BLSession, DataCollection, Container)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(Proposal.proposalCode == visit_proposal[0:2])
+            .filter(Proposal.proposalNumber == visit_proposal[2::])
+            .filter(BLSession.visit_number == visit_number)
+        )
+
+        df = pd.read_sql(query.statement, query.session.bind)
+        dcids = df["dataCollectionId"].tolist()
+
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.processingPrograms == "PanDDA2_post")
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus == None,
+                    AutoProcProgram.processingStartTime == None,
+                )
+            )
+        )
+
+        if triggered_processing_job := query.first():
+            self.log.info(
+                f"Aborting PanDDA2_postrun trigger as another postrun job has started for dcid {triggered_processing_job.dataCollectionId}"
+            )
+            return {"success": True}
+
+        scaling_id = parameters.scaling_id[0]
+
+        self.log.debug("PanDDA2 postrun trigger: Starting")
+
+        pandda_parameters = {
+            "dcid": dcid,  #
+            "processing_directory": str(processing_directory),
+            "scaling_id": scaling_id,
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        # jp["comments"] = parameters.comment
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "PanDDA2_post"
+        jp["recipe"] = "postprocessing-pandda2-post"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"PanDDA2 postrun trigger: generated JobID {jobid}")
 
         for key, value in pandda_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()

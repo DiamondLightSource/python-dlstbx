@@ -206,6 +206,7 @@ def run():
                                 ".gridscan",
                                 ".xml",
                             }  # legacy files that aren't removed when a visit is archived
+                            and f.name != "snapshots"
                         ]
                         if len(files):
                             break

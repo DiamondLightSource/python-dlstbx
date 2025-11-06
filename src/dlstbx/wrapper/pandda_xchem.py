@@ -28,27 +28,39 @@ class PanDDAWrapper(Wrapper):
         analysis_dir = Path(processing_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
 
-        auto_panddas_dir = Path(analysis_dir / "panddas_auto")
+        auto_panddas_dir = Path(analysis_dir / "auto_pandda2")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
         datasets = json.loads(params.get("datasets"))
         dtag = datasets[int(slurm_task_id) - 1]
         self.log.info(f"Processing dtag: {dtag}")
-        well_dir = model_dir / dtag
-        compound_dir = well_dir / "compound"
+        dataset_dir = model_dir / dtag
+        compound_dir = dataset_dir / "compound"
+
+        smiles_files = list(compound_dir.glob("*.smiles"))
+
+        if len(smiles_files) == 0:
+            self.log.error(
+                f"No .smiles file present in {compound_dir}, cannot continue for dtag {dtag}"
+            )
+            return False
+        elif len(smiles_files) > 1:
+            self.log.error(
+                f"Multiple .smiles files found in in {compound_dir}:, {smiles_files}, cannot continue for dtag {dtag}"
+            )
+        else:
+            smiles_file = smiles_files[0]
+            CompoundCode = smiles_file.stem
+
+        smiles_file = next(Path(compound_dir).rglob("*.smiles"), None)
 
         # working_directory = pathlib.Path(params["working_directory"])
         # working_directory.mkdir(parents=True, exist_ok=True)
-        # results_directory = pathlib.Path(params["results_directory"])
-        # results_directory.mkdir(parents=True, exist_ok=True)
 
-        db_dict = {}  # store results to integrate back with soakDB
+        db_dict = {}  # store results to integrate back with soakDB?
 
         # -------------------------------------------------------
-        acedrg_command = (
-            f"module load ccp4; acedrg -i {compound_dir / 'LIG.smi'} -o {'LIG'}"
-        )
-        # change to take CompoundCode.smiles!
+        acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
 
         try:
             result = subprocess.run(
@@ -70,11 +82,11 @@ class PanDDAWrapper(Wrapper):
             self.log.error(e.stderr)
             return False
 
-        with open(well_dir / "acedrg.log", "w") as log_file:
+        with open(dataset_dir / "acedrg.log", "w") as log_file:
             log_file.write(result.stdout)
 
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/pandda_gemmi/pandda/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {model_dir / dtag / 'pandda2.log'}"
+        python -u /dls_sw/i04-1/software/PanDDA2/pandda_gemmi/pandda/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {dataset_dir / 'pandda2.log'}"
 
         try:
             result = subprocess.run(
@@ -82,7 +94,7 @@ class PanDDAWrapper(Wrapper):
                 shell=True,
                 capture_output=True,
                 text=True,
-                cwd=well_dir,
+                cwd=dataset_dir,
                 check=True,
                 timeout=params.get("timeout-minutes") * 60,
             )
@@ -94,50 +106,31 @@ class PanDDAWrapper(Wrapper):
             return False
 
         # -------------------------------------------------------
-        # Integrate back with XCE
-        db_dict["DimplePANDDAwasRun"] = True
-        # db_dict["DimplePANDDAreject"] = False
-        db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
+        # Integrate back with XCE via datasource
+        # db_dict["DimplePANDDAwasRun"] = True
+        # # db_dict["DimplePANDDAreject"] = False
+        # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
 
-        try:
-            self.update_data_source(db_dict, dtag, database_path)
-            self.log.info(f"Updated sqlite database for dataset {dtag}")
-        except Exception as e:
-            self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
+        # try:
+        #     self.update_data_source(db_dict, dtag, database_path)
+        #     self.log.info(f"Updated sqlite database for dataset {dtag}")
+        # except Exception as e:
+        #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
-        # quick json results for synchweb tables
+        # json results for synchweb tables
         # data = [["PanDDA dataset", "CompoundSMILES", "result"],[f"{dtag}", f"{CompoundSMILES}", f"{}"]]
         # with open(analysis_dir / "pandda_results.json", "w") as f:
         #     json.dump(data, f)
 
-        # work in zocalo/tmp and copy results?
-        # shutil.copytree(
-        #     working_directory,
-        #     results_directory,
-        #     dirs_exist_ok=True,
-        #     ignore=ignore_patterns(".*"),
-        # )
-
-        # if params.get("create_symlink"):
-        #     dlstbx.util.symlink.create_parent_symlink(
-        #         os.fspath(working_directory), params["create_symlink"]
-        #     )
-        #     dlstbx.util.symlink.create_parent_symlink(
-        #         os.fspath(results_directory), params["create_symlink"]
-        #     )
-
-        # self.log.info("Sending results to ISPyB")
-        # self.send_attachments_to_ispyb(results_directory)
+        self.log.info("Sending results to ISPyB")
+        self.send_attachments_to_ispyb(dataset_dir)
 
         self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True
 
-    def send_attachments_to_ispyb(self, well_dir):
-        for f in well_dir.iterdir():
-            if f.stem.endswith("final"):
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".json":
+    def send_attachments_to_ispyb(self, dataset_dir):
+        for f in dataset_dir.iterdir():
+            if f.suffix == ".json":
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".log":
@@ -147,7 +140,7 @@ class PanDDAWrapper(Wrapper):
                 continue
             try:
                 result_dict = {
-                    "file_path": str(well_dir),
+                    "file_path": str(dataset_dir),
                     "file_name": f.name,
                     "file_type": file_type,
                     "importance_rank": importance_rank,

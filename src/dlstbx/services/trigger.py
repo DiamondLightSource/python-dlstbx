@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
@@ -2725,8 +2726,12 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        self.log.debug(
+            f"proposal code is {proposal.proposalCode}, proposal number {proposal.proposalNumber}"
+        )
+
         # TEMPORARY, OPENBIND TEST VISIT
-        if proposal.proposalId != 42888:
+        if proposal.proposalNumber not in {"42888"}:
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid}, only accepting data collections from lb42888 during test phase"
             )
@@ -2736,7 +2741,7 @@ class DLSTrigger(CommonService):
         names = []
         visit_dirs = []
 
-        # Temporary solution to link i04-1 and xchem visits
+        # Temporary solution to link i04-1 and xchem visits, replace with yaml
         for dir in xchem_dir.iterdir():
             try:
                 con = sqlite3.connect(
@@ -2747,8 +2752,8 @@ class DLSTrigger(CommonService):
                 name = cur.fetchone()[0]
                 names.append(name)
                 visit_dirs.append(dir)
-            except Exception:
-                pass
+            except Exception as e:
+                self.log.debug(f"Unable to read .sqlite database for {dir}")
 
         if acronym in names:
             index = names.index(acronym)
@@ -2765,7 +2770,7 @@ class DLSTrigger(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         sqlite_db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
-        # Make a copy of the database for testing purposes
+        # Make a copy of the database for testing
         sqlite_db_copy = (
             xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
         )
@@ -2794,7 +2799,7 @@ class DLSTrigger(CommonService):
             "xia2.multiplex",
         ]  # will consider dimple output from these jobs to take forward
 
-        # If other dimple job is running, quit, dimple set to trigger even if it fails
+        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
         min_start_time = datetime.now() - timedelta(hours=12)
 
         query = (
@@ -2806,7 +2811,7 @@ class DLSTrigger(CommonService):
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
             .filter(ProcessingJob.automatic == True)
-            .filter(AutoProcProgram.processingPrograms == "dimple")
+            .filter(AutoProcProgram.processingPrograms.in_(["dimple", "PanDDA2"]))
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
                 or_(
@@ -2818,7 +2823,7 @@ class DLSTrigger(CommonService):
 
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Aborting PanDDA2 trigger as another dimple job has started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Aborting PanDDA2 trigger as another dimple/PanDDA2 job has started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
 
@@ -3043,18 +3048,18 @@ class DLSTrigger(CommonService):
 
         # 3. Create the dataset directory
 
-        model_dir = processing_dir / "analysis" / "model_building_auto"
-        well_dir = model_dir / dtag
-        compound_dir = well_dir / "compound"
-        self.log.info(f"Creating directory {well_dir}")
+        model_dir = processing_dir / "analysis" / "auto_model_building"
+        dataset_dir = model_dir / dtag
+        compound_dir = dataset_dir / "compound"
+        self.log.info(f"Creating directory {dataset_dir}")
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)  # False?
         dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
         self.log.info(f"dataset_list is: {dataset_list}")
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
 
         # Copy the dimple files of the selected dataset
-        shutil.copy(pdb, str(well_dir / "dimple.pdb"))
-        shutil.copy(mtz, str(well_dir / "dimple.mtz"))
+        shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
+        shutil.copy(mtz, str(dataset_dir / "dimple.mtz"))
 
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
@@ -3071,7 +3076,7 @@ class DLSTrigger(CommonService):
         elif dataset_count == prerun_threshold:
             datasets = dataset_list  # list of datasets to process
             self.log.info(
-                f"Dataset dataset_count {dataset_count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 in batch mode"
+                f"Dataset dataset_count {dataset_count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 array job"
             )
         elif dataset_count > prerun_threshold:
             datasets = [dtag]
@@ -3085,10 +3090,11 @@ class DLSTrigger(CommonService):
             "dcid": dcid,  #
             "processing_directory": str(processing_dir),
             "model_directory": str(model_dir),
-            "dataset_directory": str(well_dir),
-            "datasets": datasets,
+            "dataset_directory": str(dataset_dir),
+            "datasets": json.dumps(datasets),
             "n_datasets": len(datasets),
             "scaling_id": scaling_id,
+            "prerun_threshold": prerun_threshold,
             "database_path": str(sqlite_db_copy),
         }
 
@@ -3135,7 +3141,7 @@ class DLSTrigger(CommonService):
         """Trigger a PanDDA post-run job for an XChem fragment screening experiment.
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
-        - target: set this to "pandda_xchem_p2"
+        - target: set this to "pandda_xchem_post"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
         - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
@@ -3145,7 +3151,7 @@ class DLSTrigger(CommonService):
         processing PanDDA jobs
         - automatic: boolean value passed to ProcessingJob.automatic field
         Example recipe parameters:
-        { "target": "pandda_xchem_p2",
+        { "target": "pandda_xchem_post",
             "dcid": 123456,
             "program_id": 123456,
             "scaling_id": [123456],
@@ -3208,8 +3214,6 @@ class DLSTrigger(CommonService):
                 f"Aborting PanDDA2_postrun trigger as another postrun job has started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
-
-        scaling_id = parameters.scaling_id[0]
 
         self.log.debug("PanDDA2 postrun trigger: Starting")
 

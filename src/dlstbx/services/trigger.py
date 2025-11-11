@@ -267,9 +267,9 @@ class PanDDAParameters(pydantic.BaseModel):
     scaling_id: list[int]
     processing_directory: Optional[str] = None
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
-    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_delay: float = pydantic.Field(default=30, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    backoff_multiplier: float = pydantic.Field(default=1.4, alias="backoff-multiplier")
 
 
 class DLSTrigger(CommonService):
@@ -1782,8 +1782,12 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                        .filter(
+                            AutoProcProgram.autoProcProgramId > program_id
+                        )  # noqa E711
+                        .filter(
+                            AutoProcProgram.recordTimeStamp > min_start_time
+                        )  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2737,27 +2741,70 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        # Find corresponding xchem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit_proposal}")
-        names = []
-        visit_dirs = []
+        yaml_files = []
 
-        # Temporary solution to link i04-1 and xchem visits, replace with yaml
-        for dir in xchem_dir.iterdir():
-            try:
-                con = sqlite3.connect(
-                    dir / "processing/database" / "soakDBDataFile.sqlite"
-                )
-                cur = con.cursor()
-                cur.execute("SELECT Protein FROM soakDB")
-                name = cur.fetchone()[0]
-                names.append(name)
-                visit_dirs.append(dir)
-            except Exception as e:
-                self.log.debug(f"Unable to read .sqlite database for {dir}")
+        for subdir in xchem_dir.iterdir():
+            user_yaml = subdir / ".user.yaml"
+            if user_yaml.exists():
+                yaml_files.append(user_yaml)
 
-        if acronym in names:
-            index = names.index(acronym)
-            xchem_visit_dir = visit_dirs[index]
+        if not yaml_files:
+            match_dir = False
+
+        for yaml_file in yaml_files:
+            with open(yaml_file, "r") as file:
+                expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
+
+            acr = expt_yaml["data"]["acronym"]
+            directory = yaml_file.parents[0]
+            if acr == acronym:
+                match_dir = directory
+                match_yaml = expt_yaml
+                break
+            else:
+                match_dir = False
+
+        if not match_dir:
+            # Try reading from SoakDB .sqlite
+            for subdir in xchem_dir.iterdir():
+                if (subdir / ".user.yaml").exists():
+                    continue
+                try:
+                    db_path = str(
+                        subdir / "processing/database" / "soakDBDataFile.sqlite"
+                    )
+                    con = sqlite3.connect(db_path)
+                    cur = con.cursor()
+                    cur.execute("SELECT Protein FROM soakDB")
+                    name = cur.fetchone()[0]
+                    con.close()
+
+                    if name is not None:
+                        # visit = dir.parts[-1]
+                        expt_yaml = {}
+                        expt_yaml["data"] = {"acronym": name}
+                        expt_yaml["autoprocessing"] = {}
+                        expt_yaml["autoprocessing"]["pandda"] = {
+                            "prerun-threshold": 300,
+                            "heuristic": "default",
+                        }
+
+                        with open(subdir / ".user.yaml", "w") as f:
+                            yaml.dump(expt_yaml, f)
+
+                    if name == acronym:
+                        match_dir = subdir
+                        match_yaml = expt_yaml
+
+                except Exception:
+                    print(f"Unable to read .sqlite database for {subdir}")
+
+        xchem_visit_dir = match_dir
+        user_settings = match_yaml["autoprocessing"]
+
+        if xchem_visit_dir:
             self.log.debug(
                 f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}"
             )
@@ -2776,7 +2823,6 @@ class DLSTrigger(CommonService):
         )
         if not sqlite_db_copy.exists():
             shutil.copy(str(sqlite_db), str(sqlite_db_copy))
-        else:
             self.log.info(f"Made a copy of {sqlite_db}, auto_soakDBDataFile.sqlite")
 
         # Load any user specified processing parameters from user .yaml
@@ -2991,6 +3037,7 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         chosen_dataset_path = df3["filePath"][0]
+        scaling_id = int(df3["autoProcScalingId"][0])
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
 
@@ -3179,7 +3226,7 @@ class DLSTrigger(CommonService):
 
         # from proposal and visit get all dcids
         query = (
-            session.query(Proposal, BLSession, DataCollection, Container)
+            session.query(Proposal, BLSession, DataCollection)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
             .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
             .filter(Proposal.proposalCode == visit_proposal[0:2])

@@ -28,7 +28,10 @@ class PanDDApostWrapper(Wrapper):
 
         # -------------------------------------------------------
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/pandda_gemmi/pandda/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --use_ligand_data=False --debug=True --local_cpus=4 > {auto_panddas_dir / 'pandda2_postrun.log'}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --use_ligand_data=False --debug=True --local_cpus=4 > {auto_panddas_dir / 'pandda2_postrun.log'}"
+
+        # pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
+        # python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir}  --use_ligand_data=False --debug=True --local_cpus=8 > {auto_panddas_dir / 'pandda2_postrun.log'}"
 
         try:
             result = subprocess.run(
@@ -59,7 +62,7 @@ class PanDDApostWrapper(Wrapper):
             + f" WHERE CrystalName = '{dtag}'"
         )
         conn = sqlite3.connect(database_path)
-        conn.execute("PRAGMA journal_mode=WAL;")
+        # conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)
         conn.commit()

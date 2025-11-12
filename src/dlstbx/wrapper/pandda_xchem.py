@@ -46,13 +46,14 @@ class PanDDAWrapper(Wrapper):
             return False
         elif len(smiles_files) > 1:
             self.log.error(
-                f"Multiple .smiles files found in in {compound_dir}:, {smiles_files}, cannot continue for dtag {dtag}"
+                f"Multiple .smiles files found in in {compound_dir}:, {smiles_files}, warning for dtag {dtag}"
             )
         else:
             smiles_file = smiles_files[0]
             CompoundCode = smiles_file.stem
 
         smiles_file = next(Path(compound_dir).rglob("*.smiles"), None)
+        CompoundCode = smiles_file.stem
 
         # working_directory = pathlib.Path(params["working_directory"])
         # working_directory.mkdir(parents=True, exist_ok=True)
@@ -85,8 +86,10 @@ class PanDDAWrapper(Wrapper):
         with open(dataset_dir / "acedrg.log", "w") as log_file:
             log_file.write(result.stdout)
 
+        self.log.info(f"Restraints generated succesfully for dtag {dtag}")
+
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {dataset_dir / 'pandda2.log'}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag}"
 
         # pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
         # python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py  --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {dataset_dir / 'pandda2.log'}"
@@ -108,6 +111,9 @@ class PanDDAWrapper(Wrapper):
             self.log.error(e.stderr)
             return False
 
+        with open(dataset_dir / "pandda2.log", "w") as log_file:
+            log_file.write(result.stdout)
+
         # -------------------------------------------------------
         # Integrate back with XCE via datasource
         # db_dict["DimplePANDDAwasRun"] = True
@@ -125,8 +131,8 @@ class PanDDAWrapper(Wrapper):
         # with open(analysis_dir / "pandda_results.json", "w") as f:
         #     json.dump(data, f)
 
-        self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(dataset_dir)
+        # self.log.info("Sending results to ISPyB")
+        # self.send_attachments_to_ispyb(dataset_dir)
 
         self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True

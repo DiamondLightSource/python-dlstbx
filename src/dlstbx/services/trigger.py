@@ -1782,12 +1782,8 @@ class DLSTrigger(CommonService):
                         .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
                         .filter(ProcessingJob.automatic == True)  # noqa E712
                         .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(
-                            AutoProcProgram.autoProcProgramId > program_id
-                        )  # noqa E711
-                        .filter(
-                            AutoProcProgram.recordTimeStamp > min_start_time
-                        )  # noqa E711
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
                     # Abort triggering multiplex if we have xia2 dials running on any subsequent
                     # data collection in all sample groups
@@ -2826,7 +2822,7 @@ class DLSTrigger(CommonService):
             self.log.info(f"Made a copy of {sqlite_db}, auto_soakDBDataFile.sqlite")
 
         # Load any user specified processing parameters from user .yaml
-        yaml_file = processing_dir / "experiment.yaml"
+        yaml_file = processing_dir / ".user.yaml"
         if yaml_file.exists():
             with open(yaml_file, "r") as file:
                 user_yaml = yaml.safe_load(file)
@@ -3023,7 +3019,7 @@ class DLSTrigger(CommonService):
         n_success_dimple = len(df2)  #
 
         self.log.info(
-            f"There are {n_success_upstream} successful upstream jobs & {n_success_dimple} successful dimple jobs (excl fast-dp), \
+            f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) & {n_success_dimple} successful dimple jobs, \
             selecting the best one based on heuristic: I/sigI*completeness * #unique reflections"
         )
 
@@ -3210,7 +3206,8 @@ class DLSTrigger(CommonService):
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
-        processing_directory = parameters.processing_directory
+        processing_directory = pathlib.Path(parameters.processing_directory)
+        model_directory = processing_directory / "analysis" / "auto_model_building"
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
@@ -3222,7 +3219,7 @@ class DLSTrigger(CommonService):
         )
 
         # If other PanDDA2 postrun running, quit
-        min_start_time = datetime.now() - timedelta(hours=12)
+        min_start_time = datetime.now() - timedelta(hours=1)
 
         # from proposal and visit get all dcids
         query = (
@@ -3264,9 +3261,21 @@ class DLSTrigger(CommonService):
 
         self.log.debug("PanDDA2 postrun trigger: Starting")
 
+        processed_dir = (
+            processing_directory / "analysis/auto_pandda2/processed_datasets"
+        )
+        datasets = []
+
+        for subdir in processed_dir.iterdir():
+            events_yaml = subdir / "events.yaml"
+            if events_yaml.exists():
+                datasets.append(subdir.parts[-1])
+
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_directory),
+            "model_directory": str(model_directory),
+            "datasets": json.dumps(datasets),
             "scaling_id": scaling_id,
         }
 

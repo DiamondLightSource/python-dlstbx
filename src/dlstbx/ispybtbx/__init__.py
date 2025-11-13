@@ -194,6 +194,22 @@ class ispybtbx:
         elif template.endswith(".cbf"):
             return "pilatus"
 
+    def dc_info_to_detectorname(
+        self, dc_info, session: sqlalchemy.orm.session.Session
+    ):
+        ## Get a detector name if it is one of a set of allowed values for fast feedback service.
+        det_id = dc_info.get("detectorId")
+        if det_id is not None and (det := crud.get_detector(det_id, session)):
+            if det.detectorModel == "Eiger2 XE 16M":
+                return "Eiger16M"
+            elif det.detectorModel == "Eiger2 X 4M":
+                return "Eiger4M"
+            elif det.detectorModel == "Eiger2 X CdTe 9M":
+                return "Eiger9MCdTe"
+
+        # Not one of the set of detectors allowed for fast feedback service.
+        return None
+
     def get_sample_group_dcids(
         self,
         ispyb_info,
@@ -847,6 +863,7 @@ def ispyb_filter(
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
 
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
+    parameters["ispyb_detectorname"] = i.dc_info_to_detectorname(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
     parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(
         dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session

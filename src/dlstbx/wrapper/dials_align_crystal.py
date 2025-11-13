@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import json
-import os
+import shutil
 import subprocess
+from pathlib import Path
 
-import py
-from dxtbx.serialize import load
+from dxtbx.model.crystal import CrystalFactory
 
+import dlstbx.util.symlink
+from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
 
 
 class AlignCrystalWrapper(Wrapper):
-    _logger_name = "dlstbx.wrap.dlstbx.align_crystal"
+    _logger_name = "dlstbx.wrap.align_crystal_downstream"
 
     def insert_dials_align_strategies(self, dcid, crystal_symmetry, results):
         solutions = results["solutions"]
@@ -65,9 +67,9 @@ class AlignCrystalWrapper(Wrapper):
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {
                 "dcid": dcid,
-                "programversion": "dials.align_crystal",
+                "programversion": "xia2-dials+dials.align_crystal",
                 "comments": settings_str,
-                "shortcomments": "dials.align_crystal %i" % solution_id,
+                "shortcomments": f"solution {solution_id}",
                 "ispyb_command": "insert_screening",
                 "store_result": "ispyb_screening_id_%i" % solution_id,
             }
@@ -130,105 +132,86 @@ class AlignCrystalWrapper(Wrapper):
         else:
             self.log.info("There is no valid dials.align_crystal strategy here")
 
-    def construct_commandline(self, params):
-        """Construct dlstbx.align_crystal command line.
-        Takes job parameter dictionary, returns array."""
-
-        pattern = params["image_pattern"]
-        first = int(params["image_first"])
-        last = int(params["image_last"])
-        if pattern.endswith(".cbf"):
-            image_files = [
-                os.path.join(params["image_directory"], pattern % i)
-                for i in range(first, last + 1)
-            ]
-        else:
-            image_files = [os.path.join(params["image_directory"], pattern)]
-
-        command = ["dlstbx.align_crystal"] + image_files
-
-        return command
-
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-        params = self.recwrap.recipe_step["job_parameters"]
+        self.params = ChainMapWithReplacement(
+            self.recwrap.recipe_step["job_parameters"].get("ispyb_parameters", {}),
+            self.recwrap.recipe_step["job_parameters"],
+            substitutions=self.recwrap.environment,
+        )
 
-        command = self.construct_commandline(params)
+        self.working_directory = Path(self.params["working_directory"])
+        self.results_directory = Path(self.params["results_directory"])
+        self.working_directory.mkdir(parents=True, exist_ok=True)
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        symlink = self.params.get("create_symlink")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(self.working_directory, symlink)
 
-        # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
+        experiment_file = self.params["experiment_file"]
+        if isinstance(experiment_file, list):
+            experiment_file = experiment_file[0]
 
-        # run dlstbx.align_crystal in working directory
-        self.log.info("command: %s", " ".join(command))
-        try:
-            result = subprocess.run(
-                command,
-                timeout=params.get("timeout"),
-                cwd=working_directory.strpath,
-                capture_output=True,
-            )
-        except subprocess.TimeoutExpired:
-            self.log.info(
-                f"dlstbx.align_crystal failed by timeout ({params.get('timeout')}s)"
-            )
-            return False
+        # run dials.align_crystal in working directory
+        command = f"dials.align_crystal {experiment_file}"
+        self.log.info(f"Running command: {command}")
+        result = subprocess.run(
+            command,
+            shell=True,
+            cwd=self.working_directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        with open(self.working_directory / "dials.align_crystal.log", "w") as log_file:
+            log_file.write(result.stdout)
 
         if result.returncode:
             self.log.info(
-                f"dlstbx.align_crystal failed with returncode {result.returncode}"
+                f"dials.align_crystal failed with return code {result.returncode}"
             )
-            self.log.debug(result.stdout)
-            self.log.debug(result.stderr)
+            self.log.debug(f"Command output:\n{result.stdout}")
             return False
 
-        self.log.info("dlstbx.align_crystal successful")
+        self.log.info("dials.align_crystal completed successfully")
 
-        # Create results directory and symlink if they don't already exist
-        results_directory.ensure(dir=True)
+        self.results_directory.mkdir(parents=True, exist_ok=True)
+
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(self.results_directory, symlink)
 
         # copy output files to result directory and attach them in ISPyB
-        keep_ext = {
-            #'.json': 'result',
-            ".log": "log"
-        }
-        keep = {"align_crystal.json": "result", "dials_symmetry.json": "result"}
-        allfiles = []
-        for filename in working_directory.listdir():
-            filetype = keep_ext.get(filename.ext)
-            if filename.basename in keep:
-                filetype = keep[filename.basename]
-            if filetype is None:
-                continue
-            destination = results_directory.join(filename.basename)
-            self.log.debug(f"Copying {filename.strpath} to {destination.strpath}")
-            allfiles.append(destination.strpath)
-            filename.copy(destination)
+
+        keep = {"align_crystal.json": "result", "dials.align_crystal.log": "log"}
+
+        for filename in self.working_directory.iterdir():
+            filetype = keep.get(filename.name)
             if filetype:
+                destination = self.results_directory / filename.name
+                self.log.debug(
+                    f"Copying {filename.as_posix()} to {destination.as_posix()}"
+                )
+                shutil.copyfile(filename, destination)
                 self.record_result_individual_file(
                     {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
+                        "file_path": destination.parent,
+                        "file_name": destination.name,
                         "file_type": filetype,
                     }
                 )
-        if allfiles:
-            self.record_result_all_files({"filelist": allfiles})
-
-        assert working_directory.join("symmetrized.expt")
-        experiments = load.experiment_list(
-            working_directory.join("symmetrized.expt").strpath
-        )
-        crystal_symmetry = experiments[0].crystal.get_crystal_symmetry()
+        with open(experiment_file) as fh:
+            experiment_data = json.load(fh)
+        crystal = CrystalFactory.from_dict(experiment_data["crystal"][0])
+        crystal_symmetry = crystal.get_crystal_symmetry()
         # Forward JSON results if possible
-        if working_directory.join("align_crystal.json").check():
-            with working_directory.join("align_crystal.json").open("rb") as fh:
+        if (self.working_directory / "align_crystal.json").is_file():
+            with (self.working_directory / "align_crystal.json").open("rb") as fh:
                 json_data = json.load(fh)
             self.insert_dials_align_strategies(
-                params["dcid"], crystal_symmetry, json_data
+                self.params["dcid"], crystal_symmetry, json_data
             )
         else:
             self.log.warning("Expected JSON output file missing")

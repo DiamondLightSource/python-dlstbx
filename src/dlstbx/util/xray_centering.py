@@ -48,9 +48,10 @@ def reshape_grid(
     data: np.ndarray, steps: tuple[int, int], snaked: bool, orientation: Orientation
 ) -> np.ndarray:
     """
-    Converts the linear array to column major 2D, and unsnake.
-    NOTE, the current implementation deliberately mutates the input!
+    Converts the linear array to column major 2D, and unsnakes.
     """
+    # Copy data to avoid mutating the input
+    data = np.copy(data)
     # Transpose the array if orientation is horizontal
     if orientation == Orientation.VERTICAL:
         data = data.reshape(steps)

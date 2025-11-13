@@ -254,7 +254,15 @@ class DLSXRayCentering(CommonService):
                 cd.images_seen,
                 gridinfo.image_count,
             )
-            cd.data[message.file_number - 1] = message.n_spots_total
+            try:
+                cd.data[message.file_number - 1] = message.n_spots_total
+            except IndexError:
+                # Cannot analyse images with an inconsistent metadata
+                self.log.exception(
+                    f"Image index {message.file_number} inconsistent with data size {cd.data.shape}"
+                )
+                rw.transport.ack(header)
+                return
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if cd.images_seen == gridinfo.image_count:
@@ -262,35 +270,31 @@ class DLSXRayCentering(CommonService):
                     parameters.loop_type, gridinfo.dx_mm * 1000
                 )
                 if dcg_dcids:
-                    dcids = [dcid]
-                    data = [
-                        dlstbx.util.xray_centering.reshape_grid(
-                            cd.data,
-                            (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
-                            cd.gridinfo.snaked,
-                            cd.gridinfo.orientation,
+                    dcids = [dcid] + dcg_dcids
+                    try:
+                        all_images_seen = all(
+                            self._centering_data[_dcid].images_seen
+                            == self._centering_data[_dcid].gridinfo.image_count
+                            for _dcid in dcids
                         )
-                    ]
-                    for _dcid in dcg_dcids:
-                        dcids.append(_dcid)
-                        _cd = self._centering_data.get(_dcid)
-                        if not _cd:
-                            break
-                        if _cd.images_seen != _cd.gridinfo.image_count:
-                            break
-                        data.append(
-                            dlstbx.util.xray_centering.reshape_grid(
-                                _cd.data,
-                                (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
-                                not _cd.gridinfo.snaked,  # XXX
-                                _cd.gridinfo.orientation,
-                            )
-                        )
-                    else:
-                        # All results present
+                    # Catch if centering data doesn't exist yet for a dcid.
+                    except KeyError:
+                        all_images_seen = False
+                    if all_images_seen:
                         self.log.info(
                             f"All records arrived for X-ray centering on DCIDs {sorted(dcids)}"
                         )
+                        data = []
+                        for _dcid in dcids:
+                            _cd = self._centering_data.get(_dcid)
+                            data.append(
+                                dlstbx.util.xray_centering.reshape_grid(
+                                    _cd.data,
+                                    (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
+                                    _cd.gridinfo.snaked,
+                                    _cd.gridinfo.orientation,
+                                )
+                            )
                         # Sort the data by dcid
                         perm = np.argsort(dcids)
                         self.log.debug(f"{perm=}")
@@ -311,7 +315,7 @@ class DLSXRayCentering(CommonService):
                         txn = rw.transport.transaction_begin(
                             subscription_id=header["subscription"]
                         )
-                        for _dcid in dcg_dcids + [dcid]:
+                        for _dcid in dcids:
                             cd = self._centering_data[_dcid]
                             for h in cd.headers:
                                 rw.transport.ack(h, transaction=txn)
@@ -329,7 +333,7 @@ class DLSXRayCentering(CommonService):
                         )
                         rw.transport.transaction_commit(txn)
 
-                        for _dcid in dcg_dcids + [dcid]:
+                        for _dcid in dcids:
                             del self._centering_data[_dcid]
 
                 elif parameters.experiment_type != "Mesh3D":

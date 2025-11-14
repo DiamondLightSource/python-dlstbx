@@ -11,6 +11,7 @@ from workflows.services.common_service import CommonService
 from dlstbx.util.iris import (
     get_minio_client,
     get_presigned_urls,
+    update_dcid_info_file,
 )
 
 
@@ -57,6 +58,7 @@ class S3EchoWatcher(CommonService):
         rw.transport.ack(header, transaction=txn)
 
         params = rw.recipe_step["parameters"]
+        dcid = int(params["dcid"])
         minio_client = get_minio_client(S3EchoWatcher._s3echo_credentials)
 
         bucket_name = params["bucket"]
@@ -71,6 +73,17 @@ class S3EchoWatcher(CommonService):
         # set in environment to list of uploaded file names in the message that
         # are prefixed with processingjobid value.
         s3echo_upload_files = rw.environment.get("s3echo_upload", {})
+
+        response_info = update_dcid_info_file(
+            minio_client, bucket_name, dcid, None, None, self.log
+        )
+        if response_info and response_info["status"] == -1:
+            self.log.error(
+                f"Upload of the following files to S3 bucket {params['bucket']} reported in error state:\n{pformat(rw.environment['s3echo_upload'])}"
+            )
+            rw.send_to("failure", message, transaction=txn)
+            return False
+
         upload_file_list = s3echo_upload_files.keys()
         if s3_urls := message.get("s3_urls", {}) if isinstance(message, dict) else {}:
             upload_file_list = sorted(
@@ -123,7 +136,7 @@ class S3EchoWatcher(CommonService):
             )
         except S3Error as err:
             self.log.exception(
-                f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
+                f"Error retrieving following file from S3 bucket {params['bucket']}:\n{filepath}"
             )
             rw.send_to("failure", message, transaction=txn)
             raise err

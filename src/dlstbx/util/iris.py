@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import configparser
 import glob
+import io
+import json
 import os
 import shutil
 import subprocess
@@ -295,3 +297,43 @@ def retrieve_file_with_url(filename, url, logger):
             retries_left -= 1
             time.sleep(5)
     c.close()
+
+
+def update_dcid_info_file(minio_client, bucket_name, dcid, status, rpid, logger):
+    # Write {dcid}_info file that contains list of processingjobid values for all job invocations
+    # requiring data for a given {dcid} value. Every new processing job invocation adds corresponding
+    # processingjobid value to the list.
+    obj_pid = f"{dcid}_info"
+    dc_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
+    dcid_info = {"status": 0, "pid": []}
+    response_info = None
+    try:
+        response = None
+        if obj_pid in dc_objects:
+            response = minio_client.get_object(bucket_name, obj_pid)
+            if response:
+                response_info = json.loads(response.data.decode())
+                dcid_info.update(response_info)
+        if status is not None:
+            dcid_info["status"] = status or dcid_info["status"]
+        if rpid is not None:
+            if rpid > 0:
+                dcid_info["pid"].append(rpid)
+            else:
+                dcid_info["pid"].remove(abs(rpid))
+
+        if status is not None or rpid is not None:
+            str_buffer = io.BytesIO(json.dumps(dcid_info).encode())
+            buffer_length = str_buffer.getbuffer().nbytes
+            result = minio_client.put_object(
+                bucket_name, obj_pid, str_buffer, buffer_length
+            )
+            logger.debug(
+                f"Written {result.object_name} object for {rpid} procecessingJobId value; etag: {result.etag}",
+            )
+    finally:
+        if response:
+            response.close()
+            response.release_conn()
+
+    return response_info

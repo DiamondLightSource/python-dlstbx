@@ -12,6 +12,7 @@ from dlstbx.util.iris import (
     get_presigned_urls,
     remove_objects_from_s3,
     retrieve_results_from_s3,
+    update_dcid_info_file,
 )
 
 
@@ -62,6 +63,7 @@ class S3EchoUploader(CommonService):
         rw.transport.ack(header, transaction=txn)
 
         params = rw.recipe_step["parameters"]
+        dcid = int(params["dcid"])
         minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
 
         # We have a list of files to upload set in recipe environment and we receive
@@ -100,6 +102,9 @@ class S3EchoUploader(CommonService):
                     self.log,
                 )
             except S3Error as err:
+                update_dcid_info_file(
+                    minio_client, params["bucket"], dcid, -1, None, self.log
+                )
                 self.log.exception(
                     f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
                 )
@@ -117,6 +122,9 @@ class S3EchoUploader(CommonService):
                         transaction=txn,
                     )
                 else:
+                    update_dcid_info_file(
+                        minio_client, params["bucket"], dcid, 1, None, self.log
+                    )
                     rw.environment["s3_urls"] = s3_urls
                     rw.send_to("success", "Finished processing", transaction=txn)
         # Commit transaction

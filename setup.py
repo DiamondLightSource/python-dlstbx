@@ -79,6 +79,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
     "pandda_xchem = dlstbx.wrapper.pandda_xchem:PanDDAWrapper",
     "pandda_post = dlstbx.wrapper.pandda_post:PanDDApostWrapper",
+    "pandda_rhofit = dlstbx.wrapper.pandda_rhofit:PanDDARhofitWrapper",
     "phaser_ellg  = dlstbx.wrapper.phaser_ellg:PhasereLLGWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "scaleit = dlstbx.wrapper.scaleit:ScaleitWrapper",

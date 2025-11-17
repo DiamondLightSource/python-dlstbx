@@ -91,9 +91,6 @@ class PanDDAWrapper(Wrapper):
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag}"
 
-        # pandda2_command = f"source /dls/data2temp01/labxchem/data/2017/lb18145-17/processing/edanalyzer/act; conda activate /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/env_pandda_2; \
-        # python -u /dls/science/groups/i04-1/conor_dev/pandda_2_gemmi/scripts/process_dataset.py  --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > {dataset_dir / 'pandda2.log'}"
-
         try:
             result = subprocess.run(
                 pandda2_command,
@@ -137,27 +134,27 @@ class PanDDAWrapper(Wrapper):
         self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True
 
-    def send_attachments_to_ispyb(self, dataset_dir):
-        for f in dataset_dir.iterdir():
-            if f.suffix == ".json":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".log":
-                file_type = "Log"
-                importance_rank = 2
-            else:
-                continue
-            try:
-                result_dict = {
-                    "file_path": str(dataset_dir),
-                    "file_name": f.name,
-                    "file_type": file_type,
-                    "importance_rank": importance_rank,
-                }
-                self.record_result_individual_file(result_dict)
-                self.log.info(f"Uploaded {f.name} as an attachment")
-            except Exception:
-                self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
+    # def send_attachments_to_ispyb(self, dataset_dir):
+    #     for f in dataset_dir.iterdir():
+    #         if f.suffix == ".json":
+    #             file_type = "Result"
+    #             importance_rank = 1
+    #         elif f.suffix == ".log":
+    #             file_type = "Log"
+    #             importance_rank = 2
+    #         else:
+    #             continue
+    #         try:
+    #             result_dict = {
+    #                 "file_path": str(dataset_dir),
+    #                 "file_name": f.name,
+    #                 "file_type": file_type,
+    #                 "importance_rank": importance_rank,
+    #             }
+    #             self.record_result_individual_file(result_dict)
+    #             self.log.info(f"Uploaded {f.name} as an attachment")
+    #         except Exception:
+    #             self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

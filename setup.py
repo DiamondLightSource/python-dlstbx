@@ -119,6 +119,7 @@ service_list = [
     "DLSPerImageAnalysis = dlstbx.services.per_image_analysis:DLSPerImageAnalysis",
     "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
+    "DLSTrigger_XChem = dlstbx.services.trigger:DLSTrigger_XChem",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
     "CloudStats = dlstbx.services.cloudstats:CloudStats",

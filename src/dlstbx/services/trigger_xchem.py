@@ -89,7 +89,7 @@ class DLSTrigger_XChem(CommonService):
         )
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "trigger",
+            "trigger_xchem",
             self.trigger,
             acknowledgement=True,
             log_extender=self.extend_log,

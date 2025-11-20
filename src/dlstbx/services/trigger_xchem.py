@@ -49,8 +49,6 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    pdb: pathlib.Path
-    mtz: pathlib.Path
     prerun_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -64,18 +62,18 @@ class PanDDAParameters(pydantic.BaseModel):
 
 class PanDDA_RhofitParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    datasets: list[str]
+    datasets: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    processing_directory: Optional[str] = None
+    processing_directory: str
 
 
-class DLSTrigger_XChem(CommonService):
+class DLSTriggerXChem(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
     # Human readable service name
-    _service_name = "DLS Trigger_XChem"
+    _service_name = "DLS TriggerXChem"
 
     # Logger name
     _logger_name = "dlstbx.services.trigger_xchem"
@@ -111,7 +109,7 @@ class DLSTrigger_XChem(CommonService):
             self.log.error("No trigger target defined in recipe")
             rw.transport.nack(header)
             return
-        if not hasattr(self, "trigger_" + target):  # trigger_xchem_ ?
+        if not hasattr(self, "trigger_" + target):
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
             return
@@ -244,7 +242,7 @@ class DLSTrigger_XChem(CommonService):
                 yaml_files.append(user_yaml)
 
         if not yaml_files:
-            match_dir = False
+            match = False
 
         for yaml_file in yaml_files:
             with open(yaml_file, "r") as file:
@@ -253,13 +251,14 @@ class DLSTrigger_XChem(CommonService):
             acr = expt_yaml["data"]["acronym"]
             directory = yaml_file.parents[0]
             if acr == acronym:
+                match = True
                 match_dir = directory
                 match_yaml = expt_yaml
                 break
             else:
-                match_dir = False
+                match = False
 
-        if not match_dir:
+        if not match:
             # Try reading from SoakDB .sqlite
             for subdir in xchem_dir.iterdir():
                 if (subdir / ".user.yaml").exists():
@@ -278,11 +277,11 @@ class DLSTrigger_XChem(CommonService):
                         # visit = dir.parts[-1]
                         expt_yaml = {}
                         expt_yaml["data"] = {"acronym": name}
-                        expt_yaml["autoprocessing"] = {}
-                        expt_yaml["autoprocessing"]["pandda"] = {
-                            "prerun-threshold": 300,
-                            "heuristic": "default",
-                        }
+                        # expt_yaml["autoprocessing"] = {}
+                        # expt_yaml["autoprocessing"]["pandda"] = {
+                        #     "prerun-threshold": 300,
+                        #     "heuristic": "default",
+                        # }
 
                         with open(subdir / ".user.yaml", "w") as f:
                             yaml.dump(expt_yaml, f)
@@ -295,7 +294,7 @@ class DLSTrigger_XChem(CommonService):
                     print(f"Unable to read .sqlite database for {subdir}")
 
         xchem_visit_dir = match_dir
-        user_settings = match_yaml["autoprocessing"]
+        # user_settings = match_yaml["autoprocessing"]
 
         if xchem_visit_dir:
             self.log.debug(
@@ -308,15 +307,13 @@ class DLSTrigger_XChem(CommonService):
             return {"success": True}
 
         processing_dir = xchem_visit_dir / "processing"
-        sqlite_db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
+        db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
-        # Make a copy of the database for testing
-        sqlite_db_copy = (
-            xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
-        )
-        if not sqlite_db_copy.exists():
-            shutil.copy(str(sqlite_db), str(sqlite_db_copy))
-            self.log.info(f"Made a copy of {sqlite_db}, auto_soakDBDataFile.sqlite")
+        # Make a copy of the most recent sqlite for reading
+        db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
+        if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
+            shutil.copy2(str(db), str(db_copy))
+            self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
 
         # Load any user specified processing parameters from user .yaml
         yaml_file = processing_dir / ".user.yaml"
@@ -362,11 +359,11 @@ class DLSTrigger_XChem(CommonService):
 
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Aborting PanDDA2 trigger as another dimple/PanDDA2 job has started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Aborting PanDDA2 trigger as another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
 
-        # Now check if other upstream pipeline is running and if so, checkpoint
+        # Now check if other upstream pipeline is running and if so, checkpoint (it might fail)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -428,9 +425,8 @@ class DLSTrigger_XChem(CommonService):
 
                 return {"success": True}
 
-        # Select the 'best' dataset to take forward based on criteria
-        # default is I/sigI*completeness*#unique reflections,
-        # others: highest resolution, lowest Rfree, dials only etc
+        # Select the 'best' dataset to take forward based on criteria,
+        # default is I/sigI*completeness*#unique reflections
         query = (
             (
                 session.query(
@@ -499,9 +495,9 @@ class DLSTrigger_XChem(CommonService):
             .filter(ProcessingJob.dataCollectionId == dcid)
             .filter(ProcessingJob.automatic == True)
             .filter(AutoProcProgram.processingPrograms == "dimple")
-            .filter(AutoProcProgram.processingStatus == 1)  #!= None
+            .filter(AutoProcProgram.processingStatus == 1)
             .filter(ProcessingJobParameter.parameterKey == "scaling_id")
-            .filter(ProcessingJobParameter.parameterValue.in_(scaling_ids))  #
+            .filter(ProcessingJobParameter.parameterValue.in_(scaling_ids))
             .filter(AutoProcProgramAttachment.fileName == "final.pdb")
         )
 
@@ -513,7 +509,7 @@ class DLSTrigger_XChem(CommonService):
             return {"success": True}
 
         n_success_upstream = len(df)
-        n_success_dimple = len(df2)  #
+        n_success_dimple = len(df2)
 
         self.log.info(
             f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) & {n_success_dimple} successful dimple jobs, \
@@ -526,7 +522,9 @@ class DLSTrigger_XChem(CommonService):
         ).sort_values("heuristic", ascending=False)
 
         if df3.empty:
-            self.log.info("Problem finding 'best' dataset to take forward")
+            self.log.info(
+                f"Problem finding 'best' dataset to take forward for dcid {dcid}"
+            )
             return {"success": True}
 
         chosen_dataset_path = df3["filePath"][0]
@@ -550,9 +548,9 @@ class DLSTrigger_XChem(CommonService):
         dtag = query.one()[1]
         code = query.one()[2]
 
-        # Read SQLite
+        # Read XChem SQLite
         try:
-            conn = sqlite3.connect(sqlite_db_copy)
+            conn = sqlite3.connect(db_copy)
             conn.execute("PRAGMA journal_mode=WAL;")
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
@@ -561,13 +559,13 @@ class DLSTrigger_XChem(CommonService):
             conn.close()
         except Exception as e:
             self.log.info(
-                f"Could not read database for ligand information for dtag {dtag}: {e}"
+                f"Exception whilst reading ligand information from {db_copy} for dtag {dtag}: {e}"
             )
             return {"success": True}
 
         if len(df) != 1:
             self.log.info(
-                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {sqlite_db_copy}, can't continue."
+                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {db_copy}, can't continue."
             )
             return {"success": True}
 
@@ -576,7 +574,7 @@ class DLSTrigger_XChem(CommonService):
         CompoundSMILES = df["CompoundSMILES"].item()
         CompoundCode = df["CompoundCode"].item()
 
-        if LibraryName == "DMSO":  # DMSO solvent screen, not for PanDDA analysis
+        if LibraryName == "DMSO":  # DMSO solvent screen, exclude from PanDDA analysis
             self.log.info(
                 f"Puck {code}, puck position {location} is from DMSO solvent screen, excluding from PanDDA analysis"
             )
@@ -592,10 +590,10 @@ class DLSTrigger_XChem(CommonService):
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
         self.log.info(f"Creating directory {dataset_dir}")
-        pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)  # False?
+        pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
         dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
-        self.log.info(f"dataset_list is: {dataset_list}")
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
+        self.log.info(f"Dataset_count is: {dataset_count}")
 
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
@@ -623,9 +621,8 @@ class DLSTrigger_XChem(CommonService):
             self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
 
         self.log.debug("PanDDA2 trigger: Starting")
-        self.log.info(f"datasets: {datasets}")
+        self.log.debug(f"Launching job for datasets: {datasets}")
 
-        self.log.debug(f"launching job for datasets: {datasets}")
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_dir),
@@ -635,7 +632,7 @@ class DLSTrigger_XChem(CommonService):
             "n_datasets": len(datasets),
             "scaling_id": scaling_id,
             "prerun_threshold": prerun_threshold,
-            "database_path": str(sqlite_db_copy),
+            "database_path": str(db_copy),
         }
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -691,16 +688,15 @@ class DLSTrigger_XChem(CommonService):
         { "target": "pandda_xchem_post",
             "dcid": 123456,
             "scaling_id": [123456],
+            "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
             "automatic": true,
             "comment": "PanDDA2 post-run",
-            "timeout-minutes": 60,
         }
         """
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
-        model_directory = processing_directory / "analysis" / "auto_model_building"
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
@@ -750,21 +746,9 @@ class DLSTrigger_XChem(CommonService):
 
         self.log.debug("PanDDA2 postrun trigger: Starting")
 
-        processed_dir = (
-            processing_directory / "analysis/auto_pandda2/processed_datasets"
-        )
-        datasets = []
-
-        for subdir in processed_dir.iterdir():
-            events_yaml = subdir / "events.yaml"
-            if events_yaml.exists():
-                datasets.append(subdir.parts[-1])
-
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_directory),
-            "model_directory": str(model_directory),
-            "datasets": json.dumps(datasets),
             "scaling_id": scaling_id,
         }
 
@@ -788,12 +772,12 @@ class DLSTrigger_XChem(CommonService):
                 f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
             )
 
-        self.log.debug(f"PanDDA2_id trigger: Processing job {jobid} created")
+        self.log.debug(f"PanDDA2_post trigger: Processing job {jobid} created")
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)
 
-        self.log.info(f"PanDDA2_id trigger: Processing job {jobid} triggered")
+        self.log.info(f"PanDDA2_post trigger: Processing job {jobid} triggered")
 
         return {"success": True}
 
@@ -821,6 +805,7 @@ class DLSTrigger_XChem(CommonService):
         { "target": "pandda_rhofit",
             "dcid": 123456,
             "datasets": ['dtag1','dtag2']
+            "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
             "scaling_id": [123456],
             "automatic": true,
             "comment": "PanDDA2 Rhofit",
@@ -831,12 +816,12 @@ class DLSTrigger_XChem(CommonService):
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
-        datasets = json.loads(parameters.get("datasets"))
+        datasets = json.loads(parameters.datasets)
 
         self.log.debug("PanDDA2 rhofit trigger: Starting")
-        self.log.info(f"datasets: {datasets}")
+        self.log.info(f"Datasets for rhofit: {datasets}")
 
-        self.log.debug(f"launching job for datasets: {datasets}")
+        self.log.debug(f"Launching job for datasets: {datasets}")
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_directory),

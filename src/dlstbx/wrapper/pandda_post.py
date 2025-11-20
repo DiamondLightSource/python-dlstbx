@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -19,7 +18,7 @@ class PanDDApostWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = processing_dir / "analysis"
-        model_dir = params.get("model_directory")
+        model_dir = analysis_dir / "auto_model_building"
         auto_panddas_dir = analysis_dir / "auto_pandda2"
 
         # db_dict = {}  # store results to integrate back with soakDB
@@ -51,15 +50,3 @@ class PanDDApostWrapper(Wrapper):
 
         self.log.info("Auto PanDDA2-post finished successfully")
         return True
-
-    def update_data_source(self, db_dict, dtag, database_path):
-        sql = (
-            "UPDATE mainTable SET "
-            + ", ".join([f"{k} = :{k}" for k in db_dict])
-            + f" WHERE CrystalName = '{dtag}'"
-        )
-        conn = sqlite3.connect(database_path)
-        # conn.execute("PRAGMA journal_mode=WAL;")
-        cursor = conn.cursor()
-        cursor.execute(sql, db_dict)
-        conn.commit()

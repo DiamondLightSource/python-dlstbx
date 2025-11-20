@@ -21,24 +21,26 @@ class PanDDARhofitWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
-        EVENT_MAP_PATTERN = "{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4"
-        GROUND_STATE_PATTERN = "{dtag}-ground-state-average-map.native.ccp4"
-        PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
-
+        params = self.recwrap.recipe_step["job_parameters"]
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
+        datasets = json.loads(params.get("datasets"))
+        dtag = datasets[int(slurm_task_id) - 1]
 
-        params = self.recwrap.recipe_step["job_parameters"]
+        # EVENT_MAP_PATTERN = "{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4"
+        # GROUND_STATE_PATTERN = "{dtag}-ground-state-average-map.native.ccp4"
+        PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
+
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = processing_dir / "analysis"
         auto_panddas_dir = analysis_dir / "auto_pandda2"
+        dataset_dir = auto_panddas_dir / "processed_datasets" / dtag
+        modelled_dir = dataset_dir / "modelled_structures"
+        out_dir = modelled_dir / "rhofit"
 
-        datasets = json.loads(params.get("datasets"))
-        dtag = datasets[int(slurm_task_id) - 1]
         self.log.info(f"Processing dtag: {dtag}")
         # -------------------------------------------------------
 
-        dataset_dir = auto_panddas_dir / dtag
         event_yaml = dataset_dir / "events.yaml"
 
         with open(event_yaml, "r") as file:
@@ -59,6 +61,7 @@ class PanDDARhofitWrapper(Wrapper):
         build_dmap = dataset_dir / f"{dtag}-z_map.native.ccp4"
         restricted_build_dmap = dataset_dir / "build.ccp4"
         pdb_file = dataset_dir / f"{dtag}-pandda-input.pdb"
+        mtz_file = dataset_dir / f"{dtag}-pandda-input.mtz"
         restricted_pdb_file = dataset_dir / "build.pdb"
 
         dmap_cut = 2.0
@@ -75,7 +78,7 @@ class PanDDARhofitWrapper(Wrapper):
         # model clips the event then this results in autobuilding becoming impossible.
         # To address tis residues within a 10A neighbourhood of the binding event
         # are removed.
-        print("# # Remove nearby atoms to make room for autobuilding")
+        self.log.debug("Removing nearby atoms to make room for autobuilding")
         self.remove_nearby_atoms(
             pdb_file,
             coord,
@@ -91,10 +94,9 @@ class PanDDARhofitWrapper(Wrapper):
             self.log.error("No .cif files found!")
 
         # -------------------------------------------------------
-        # rhofit_command = f"module load buster; source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        # {pandda_2_dir}/scripts/pandda_rhofit.sh -pdb '$PDB' -map '$MAP' -mtz '$MTZ' -cif '$CIF' -out '$OUT' -cut {cut}; \
-        # cp "$MODELLED_STRUCTURES_DIR"/{dtag}-pandda-model.pdb "$MODELLED_STRUCTURES_DIR"/pandda-internal-fitted.pdb; \
-        # python -u {merge_script} --dataset_dir="$DATASET_DIR""
+        rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
+        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {dmap_cut}; \
+        cp {modelled_dir}/{dtag}-pandda-model.pdb {modelled_dir}/pandda-internal-fitted.pdb; "
 
         self.log.info("Running rhofit command: {rhofit_command}")
 
@@ -116,6 +118,18 @@ class PanDDARhofitWrapper(Wrapper):
             return False
 
         # -------------------------------------------------------
+        # Merge the ligand structure
+        protein_st_file = dataset_dir / f"{dtag}-pandda-input.pdb"
+        ligand_st_file = out_dir / "rhofit" / "best.pdb"
+        output_file = modelled_dir / f"{dtag}-pandda-model.pdb"
+
+        protein_st = gemmi.read_structure(str(protein_st_file))
+        ligand_st = gemmi.read_structure(str(ligand_st_file))
+
+        contact_chain = self.get_contact_chain(protein_st, ligand_st)
+        protein_st[0][contact_chain].add_residue(ligand_st[0][0][0])
+
+        protein_st.write_pdb(str(output_file))
 
         self.log.info("Auto PanDDA2-Rhofit finished successfully")
         return True
@@ -215,6 +229,56 @@ class PanDDARhofitWrapper(Wrapper):
 
                     if add_res:
                         new_st[j][k].add_residue(res)
-                    else:
-                        print(f"Dropped residue: {j} {k} {res.name}")
         new_st.write_pdb(str(output_file))
+
+    def get_contact_chain(protein_st, ligand_st):
+        """A simple estimation of the contact chain based on which chain has the most atoms
+        nearby."""
+        ligand_pos_list = []
+        for model in protein_st:
+            for chain in model:
+                for res in chain:
+                    for atom in res:
+                        pos = atom.pos
+                        ligand_pos_list.append([pos.x, pos.y, pos.z])
+        centroid = np.linalg.norm(np.array(ligand_pos_list), axis=0)
+
+        PROTEIN_RESIDUES = [
+            "ALA",
+            "ARG",
+            "ASN",
+            "ASP",
+            "CYS",
+            "GLN",
+            "GLU",
+            "HIS",
+            "ILE",
+            "LEU",
+            "LYS",
+            "MET",
+            "PHE",
+            "PRO",
+            "SER",
+            "THR",
+            "TRP",
+            "TYR",
+            "VAL",
+            "GLY",
+        ]
+
+        chain_counts = {}
+        for model in protein_st:
+            for chain in model:
+                chain_counts[chain.name] = 0
+                for res in chain:
+                    if res.name not in PROTEIN_RESIDUES:
+                        continue
+                    for atom in res:
+                        pos = atom.pos
+                        distance = np.linalg.norm(
+                            np.array([pos.x, pos.y, pos.z]) - centroid
+                        )
+                        if distance < 5.0:
+                            chain_counts[chain.name] += 1
+
+        return min(chain_counts, key=lambda _x: chain_counts[_x])

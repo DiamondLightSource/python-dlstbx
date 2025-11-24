@@ -52,7 +52,7 @@ class PanDDARhofitWrapper(Wrapper):
         best_entry = data[best_key]
 
         event_idx = best_key
-        bdc = best_entry["BDC"]
+        # bdc = best_entry["BDC"]
         coord = best_entry["Centroid"]
         self.log.info(f"{dtag} : {event_idx}")
 
@@ -118,14 +118,13 @@ class PanDDARhofitWrapper(Wrapper):
             return False
 
         # -------------------------------------------------------
-        # Merge the ligand structure
+        # Merge the protein structure with ligand
         protein_st_file = dataset_dir / f"{dtag}-pandda-input.pdb"
         ligand_st_file = out_dir / "rhofit" / "best.pdb"
         output_file = modelled_dir / f"{dtag}-pandda-model.pdb"
 
         protein_st = gemmi.read_structure(str(protein_st_file))
         ligand_st = gemmi.read_structure(str(ligand_st_file))
-
         contact_chain = self.get_contact_chain(protein_st, ligand_st)
         protein_st[0][contact_chain].add_residue(ligand_st[0][0][0])
 

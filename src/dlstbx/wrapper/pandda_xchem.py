@@ -58,7 +58,7 @@ class PanDDAWrapper(Wrapper):
         # working_directory = pathlib.Path(params["working_directory"])
         # working_directory.mkdir(parents=True, exist_ok=True)
 
-        db_dict = {}  # store results to integrate back with soakDB?
+        # db_dict = {}  # store results to integrate back with soakDB
 
         # -------------------------------------------------------
         acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
@@ -112,7 +112,7 @@ class PanDDAWrapper(Wrapper):
             log_file.write(result.stdout)
 
         # -------------------------------------------------------
-        # Integrate back with XCE via datasource
+        # Integrate back with XCE via datasource?
         # db_dict["DimplePANDDAwasRun"] = True
         # # db_dict["DimplePANDDAreject"] = False
         # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
@@ -122,11 +122,6 @@ class PanDDAWrapper(Wrapper):
         #     self.log.info(f"Updated sqlite database for dataset {dtag}")
         # except Exception as e:
         #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
-
-        # json results for synchweb tables
-        # data = [["PanDDA dataset", "CompoundSMILES", "result"],[f"{dtag}", f"{CompoundSMILES}", f"{}"]]
-        # with open(analysis_dir / "pandda_results.json", "w") as f:
-        #     json.dump(data, f)
 
         # self.log.info("Sending results to ISPyB")
         # self.send_attachments_to_ispyb(dataset_dir)

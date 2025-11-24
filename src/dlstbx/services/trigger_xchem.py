@@ -232,6 +232,11 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
+        TEST_DCID = 20214784
+        if dcid != TEST_DCID:
+            self.log.debug(f"Not triggering PanDDA2 pipeline for dcid={dcid}")
+            return {"success": True}
+
         # Find corresponding xchem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit_proposal}")
         yaml_files = []
@@ -288,7 +293,7 @@ class DLSTriggerXChem(CommonService):
 
                     if name == acronym:
                         match_dir = subdir
-                        match_yaml = expt_yaml
+                        # match_yaml = expt_yaml
 
                 except Exception:
                     print(f"Unable to read .sqlite database for {subdir}")

@@ -21,13 +21,11 @@ class PanDDApostWrapper(Wrapper):
         model_dir = analysis_dir / "auto_model_building"
         auto_panddas_dir = analysis_dir / "auto_pandda2"
 
-        # db_dict = {}  # store results to integrate back with soakDB
-
         # -------------------------------------------------------
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --use_ligand_data=False --debug=True --local_cpus=8 > {auto_panddas_dir / 'pandda2_postrun.log'}"
 
-        self.log.info("Running pandda2 command: {pandda2_command}")
+        self.log.info("Running PanDDA2 command: {pandda2_command}")
 
         try:
             result = subprocess.run(

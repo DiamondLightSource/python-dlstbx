@@ -215,7 +215,7 @@ class DLSTriggerXChem(CommonService):
         proposal = query.first()
 
         # 0. Check that this is an XChem expt, find .sqlite database
-        if proposal.proposalCode not in {"lb"}:
+        if proposal.proposalCode not in {"lb"}:  # need to handle industrial 'sw' also
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
             )
@@ -259,11 +259,15 @@ class DLSTriggerXChem(CommonService):
                 match = True
                 match_dir = directory
                 match_yaml = expt_yaml
+                self.log.info(f"Found user yaml for dcid {dcid} at {yaml_file}")
                 break
             else:
                 match = False
 
         if not match:
+            self.log.info(
+                f"No user yaml found in {xchem_dir}, proceeding with default settings..."
+            )
             # Try reading from SoakDB .sqlite
             for subdir in xchem_dir.iterdir():
                 if (subdir / ".user.yaml").exists():
@@ -319,16 +323,6 @@ class DLSTriggerXChem(CommonService):
         if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
             shutil.copy2(str(db), str(db_copy))
             self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
-
-        # Load any user specified processing parameters from user .yaml
-        yaml_file = processing_dir / ".user.yaml"
-        if yaml_file.exists():
-            with open(yaml_file, "r") as file:
-                user_yaml = yaml.safe_load(file)
-        else:
-            self.log.info(
-                f"No user yaml found in processing directory {xchem_visit_dir / 'processing'}, proceeding with default settings."
-            )
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 

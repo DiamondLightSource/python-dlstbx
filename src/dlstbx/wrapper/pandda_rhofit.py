@@ -47,6 +47,12 @@ class PanDDARhofitWrapper(Wrapper):
         with open(event_yaml, "r") as file:
             data = yaml.load(file, Loader=yaml.SafeLoader)
 
+        if not data:
+            self.log.info(
+                (f"No events in {event_yaml}, can't continue with PanDDA2 Rhofit")
+            )
+            return False
+
         # Determine which builds to perform. More than one binder is unlikely and score ranks
         # well so build the best scoring event of each dataset.
         best_key = max(data, key=lambda k: data[k]["Score"])
@@ -95,8 +101,8 @@ class PanDDARhofitWrapper(Wrapper):
 
         # -------------------------------------------------------
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {dmap_cut}; \
-        cp {modelled_dir}/{dtag}-pandda-model.pdb {modelled_dir}/pandda-internal-fitted.pdb; "
+        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {dmap_cut}; "
+        # cp {modelled_dir}/{dtag}-pandda-model.pdb {modelled_dir}/pandda-internal-fitted.pdb;
 
         self.log.info("Running rhofit command: {rhofit_command}")
 

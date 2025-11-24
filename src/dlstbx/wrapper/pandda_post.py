@@ -23,7 +23,7 @@ class PanDDApostWrapper(Wrapper):
 
         # -------------------------------------------------------
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --use_ligand_data=False --debug=True --local_cpus=8 > {auto_panddas_dir / 'pandda2_postrun.log'}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --use_ligand_data=False --debug=True --local_cpus=1 > {auto_panddas_dir / 'pandda2_postrun.log'}"
 
         self.log.info("Running PanDDA2 command: {pandda2_command}")
 

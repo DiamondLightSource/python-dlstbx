@@ -23,7 +23,7 @@ class PanDDAWrapper(Wrapper):
         self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         params = self.recwrap.recipe_step["job_parameters"]
 
-        database_path = Path(params.get("database_path"))
+        # database_path = Path(params.get("database_path"))
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = Path(processing_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
@@ -55,17 +55,15 @@ class PanDDAWrapper(Wrapper):
         smiles_file = next(Path(compound_dir).rglob("*.smiles"), None)
         CompoundCode = smiles_file.stem
 
-        # working_directory = pathlib.Path(params["working_directory"])
-        # working_directory.mkdir(parents=True, exist_ok=True)
-
-        # db_dict = {}  # store results to integrate back with soakDB
-
         # -------------------------------------------------------
-        acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
+        # acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
+        restraints_command = f"module load buster; module load graphviz; \
+                               export CSDHOME=/dls_sw/apps/CSDS/2024.1.0/; export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
+                               grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f; "
 
         try:
             result = subprocess.run(
-                acedrg_command,
+                restraints_command,
                 shell=True,
                 capture_output=True,
                 text=True,
@@ -76,14 +74,19 @@ class PanDDAWrapper(Wrapper):
 
         except subprocess.CalledProcessError as e:
             self.log.error(
-                f"Ligand restraint generation command: '{acedrg_command}' failed for dataset {dtag}"
+                f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
             )
 
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             return False
 
-        with open(dataset_dir / "acedrg.log", "w") as log_file:
+        restraints = compound_dir / f"{CompoundCode}.restraints.cif"
+        restraints.rename(compound_dir / f"{CompoundCode}.cif")
+        pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
+        pdb.rename(compound_dir / f"{CompoundCode}.pdb")
+
+        with open(dataset_dir / "restraints.log", "w") as log_file:
             log_file.write(result.stdout)
 
         self.log.info(f"Restraints generated succesfully for dtag {dtag}")
@@ -108,11 +111,13 @@ class PanDDAWrapper(Wrapper):
             self.log.error(e.stderr)
             return False
 
-        with open(dataset_dir / "pandda2.log", "w") as log_file:
+        pandda_log = auto_panddas_dir / f"processed_datasets/{dtag}" / "pandda2.log"
+        with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)
 
         # -------------------------------------------------------
-        # Integrate back with XCE via datasource?
+        # Integrate back with XCE via datasource
+        # db_dict = {}
         # db_dict["DimplePANDDAwasRun"] = True
         # # db_dict["DimplePANDDAreject"] = False
         # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
@@ -124,32 +129,9 @@ class PanDDAWrapper(Wrapper):
         #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         # self.log.info("Sending results to ISPyB")
-        # self.send_attachments_to_ispyb(dataset_dir)
 
         self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True
-
-    # def send_attachments_to_ispyb(self, dataset_dir):
-    #     for f in dataset_dir.iterdir():
-    #         if f.suffix == ".json":
-    #             file_type = "Result"
-    #             importance_rank = 1
-    #         elif f.suffix == ".log":
-    #             file_type = "Log"
-    #             importance_rank = 2
-    #         else:
-    #             continue
-    #         try:
-    #             result_dict = {
-    #                 "file_path": str(dataset_dir),
-    #                 "file_name": f.name,
-    #                 "file_type": file_type,
-    #                 "importance_rank": importance_rank,
-    #             }
-    #             self.record_result_individual_file(result_dict)
-    #             self.log.info(f"Uploaded {f.name} as an attachment")
-    #         except Exception:
-    #             self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

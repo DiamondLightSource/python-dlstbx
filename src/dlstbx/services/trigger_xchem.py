@@ -232,7 +232,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        TEST_DCID = 20214784
+        TEST_DCID = 20217382
         if dcid != TEST_DCID:
             self.log.debug(f"Not triggering PanDDA2 pipeline for dcid={dcid}")
             return {"success": True}

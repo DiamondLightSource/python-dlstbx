@@ -37,6 +37,7 @@ class PanDDARhofitWrapper(Wrapper):
         dataset_dir = auto_panddas_dir / "processed_datasets" / dtag
         modelled_dir = dataset_dir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
+        out_dir.mkdir(parents=True, exist_ok=True)
 
         self.log.info(f"Processing dtag: {dtag}")
         # -------------------------------------------------------
@@ -54,7 +55,6 @@ class PanDDARhofitWrapper(Wrapper):
         event_idx = best_key
         # bdc = best_entry["BDC"]
         coord = best_entry["Centroid"]
-        self.log.info(f"{dtag} : {event_idx}")
 
         dataset_dir = auto_panddas_dir / "processed_datasets" / dtag
         ligand_dir = dataset_dir / "ligand_files"
@@ -133,14 +133,14 @@ class PanDDARhofitWrapper(Wrapper):
         self.log.info("Auto PanDDA2-Rhofit finished successfully")
         return True
 
-    def save_xmap(xmap, xmap_file):
+    def save_xmap(self, xmap, xmap_file):
         """Convenience script for saving ccp4 files."""
         ccp4 = gemmi.Ccp4Map()
         ccp4.grid = xmap
         ccp4.update_ccp4_header()
         ccp4.write_ccp4_map(str(xmap_file))
 
-    def read_pandda_map(xmap_file):
+    def read_pandda_map(self, xmap_file):
         """PanDDA 2 maps are often truncated, and PanDDA 1 maps can have misasigned spacegroups.
         This method handles both."""
         dmap_ccp4 = gemmi.read_ccp4_map(str(xmap_file), setup=False)
@@ -149,7 +149,7 @@ class PanDDARhofitWrapper(Wrapper):
         dmap = dmap_ccp4.grid
         return dmap
 
-    def expand_event_map(bdc, ground_state_file, xmap_file, coord, out_file):
+    def expand_event_map(self, bdc, ground_state_file, xmap_file, coord, out_file):
         """DEPRECATED. A method for recalculating event maps over the full cell."""
         ground_state_ccp4 = gemmi.read_ccp4_map(str(ground_state_file), setup=False)
         ground_state_ccp4.grid.spacegroup = gemmi.find_spacegroup_by_name("P1")
@@ -180,7 +180,7 @@ class PanDDARhofitWrapper(Wrapper):
 
         return cut
 
-    def mask_map(dmap, coord, radius=10.0):
+    def mask_map(self, dmap, coord, radius=10.0):
         """Simple routine to mask density to region around a specified point."""
         mask = gemmi.FloatGrid(dmap.nu, dmap.nv, dmap.nw)
         mask.set_unit_cell(dmap.unit_cell)
@@ -193,7 +193,7 @@ class PanDDARhofitWrapper(Wrapper):
 
         return dmap
 
-    def remove_nearby_atoms(pdb_file, coord, radius, output_file):
+    def remove_nearby_atoms(self, pdb_file, coord, radius, output_file):
         """An inelegant method for removing residues near the event centroid and creating
         a new, truncated pdb file. GEMMI doesn't have a super nice way to remove
         residues according to a specific criteria."""
@@ -206,7 +206,7 @@ class PanDDARhofitWrapper(Wrapper):
         chains_to_delete = []
         for model in st:
             for chain in model:
-                chains_to_delete.append((model.name, chain.name))  # model.num
+                chains_to_delete.append((model.num, chain.name))
 
         for model in new_st:
             for chain in model:
@@ -230,7 +230,7 @@ class PanDDARhofitWrapper(Wrapper):
                         new_st[j][k].add_residue(res)
         new_st.write_pdb(str(output_file))
 
-    def get_contact_chain(protein_st, ligand_st):
+    def get_contact_chain(self, protein_st, ligand_st):
         """A simple estimation of the contact chain based on which chain has the most atoms
         nearby."""
         ligand_pos_list = []

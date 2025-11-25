@@ -128,8 +128,6 @@ class PanDDAWrapper(Wrapper):
         # except Exception as e:
         #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
-        # self.log.info("Sending results to ISPyB")
-
         self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True
 

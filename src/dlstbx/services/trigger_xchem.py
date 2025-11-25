@@ -53,11 +53,19 @@ class PanDDAParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    processing_directory: Optional[str] = None
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=30, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=1.4, alias="backoff-multiplier")
+
+
+class PanDDA_PostParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    scaling_id: list[int]
+    processing_directory: str
+    timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
 
 
 class PanDDA_RhofitParameters(pydantic.BaseModel):
@@ -186,10 +194,7 @@ class DLSTriggerXChem(CommonService):
         Example recipe parameters:
         { "target": "pandda_xchem",
             "dcid": 123456,
-            "pdb": "/path/to/pdb",
-            "mtz": "/path/to/mtz",
             "prerun_threshold": 300,
-            "program_id": 123456,
             "scaling_id": [123456],
             "automatic": true,
             "comment": "PanDDA2 triggered by dimple",
@@ -258,7 +263,7 @@ class DLSTriggerXChem(CommonService):
             if acr == acronym:
                 match = True
                 match_dir = directory
-                match_yaml = expt_yaml
+                # match_yaml = expt_yaml
                 self.log.info(f"Found user yaml for dcid {dcid} at {yaml_file}")
                 break
             else:
@@ -345,13 +350,13 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms.in_(["dimple", "PanDDA2"]))
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
                 or_(
-                    AutoProcProgram.processingStatus == None,
-                    AutoProcProgram.processingStartTime == None,
+                    AutoProcProgram.processingStatus == None,  # noqa E711
+                    AutoProcProgram.processingStartTime == None,  # noqa E711
                 )
             )
         )
@@ -371,13 +376,13 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(AutoProcProgram.processingPrograms.in_(program_list))
             .filter(
                 or_(
-                    AutoProcProgram.processingStatus == None,
-                    AutoProcProgram.processingStartTime == None,
+                    AutoProcProgram.processingStatus == None,  # noqa E711
+                    AutoProcProgram.processingStartTime == None,  # noqa E711
                 )
             )
         )
@@ -451,7 +456,7 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms.in_(program_list))
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
@@ -492,7 +497,7 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms == "dimple")
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(ProcessingJobParameter.parameterKey == "scaling_id")
@@ -527,6 +532,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         chosen_dataset_path = df3["filePath"][0]
+        self.log.debug(f"Chosen dataset to take forward: {chosen_dataset_path}")
         scaling_id = int(df3["autoProcScalingId"][0])
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
@@ -547,10 +553,10 @@ class DLSTriggerXChem(CommonService):
         dtag = query.one()[1]
         code = query.one()[2]
 
-        # Read XChem SQLite
+        # Read XChem SQLite for ligand info
         try:
             conn = sqlite3.connect(db_copy)
-            conn.execute("PRAGMA journal_mode=WAL;")
+            # conn.execute("PRAGMA journal_mode=WAL;")
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
@@ -573,7 +579,7 @@ class DLSTriggerXChem(CommonService):
         CompoundSMILES = df["CompoundSMILES"].item()
         CompoundCode = df["CompoundCode"].item()
 
-        if LibraryName == "DMSO":  # DMSO solvent screen, exclude from PanDDA analysis
+        if LibraryName == "DMSO":  # exclude DMSO screen from PanDDA analysis
             self.log.info(
                 f"Puck {code}, puck position {location} is from DMSO solvent screen, excluding from PanDDA analysis"
             )
@@ -669,7 +675,7 @@ class DLSTriggerXChem(CommonService):
         rw: workflows.recipe.RecipeWrapper,
         *,
         message: Dict,
-        parameters: PanDDAParameters,
+        parameters: PanDDA_PostParameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,
         **kwargs,
@@ -726,13 +732,13 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(ProcessingJob.automatic == True)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms == "PanDDA2_post")
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
                 or_(
-                    AutoProcProgram.processingStatus == None,
-                    AutoProcProgram.processingStartTime == None,
+                    AutoProcProgram.processingStatus == None,  # noqa E711
+                    AutoProcProgram.processingStartTime == None,  # noqa E711
                 )
             )
         )

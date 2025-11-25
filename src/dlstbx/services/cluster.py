@@ -41,6 +41,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     qsub_submission_parameters: Optional[str] = (
         None  # temporary support for legacy recipes
     )
+    array: Optional[str] = None
 
 
 class JobSubmissionValidationError(ValueError):
@@ -106,6 +107,7 @@ def submit_to_slurm(
         "partition": params.partition,
         "qos": params.qos,
         "tasks": params.tasks,
+        "array": params.array,
     }
     if params.min_memory_per_cpu:
         jdm_params["memory_per_cpu"] = slurm.models.Uint64NoVal(

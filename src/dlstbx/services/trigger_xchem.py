@@ -204,12 +204,6 @@ class DLSTriggerXChem(CommonService):
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
-        # program_id = parameters.program_id
-        _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
-        visit = ispyb_info.get("ispyb_visit", "")
-        visit_proposal = visit.split("-")[0]
-        # visit_dir = pathlib.Path(ispyb_info.get("ispyb_visit_directory", ""))
-        # results_dir = pathlib.Path(ispyb_info.get("ispyb_results_directory", ""))
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         # protein_id = getattr(protein_info, "proteinId")
@@ -238,7 +232,9 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Find corresponding xchem visit directory and database
-        xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit_proposal}")
+        xchem_dir = pathlib.Path(
+            f"/dls/labxchem/data/{proposal.proposalCode}{proposal.proposalNumber}"
+        )
         yaml_files = []
 
         for subdir in xchem_dir.iterdir():

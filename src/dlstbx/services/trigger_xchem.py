@@ -237,11 +237,6 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        TEST_DCID = 20217382
-        if dcid != TEST_DCID:
-            self.log.debug(f"Not triggering PanDDA2 pipeline for dcid={dcid}")
-            return {"success": True}
-
         # Find corresponding xchem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{visit_proposal}")
         yaml_files = []
@@ -527,7 +522,7 @@ class DLSTriggerXChem(CommonService):
 
         if df3.empty:
             self.log.info(
-                f"Problem finding 'best' dataset to take forward for dcid {dcid}"
+                f"Problem finding 'best' dataset to take forward for PanDDA2 for dcid {dcid}"
             )
             return {"success": True}
 
@@ -556,7 +551,6 @@ class DLSTriggerXChem(CommonService):
         # Read XChem SQLite for ligand info
         try:
             conn = sqlite3.connect(db_copy)
-            # conn.execute("PRAGMA journal_mode=WAL;")
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,

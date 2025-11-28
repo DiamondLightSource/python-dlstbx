@@ -54,9 +54,9 @@ class PanDDAParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     scaling_id: list[int]
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
-    backoff_delay: float = pydantic.Field(default=30, alias="backoff-delay")
-    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=1.4, alias="backoff-multiplier")
+    backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=1.0, alias="backoff-multiplier")
 
 
 class PanDDA_PostParameters(pydantic.BaseModel):
@@ -75,6 +75,7 @@ class PanDDA_RhofitParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     scaling_id: list[int]
     processing_directory: str
+    model_directory: str
 
 
 class DLSTriggerXChem(CommonService):
@@ -330,6 +331,24 @@ class DLSTriggerXChem(CommonService):
             "xia2.multiplex",
         ]  # will consider dimple output from these jobs to take forward
 
+        query = (
+            session.query(AutoProcProgram.processingPrograms)
+            .join(
+                AutoProc,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            )
+            .join(
+                AutoProcScaling,
+                AutoProc.autoProcId == AutoProcScaling.autoProcId,
+            )
+        ).filter(AutoProcScaling.autoProcScalingId == scaling_id)
+
+        if query.first()[0] == "fast_dp":
+            self.log.info(
+                "Aborting PanDDA2 trigger as upstream processingProgram is fast_dp"
+            )
+            return {"success": True}
+
         # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
         min_start_time = datetime.now() - timedelta(hours=12)
 
@@ -355,6 +374,28 @@ class DLSTriggerXChem(CommonService):
         if triggered_processing_job := query.first():
             self.log.info(
                 f"Aborting PanDDA2 trigger as another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
+            )
+            return {"success": True}
+
+        # Stop-gap
+        min_start_time = datetime.now() - timedelta(minutes=20)
+
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
+            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2"]))
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        )
+
+        if triggered_processing_job := query.first():
+            self.log.info(
+                "Aborting PanDDA2 trigger as another PanDDA2 job was recently launched"
             )
             return {"success": True}
 
@@ -586,7 +627,7 @@ class DLSTriggerXChem(CommonService):
         compound_dir = dataset_dir / "compound"
         self.log.info(f"Creating directory {dataset_dir}")
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
-        dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
+        dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
         self.log.info(f"Dataset_count is: {dataset_count}")
 
@@ -607,24 +648,25 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
         elif dataset_count == prerun_threshold:
-            datasets = dataset_list  # list of datasets to process
+            n_datasets = len(dataset_list)
+            with open(model_dir / "datasets.json", "w") as f:
+                json.dump(dataset_list, f)
             self.log.info(
                 f"Dataset dataset_count {dataset_count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 array job"
             )
         elif dataset_count > prerun_threshold:
-            datasets = [dtag]
+            n_datasets = 1
             self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
 
         self.log.debug("PanDDA2 trigger: Starting")
-        self.log.debug(f"Launching job for datasets: {datasets}")
 
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_dir),
             "model_directory": str(model_dir),
             "dataset_directory": str(dataset_dir),
-            "datasets": json.dumps(datasets),
-            "n_datasets": len(datasets),
+            "dtag": dtag,
+            "n_datasets": n_datasets,
             "scaling_id": scaling_id,
             "prerun_threshold": prerun_threshold,
             "database_path": str(db_copy),
@@ -699,7 +741,7 @@ class DLSTriggerXChem(CommonService):
         visit_number = visit.split("-")[1]
 
         # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(hours=6)
+        min_start_time = datetime.now() - timedelta(hours=2)
 
         # from proposal and visit get all dcids
         query = (
@@ -811,17 +853,18 @@ class DLSTriggerXChem(CommonService):
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
-        datasets = json.loads(parameters.datasets)
+        model_directory = pathlib.Path(parameters.model_directory)
+        n_datasets = parameters.n_datasets
+        dtag = parameters.dtag
 
         self.log.debug("PanDDA2 rhofit trigger: Starting")
-        self.log.info(f"Datasets for rhofit: {datasets}")
 
-        self.log.debug(f"Launching job for datasets: {datasets}")
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_directory),
-            "datasets": json.dumps(datasets),
-            "n_datasets": len(datasets),
+            "model_directory": str(model_directory),
+            "dtag": dtag,
+            "n_datasets": n_datasets,
             "scaling_id": scaling_id,
         }
 

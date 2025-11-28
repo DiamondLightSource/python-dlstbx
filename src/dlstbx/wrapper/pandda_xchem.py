@@ -20,19 +20,25 @@ class PanDDAWrapper(Wrapper):
         )
 
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
-        self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
+        # self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = Path(processing_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
-
         auto_panddas_dir = Path(analysis_dir / "auto_pandda2")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
-        datasets = json.loads(params.get("datasets"))
-        dtag = datasets[int(slurm_task_id) - 1]
+        n_datasets = params.get("n_datasets")
+        self.log.info(f"N_datasets: {n_datasets}")
+        if n_datasets > 1:
+            with open(model_dir / "datasets.json", "r") as f:
+                datasets = json.load(f)
+                dtag = datasets[int(slurm_task_id) - 1]
+        else:
+            dtag = params.get("dtag")
+
         self.log.info(f"Processing dtag: {dtag}")
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"

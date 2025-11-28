@@ -23,9 +23,8 @@ class PanDDARhofitWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
-        self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
+        # self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         datasets = json.loads(params.get("datasets"))
-        dtag = datasets[int(slurm_task_id) - 1]
 
         # EVENT_MAP_PATTERN = "{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4"
         # GROUND_STATE_PATTERN = "{dtag}-ground-state-average-map.native.ccp4"
@@ -33,7 +32,18 @@ class PanDDARhofitWrapper(Wrapper):
 
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = processing_dir / "analysis"
+        model_dir = Path(processing_dir / "analysis")
         auto_panddas_dir = analysis_dir / "auto_pandda2"
+
+        n_datasets = params.get("n_datasets")
+        self.log.info(f"N_datasets: {n_datasets}")
+        if n_datasets > 1:
+            with open(model_dir / "datasets.json", "r") as f:
+                datasets = json.load(f)
+                dtag = datasets[int(slurm_task_id) - 1]
+        else:
+            dtag = params.get("dtag")
+
         dataset_dir = auto_panddas_dir / "processed_datasets" / dtag
         modelled_dir = dataset_dir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
@@ -58,7 +68,7 @@ class PanDDARhofitWrapper(Wrapper):
         best_key = max(data, key=lambda k: data[k]["Score"])
         best_entry = data[best_key]
 
-        event_idx = best_key
+        # event_idx = best_key
         # bdc = best_entry["BDC"]
         coord = best_entry["Centroid"]
 
@@ -122,6 +132,9 @@ class PanDDARhofitWrapper(Wrapper):
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             return False
+
+        with open(out_dir / "rhofit.log", "w") as log_file:
+            log_file.write(result.stdout)
 
         # -------------------------------------------------------
         # Merge the protein structure with ligand

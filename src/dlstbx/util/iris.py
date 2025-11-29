@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import configparser
 import glob
+import io
+import json
 import os
 import shutil
 import subprocess
@@ -109,8 +111,7 @@ def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls, logger):
 
 def get_image_files(working_directory, images, logger):
     file_list = {}
-    h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
-    for h5_file in h5_paths:
+    for h5_file in images:
         try:
             related = set(find_all_references(h5_file))
         except (ValueError, KeyError):
@@ -179,7 +180,7 @@ def decompress_results_file(working_directory, filename, logger):
         logger.debug(result.stderr)
 
 
-def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
+def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger):
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)
     else:
@@ -202,7 +203,7 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
                     f"Reuploading {filename} because of mismatch in file size: Expected {file_size}, got {result.size}"
                 )
                 upload_file = True
-        if upload_file:
+        if upload_file and do_upload:
             logger.info(f"Uploading file {filename} into object store.")
             timestamp = time.perf_counter()
             minio_client.fput_object(
@@ -224,21 +225,14 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
             logger.info(
                 f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
             )
-        s3_urls[filename] = {
-            "url": minio_client.presigned_get_object(
-                bucket_name, filename, expires=URL_EXPIRE
-            ),
-            "size": file_size,
-        }
+        if not (upload_file and not do_upload):
+            s3_urls[filename] = {
+                "url": minio_client.presigned_get_object(
+                    bucket_name, filename, expires=URL_EXPIRE
+                ),
+                "size": file_size,
+            }
     logger.info(f"File URLs: {s3_urls}")
-    return s3_urls
-
-
-def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
-    image_files = get_image_files(None, images, logger)
-    s3_urls = get_presigned_urls(
-        minio_client, bucket_name, pid, image_files.values(), logger
-    )
     return s3_urls
 
 
@@ -255,6 +249,7 @@ def store_results_in_s3(minio_client, bucket_name, pfx, output_directory, logger
         bucket_name,
         pfx,
         compressed_results_files,
+        True,
         logger,
     )
     for filename in compressed_results_files:
@@ -302,3 +297,43 @@ def retrieve_file_with_url(filename, url, logger):
             retries_left -= 1
             time.sleep(5)
     c.close()
+
+
+def update_dcid_info_file(minio_client, bucket_name, dcid, status, rpid, logger):
+    # Write {dcid}_info file that contains list of processingjobid values for all job invocations
+    # requiring data for a given {dcid} value. Every new processing job invocation adds corresponding
+    # processingjobid value to the list.
+    obj_pid = f"{dcid}_info"
+    dc_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
+    dcid_info = {"status": 0, "pid": []}
+    response_info = None
+    try:
+        response = None
+        if obj_pid in dc_objects:
+            response = minio_client.get_object(bucket_name, obj_pid)
+            if response:
+                response_info = json.loads(response.data.decode())
+                dcid_info.update(response_info)
+        if status is not None:
+            dcid_info["status"] = status or dcid_info["status"]
+        if rpid is not None:
+            if rpid > 0:
+                dcid_info["pid"].append(rpid)
+            else:
+                dcid_info["pid"].remove(abs(rpid))
+
+        if status is not None or rpid is not None:
+            str_buffer = io.BytesIO(json.dumps(dcid_info).encode())
+            buffer_length = str_buffer.getbuffer().nbytes
+            result = minio_client.put_object(
+                bucket_name, obj_pid, str_buffer, buffer_length
+            )
+            logger.debug(
+                f"Written {result.object_name} object for {rpid} procecessingJobId value; etag: {result.etag}",
+            )
+    finally:
+        if response:
+            response.close()
+            response.release_conn()
+
+    return response_info

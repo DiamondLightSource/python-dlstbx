@@ -49,7 +49,7 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    prerun_threshold: int = pydantic.Field(default=300)
+    comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
@@ -70,7 +70,7 @@ class PanDDA_PostParameters(pydantic.BaseModel):
 
 class PanDDA_RhofitParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    datasets: str
+    n_datasets: int
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
@@ -187,7 +187,7 @@ class DLSTriggerXChem(CommonService):
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
         - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
-        - prerun_threshold: the minimum number of comparator datasets needed to begin PanDDA
+        - comparator_threshold: the minimum number of comparator datasets needed to begin PanDDA
         - comment: a comment to be stored in the ProcessingJob.comment field
         - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
         processing PanDDA jobs
@@ -195,7 +195,7 @@ class DLSTriggerXChem(CommonService):
         Example recipe parameters:
         { "target": "pandda_xchem",
             "dcid": 123456,
-            "prerun_threshold": 300,
+            "comparator_threshold": 300,
             "scaling_id": [123456],
             "automatic": true,
             "comment": "PanDDA2 triggered by dimple",
@@ -629,7 +629,7 @@ class DLSTriggerXChem(CommonService):
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
         dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
-        self.log.info(f"Dataset_count is: {dataset_count}")
+        self.log.info(f"Dataset count is: {dataset_count}")
 
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
@@ -640,21 +640,21 @@ class DLSTriggerXChem(CommonService):
 
         # 4. Job launch logic
 
-        prerun_threshold = parameters.prerun_threshold
+        comparator_threshold = parameters.comparator_threshold
 
-        if dataset_count < prerun_threshold:
+        if dataset_count < comparator_threshold:
             self.log.info(
-                f"Dataset dataset_count {dataset_count} < PanDDA2 comparator dataset threshold of {prerun_threshold}, skipping for now..."
+                f"Dataset dataset_count {dataset_count} < PanDDA2 comparator dataset threshold of {comparator_threshold}, skipping for now..."
             )
             return {"success": True}
-        elif dataset_count == prerun_threshold:
+        elif dataset_count == comparator_threshold:
             n_datasets = len(dataset_list)
-            with open(model_dir / "datasets.json", "w") as f:
+            with open(model_dir / ".batch.json", "w") as f:
                 json.dump(dataset_list, f)
             self.log.info(
-                f"Dataset dataset_count {dataset_count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 array job"
+                f"Dataset dataset_count {dataset_count} = comparator_threshold of {comparator_threshold} datasets, launching PanDDA2 array job"
             )
-        elif dataset_count > prerun_threshold:
+        elif dataset_count > comparator_threshold:
             n_datasets = 1
             self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
 
@@ -668,7 +668,7 @@ class DLSTriggerXChem(CommonService):
             "dtag": dtag,
             "n_datasets": n_datasets,
             "scaling_id": scaling_id,
-            "prerun_threshold": prerun_threshold,
+            "comparator_threshold": comparator_threshold,
             "database_path": str(db_copy),
         }
 
@@ -841,7 +841,6 @@ class DLSTriggerXChem(CommonService):
         Example recipe parameters:
         { "target": "pandda_rhofit",
             "dcid": 123456,
-            "datasets": ['dtag1','dtag2']
             "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
             "scaling_id": [123456],
             "automatic": true,

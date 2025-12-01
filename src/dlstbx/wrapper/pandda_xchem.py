@@ -30,10 +30,10 @@ class PanDDAWrapper(Wrapper):
         auto_panddas_dir = Path(analysis_dir / "auto_pandda2")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
-        n_datasets = params.get("n_datasets")
+        n_datasets = int(params.get("n_datasets"))
         self.log.info(f"N_datasets: {n_datasets}")
         if n_datasets > 1:
-            with open(model_dir / "datasets.json", "r") as f:
+            with open(model_dir / ".batch.json", "r") as f:
                 datasets = json.load(f)
                 dtag = datasets[int(slurm_task_id) - 1]
         else:
@@ -98,7 +98,7 @@ class PanDDAWrapper(Wrapper):
         self.log.info(f"Restraints generated succesfully for dtag {dtag}")
 
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} > pandda2.log"
 
         try:
             result = subprocess.run(

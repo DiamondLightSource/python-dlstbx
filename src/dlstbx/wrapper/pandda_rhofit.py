@@ -32,13 +32,13 @@ class PanDDARhofitWrapper(Wrapper):
 
         processing_dir = Path(params.get("processing_directory"))
         analysis_dir = processing_dir / "analysis"
-        model_dir = Path(processing_dir / "analysis")
+        model_dir = analysis_dir / "auto_model_building"
         auto_panddas_dir = analysis_dir / "auto_pandda2"
 
-        n_datasets = params.get("n_datasets")
+        n_datasets = int(params.get("n_datasets"))
         self.log.info(f"N_datasets: {n_datasets}")
         if n_datasets > 1:
-            with open(model_dir / "datasets.json", "r") as f:
+            with open(model_dir / ".batch.json", "r") as f:
                 datasets = json.load(f)
                 dtag = datasets[int(slurm_task_id) - 1]
         else:

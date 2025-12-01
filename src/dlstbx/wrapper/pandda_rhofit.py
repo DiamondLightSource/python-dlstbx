@@ -24,7 +24,6 @@ class PanDDARhofitWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         # self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
-        datasets = json.loads(params.get("datasets"))
 
         # EVENT_MAP_PATTERN = "{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4"
         # GROUND_STATE_PATTERN = "{dtag}-ground-state-average-map.native.ccp4"
@@ -114,7 +113,7 @@ class PanDDARhofitWrapper(Wrapper):
         {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {dmap_cut}; "
         # cp {modelled_dir}/{dtag}-pandda-model.pdb {modelled_dir}/pandda-internal-fitted.pdb;
 
-        self.log.info("Running rhofit command: {rhofit_command}")
+        self.log.info(f"Running rhofit command: {rhofit_command}")
 
         try:
             result = subprocess.run(

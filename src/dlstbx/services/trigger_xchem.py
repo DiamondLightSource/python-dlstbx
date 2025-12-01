@@ -68,16 +68,6 @@ class PanDDA_PostParameters(pydantic.BaseModel):
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
 
 
-class PanDDA_RhofitParameters(pydantic.BaseModel):
-    dcid: int = pydantic.Field(gt=0)
-    n_datasets: int
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
-    scaling_id: list[int]
-    processing_directory: str
-    model_directory: str
-
-
 class DLSTriggerXChem(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -220,10 +210,6 @@ class DLSTriggerXChem(CommonService):
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
             )
             return {"success": True}
-
-        self.log.debug(
-            f"proposal code is {proposal.proposalCode}, proposal number {proposal.proposalNumber}"
-        )
 
         # TEMPORARY, OPENBIND TEST VISIT
         if proposal.proposalNumber not in {"42888"}:
@@ -741,7 +727,7 @@ class DLSTriggerXChem(CommonService):
         visit_number = visit.split("-")[1]
 
         # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(hours=2)
+        min_start_time = datetime.now() - timedelta(hours=0.2)
 
         # from proposal and visit get all dcids
         query = (
@@ -815,83 +801,5 @@ class DLSTriggerXChem(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"PanDDA2_post trigger: Processing job {jobid} triggered")
-
-        return {"success": True}
-
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def trigger_pandda_rhofit(
-        self,
-        rw: workflows.recipe.RecipeWrapper,
-        *,
-        message: Dict,
-        parameters: PanDDA_RhofitParameters,
-        session: sqlalchemy.orm.session.Session,
-        transaction: int,
-        **kwargs,
-    ):
-        """Trigger a PanDDA rhofit job for an XChem fragment screening experiment.
-        Recipe parameters are described below with appropriate ispyb placeholder "{}"
-        values:
-        - target: set this to "pandda_xchem_post"
-        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
-        - comment: a comment to be stored in the ProcessingJob.comment field
-        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
-        processing PanDDA jobs
-        - automatic: boolean value passed to ProcessingJob.automatic field
-        Example recipe parameters:
-        { "target": "pandda_rhofit",
-            "dcid": 123456,
-            "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
-            "scaling_id": [123456],
-            "automatic": true,
-            "comment": "PanDDA2 Rhofit",
-            "timeout-minutes": 60,
-        }
-        """
-
-        dcid = parameters.dcid
-        scaling_id = parameters.scaling_id[0]
-        processing_directory = pathlib.Path(parameters.processing_directory)
-        model_directory = pathlib.Path(parameters.model_directory)
-        n_datasets = parameters.n_datasets
-        dtag = parameters.dtag
-
-        self.log.debug("PanDDA2 rhofit trigger: Starting")
-
-        pandda_parameters = {
-            "dcid": dcid,  #
-            "processing_directory": str(processing_directory),
-            "model_directory": str(model_directory),
-            "dtag": dtag,
-            "n_datasets": n_datasets,
-            "scaling_id": scaling_id,
-        }
-
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        # jp["comments"] = parameters.comment
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "PanDDA2_Rhofit"
-        jp["recipe"] = "postprocessing-pandda2-rhofit"
-        self.log.info(jp)
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"PanDDA2 trigger: generated JobID {jobid}")
-
-        for key, value in pandda_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
-            )
-
-        self.log.debug(f"PanDDA2_Rhofit trigger: Processing job {jobid} created")
-
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"PanDDA2_Rhofit trigger: Processing job {jobid} triggered")
 
         return {"success": True}

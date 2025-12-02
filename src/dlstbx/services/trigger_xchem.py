@@ -49,14 +49,14 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    prerun_threshold: int = pydantic.Field(default=300)
+    comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
-    backoff_delay: float = pydantic.Field(default=30, alias="backoff-delay")
-    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=1.4, alias="backoff-multiplier")
+    backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=1.0, alias="backoff-multiplier")
 
 
 class PanDDA_PostParameters(pydantic.BaseModel):
@@ -66,15 +66,6 @@ class PanDDA_PostParameters(pydantic.BaseModel):
     scaling_id: list[int]
     processing_directory: str
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
-
-
-class PanDDA_RhofitParameters(pydantic.BaseModel):
-    dcid: int = pydantic.Field(gt=0)
-    datasets: str
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
-    scaling_id: list[int]
-    processing_directory: str
 
 
 class DLSTriggerXChem(CommonService):
@@ -186,7 +177,7 @@ class DLSTriggerXChem(CommonService):
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
         - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
-        - prerun_threshold: the minimum number of comparator datasets needed to begin PanDDA
+        - comparator_threshold: the minimum number of comparator datasets needed to begin PanDDA
         - comment: a comment to be stored in the ProcessingJob.comment field
         - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
         processing PanDDA jobs
@@ -194,7 +185,7 @@ class DLSTriggerXChem(CommonService):
         Example recipe parameters:
         { "target": "pandda_xchem",
             "dcid": 123456,
-            "prerun_threshold": 300,
+            "comparator_threshold": 300,
             "scaling_id": [123456],
             "automatic": true,
             "comment": "PanDDA2 triggered by dimple",
@@ -219,10 +210,6 @@ class DLSTriggerXChem(CommonService):
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
             )
             return {"success": True}
-
-        self.log.debug(
-            f"proposal code is {proposal.proposalCode}, proposal number {proposal.proposalNumber}"
-        )
 
         # TEMPORARY, OPENBIND TEST VISIT
         if proposal.proposalNumber not in {"42888"}:
@@ -330,6 +317,24 @@ class DLSTriggerXChem(CommonService):
             "xia2.multiplex",
         ]  # will consider dimple output from these jobs to take forward
 
+        query = (
+            session.query(AutoProcProgram.processingPrograms)
+            .join(
+                AutoProc,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            )
+            .join(
+                AutoProcScaling,
+                AutoProc.autoProcId == AutoProcScaling.autoProcId,
+            )
+        ).filter(AutoProcScaling.autoProcScalingId == scaling_id)
+
+        if query.first()[0] == "fast_dp":
+            self.log.info(
+                "Aborting PanDDA2 trigger as upstream processingProgram is fast_dp"
+            )
+            return {"success": True}
+
         # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
         min_start_time = datetime.now() - timedelta(hours=12)
 
@@ -355,6 +360,28 @@ class DLSTriggerXChem(CommonService):
         if triggered_processing_job := query.first():
             self.log.info(
                 f"Aborting PanDDA2 trigger as another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
+            )
+            return {"success": True}
+
+        # Stop-gap
+        min_start_time = datetime.now() - timedelta(minutes=20)
+
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
+            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2"]))
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        )
+
+        if triggered_processing_job := query.first():
+            self.log.info(
+                "Aborting PanDDA2 trigger as another PanDDA2 job was recently launched"
             )
             return {"success": True}
 
@@ -586,9 +613,9 @@ class DLSTriggerXChem(CommonService):
         compound_dir = dataset_dir / "compound"
         self.log.info(f"Creating directory {dataset_dir}")
         pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
-        dataset_list = [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
+        dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
-        self.log.info(f"Dataset_count is: {dataset_count}")
+        self.log.info(f"Dataset count is: {dataset_count}")
 
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
@@ -599,34 +626,35 @@ class DLSTriggerXChem(CommonService):
 
         # 4. Job launch logic
 
-        prerun_threshold = parameters.prerun_threshold
+        comparator_threshold = parameters.comparator_threshold
 
-        if dataset_count < prerun_threshold:
+        if dataset_count < comparator_threshold:
             self.log.info(
-                f"Dataset dataset_count {dataset_count} < PanDDA2 comparator dataset threshold of {prerun_threshold}, skipping for now..."
+                f"Dataset dataset_count {dataset_count} < PanDDA2 comparator dataset threshold of {comparator_threshold}, skipping for now..."
             )
             return {"success": True}
-        elif dataset_count == prerun_threshold:
-            datasets = dataset_list  # list of datasets to process
+        elif dataset_count == comparator_threshold:
+            n_datasets = len(dataset_list)
+            with open(model_dir / ".batch.json", "w") as f:
+                json.dump(dataset_list, f)
             self.log.info(
-                f"Dataset dataset_count {dataset_count} = prerun_threshold of {prerun_threshold} datasets, launching PanDDA2 array job"
+                f"Dataset dataset_count {dataset_count} = comparator_threshold of {comparator_threshold} datasets, launching PanDDA2 array job"
             )
-        elif dataset_count > prerun_threshold:
-            datasets = [dtag]
+        elif dataset_count > comparator_threshold:
+            n_datasets = 1
             self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
 
         self.log.debug("PanDDA2 trigger: Starting")
-        self.log.debug(f"Launching job for datasets: {datasets}")
 
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_dir),
             "model_directory": str(model_dir),
             "dataset_directory": str(dataset_dir),
-            "datasets": json.dumps(datasets),
-            "n_datasets": len(datasets),
+            "dtag": dtag,
+            "n_datasets": n_datasets,
             "scaling_id": scaling_id,
-            "prerun_threshold": prerun_threshold,
+            "comparator_threshold": comparator_threshold,
             "database_path": str(db_copy),
         }
 
@@ -699,7 +727,7 @@ class DLSTriggerXChem(CommonService):
         visit_number = visit.split("-")[1]
 
         # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(hours=6)
+        min_start_time = datetime.now() - timedelta(hours=0.2)
 
         # from proposal and visit get all dcids
         query = (
@@ -773,83 +801,5 @@ class DLSTriggerXChem(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"PanDDA2_post trigger: Processing job {jobid} triggered")
-
-        return {"success": True}
-
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def trigger_pandda_rhofit(
-        self,
-        rw: workflows.recipe.RecipeWrapper,
-        *,
-        message: Dict,
-        parameters: PanDDA_RhofitParameters,
-        session: sqlalchemy.orm.session.Session,
-        transaction: int,
-        **kwargs,
-    ):
-        """Trigger a PanDDA rhofit job for an XChem fragment screening experiment.
-        Recipe parameters are described below with appropriate ispyb placeholder "{}"
-        values:
-        - target: set this to "pandda_xchem_post"
-        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
-        - comment: a comment to be stored in the ProcessingJob.comment field
-        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
-        processing PanDDA jobs
-        - automatic: boolean value passed to ProcessingJob.automatic field
-        Example recipe parameters:
-        { "target": "pandda_rhofit",
-            "dcid": 123456,
-            "datasets": ['dtag1','dtag2']
-            "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
-            "scaling_id": [123456],
-            "automatic": true,
-            "comment": "PanDDA2 Rhofit",
-            "timeout-minutes": 60,
-        }
-        """
-
-        dcid = parameters.dcid
-        scaling_id = parameters.scaling_id[0]
-        processing_directory = pathlib.Path(parameters.processing_directory)
-        datasets = json.loads(parameters.datasets)
-
-        self.log.debug("PanDDA2 rhofit trigger: Starting")
-        self.log.info(f"Datasets for rhofit: {datasets}")
-
-        self.log.debug(f"Launching job for datasets: {datasets}")
-        pandda_parameters = {
-            "dcid": dcid,  #
-            "processing_directory": str(processing_directory),
-            "datasets": json.dumps(datasets),
-            "n_datasets": len(datasets),
-            "scaling_id": scaling_id,
-        }
-
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        # jp["comments"] = parameters.comment
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "PanDDA2_Rhofit"
-        jp["recipe"] = "postprocessing-pandda2-rhofit"
-        self.log.info(jp)
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"PanDDA2 trigger: generated JobID {jobid}")
-
-        for key, value in pandda_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
-            )
-
-        self.log.debug(f"PanDDA2_Rhofit trigger: Processing job {jobid} created")
-
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"PanDDA2_Rhofit trigger: Processing job {jobid} triggered")
 
         return {"success": True}

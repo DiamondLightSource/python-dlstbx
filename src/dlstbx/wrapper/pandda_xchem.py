@@ -104,7 +104,7 @@ class PanDDAWrapper(Wrapper):
         self.log.info(f"Restraints generated succesfully for dtag {dtag}")
 
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} --use_ligand_data=False"
 
         try:
             result = subprocess.run(
@@ -123,7 +123,9 @@ class PanDDAWrapper(Wrapper):
             self.log.error(e.stderr)
             return False
 
-        pandda_log = auto_panddas_dir / f"processed_datasets/{dtag}" / "pandda2.log"
+        dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
+
+        pandda_log = dataset_pdir / "pandda2.log"
         with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)
 
@@ -141,11 +143,11 @@ class PanDDAWrapper(Wrapper):
         #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         # -------------------------------------------------------
-
-        modelled_dir = dataset_dir / "modelled_structures"
+        dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
+        modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
         out_dir.mkdir(parents=True, exist_ok=True)
-        event_yaml = dataset_dir / "events.yaml"
+        event_yaml = dataset_pdir / "events.yaml"
 
         with open(event_yaml, "r") as file:
             data = yaml.load(file, Loader=yaml.SafeLoader)
@@ -154,7 +156,7 @@ class PanDDAWrapper(Wrapper):
             self.log.info(
                 (f"No events in {event_yaml}, can't continue with PanDDA2 Rhofit")
             )
-            return False
+            return True  # False
 
         # Determine which builds to perform. More than one binder is unlikely and score ranks
         # well so build the best scoring event of each dataset.
@@ -165,13 +167,12 @@ class PanDDAWrapper(Wrapper):
         # bdc = best_entry["BDC"]
         coord = best_entry["Centroid"]
 
-        dataset_dir = auto_panddas_dir / "processed_datasets" / dtag
-        ligand_dir = dataset_dir / "ligand_files"
-        build_dmap = dataset_dir / f"{dtag}-z_map.native.ccp4"
-        restricted_build_dmap = dataset_dir / "build.ccp4"
-        pdb_file = dataset_dir / f"{dtag}-pandda-input.pdb"
-        mtz_file = dataset_dir / f"{dtag}-pandda-input.mtz"
-        restricted_pdb_file = dataset_dir / "build.pdb"
+        ligand_dir = dataset_pdir / "ligand_files"
+        build_dmap = dataset_pdir / f"{dtag}-z_map.native.ccp4"
+        restricted_build_dmap = dataset_pdir / "build.ccp4"
+        pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
+        mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
+        restricted_pdb_file = dataset_pdir / "build.pdb"
 
         dmap_cut = 2.0
         # This is usually quite a good contour for building and consistent
@@ -230,7 +231,7 @@ class PanDDAWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Merge the protein structure with ligand
-        protein_st_file = dataset_dir / f"{dtag}-pandda-input.pdb"
+        protein_st_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         ligand_st_file = out_dir / "rhofit" / "best.pdb"
         output_file = modelled_dir / f"{dtag}-pandda-model.pdb"
 
@@ -407,7 +408,7 @@ class PanDDAWrapper(Wrapper):
             + f" WHERE CrystalName = '{dtag}'"
         )
         conn = sqlite3.connect(database_path)
-        conn.execute("PRAGMA journal_mode=WAL;")
+        # conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)
         conn.commit()

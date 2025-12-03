@@ -611,7 +611,8 @@ class DLSTriggerXChem(CommonService):
             )
 
         # 3. Create the dataset directory
-
+        tmp_dir = pathlib.Path("/dls/tmp/xchem_diff2ir")  # TEMPORARY RESULTS DIR
+        processing_dir = tmp_dir / xchem_visit_dir.parts[-1]
         model_dir = processing_dir / "analysis" / "auto_model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"

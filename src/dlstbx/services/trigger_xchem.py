@@ -302,10 +302,10 @@ class DLSTriggerXChem(CommonService):
         db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
         # Make a copy of the most recent sqlite for reading
-        db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
-        if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
-            shutil.copy2(str(db), str(db_copy))
-            self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
+        # db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
+        # if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
+        #     shutil.copy2(str(db), str(db_copy))
+        #     self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
@@ -573,21 +573,25 @@ class DLSTriggerXChem(CommonService):
 
         # Read XChem SQLite for ligand info
         try:
-            conn = sqlite3.connect(db_copy)
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
             )
-            conn.close()
-        except Exception as e:
+
+        except sqlite3.OperationalError as e:
             self.log.info(
-                f"Exception whilst reading ligand information from {db_copy} for dtag {dtag}: {e}"
+                f"Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
             )
             return {"success": True}
 
+        finally:
+            if "conn" in locals():
+                conn.close()
+
         if len(df) != 1:
             self.log.info(
-                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {db_copy}, can't continue."
+                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {db}, can't continue."
             )
             return {"success": True}
 
@@ -655,7 +659,7 @@ class DLSTriggerXChem(CommonService):
             "n_datasets": n_datasets,
             "scaling_id": scaling_id,
             "comparator_threshold": comparator_threshold,
-            "database_path": str(db_copy),
+            "database_path": str(db),
         }
 
         jp = self.ispyb.mx_processing.get_job_params()

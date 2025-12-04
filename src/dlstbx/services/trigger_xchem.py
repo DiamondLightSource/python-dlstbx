@@ -259,7 +259,9 @@ class DLSTriggerXChem(CommonService):
                     db_path = str(
                         subdir / "processing/database" / "soakDBDataFile.sqlite"
                     )
-                    con = sqlite3.connect(db_path)
+                    con = sqlite3.connect(
+                        f"file:{db_path}?mode=ro", uri=True, timeout=20
+                    )
                     cur = con.cursor()
                     cur.execute("SELECT Protein FROM soakDB")
                     name = cur.fetchone()[0]
@@ -269,11 +271,6 @@ class DLSTriggerXChem(CommonService):
                         # visit = dir.parts[-1]
                         expt_yaml = {}
                         expt_yaml["data"] = {"acronym": name}
-                        # expt_yaml["autoprocessing"] = {}
-                        # expt_yaml["autoprocessing"]["pandda"] = {
-                        #     "prerun-threshold": 300,
-                        #     "heuristic": "default",
-                        # }
 
                         with open(subdir / ".user.yaml", "w") as f:
                             yaml.dump(expt_yaml, f)
@@ -282,8 +279,8 @@ class DLSTriggerXChem(CommonService):
                         match_dir = subdir
                         # match_yaml = expt_yaml
 
-                except Exception:
-                    print(f"Unable to read .sqlite database for {subdir}")
+                except Exception as e:
+                    print(f"Problem reading .sqlite database for {subdir}: {e}")
 
         xchem_visit_dir = match_dir
         # user_settings = match_yaml["autoprocessing"]
@@ -299,13 +296,15 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         processing_dir = xchem_visit_dir / "processing"
-        db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
+        analysis_dir = processing_dir / "auto_analysis"
+        db = processing_dir / "database" / "soakDBDataFile.sqlite"
+        pathlib.Path(analysis_dir).mkdir(parents=True, exist_ok=True)
 
-        # Make a copy of the most recent sqlite for reading
-        # db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
-        # if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
-        #     shutil.copy2(str(db), str(db_copy))
-        #     self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
+        # Make a copy of the most recent sqlite for testing
+        db_copy = analysis_dir / "soakDBDataFile.sqlite"
+        if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
+            shutil.copy2(str(db), str(db_copy))
+            self.log.info(f"Made a copy of {db} in {analysis_dir}")
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
@@ -335,8 +334,8 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
-        min_start_time = datetime.now() - timedelta(hours=12)
+        # If other dimple/PanDDA2 job is running, quit
+        min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
             (
@@ -364,8 +363,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Stop-gap
-        min_start_time = datetime.now() - timedelta(minutes=20)
-
+        min_start_time = datetime.now() - timedelta(minutes=30)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -386,6 +384,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Now check if other upstream pipeline is running and if so, checkpoint (it might fail)
+        min_start_time = datetime.now() - timedelta(hours=3)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -550,7 +549,9 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         chosen_dataset_path = df3["filePath"][0]
-        self.log.debug(f"Chosen dataset to take forward: {chosen_dataset_path}")
+        self.log.debug(
+            f"Chosen dataset to take forward: {chosen_dataset_path} for dcid {dcid}"
+        )
         scaling_id = int(df3["autoProcScalingId"][0])
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
@@ -573,13 +574,13 @@ class DLSTriggerXChem(CommonService):
 
         # Read XChem SQLite for ligand info
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
             )
 
-        except sqlite3.OperationalError as e:
+        except Exception as e:
             self.log.info(
                 f"Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
             )
@@ -611,9 +612,7 @@ class DLSTriggerXChem(CommonService):
             )
 
         # 3. Create the dataset directory
-        tmp_dir = pathlib.Path("/dls/tmp/xchem_diff2ir")  # TEMPORARY RESULTS DIR
-        processing_dir = tmp_dir / xchem_visit_dir.parts[-1]
-        model_dir = processing_dir / "analysis" / "auto_model_building"
+        model_dir = analysis_dir / "auto_model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
         self.log.info(f"Creating directory {dataset_dir}")
@@ -654,6 +653,7 @@ class DLSTriggerXChem(CommonService):
         pandda_parameters = {
             "dcid": dcid,  #
             "processing_directory": str(processing_dir),
+            "analysis_directory": str(analysis_dir),
             "model_directory": str(model_dir),
             "dataset_directory": str(dataset_dir),
             "dtag": dtag,

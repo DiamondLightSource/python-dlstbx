@@ -17,7 +17,7 @@ class PanDDApostWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
         processing_dir = Path(params.get("processing_directory"))
-        analysis_dir = processing_dir / "analysis"
+        analysis_dir = processing_dir / "auto_analysis"
         model_dir = analysis_dir / "auto_model_building"
         auto_panddas_dir = analysis_dir / "auto_pandda2"
 

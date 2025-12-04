@@ -56,7 +56,7 @@ class PanDDAParameters(pydantic.BaseModel):
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=1.0, alias="backoff-multiplier")
+    backoff_multiplier: float = pydantic.Field(default=1.1, alias="backoff-multiplier")
 
 
 class PanDDA_PostParameters(pydantic.BaseModel):
@@ -259,7 +259,9 @@ class DLSTriggerXChem(CommonService):
                     db_path = str(
                         subdir / "processing/database" / "soakDBDataFile.sqlite"
                     )
-                    con = sqlite3.connect(db_path)
+                    con = sqlite3.connect(
+                        f"file:{db_path}?mode=ro", uri=True, timeout=20
+                    )
                     cur = con.cursor()
                     cur.execute("SELECT Protein FROM soakDB")
                     name = cur.fetchone()[0]
@@ -282,8 +284,8 @@ class DLSTriggerXChem(CommonService):
                         match_dir = subdir
                         # match_yaml = expt_yaml
 
-                except Exception:
-                    print(f"Unable to read .sqlite database for {subdir}")
+                except Exception as e:
+                    print(f"Problem reading .sqlite database for {subdir}: {e}")
 
         xchem_visit_dir = match_dir
         # user_settings = match_yaml["autoprocessing"]
@@ -336,7 +338,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
-        min_start_time = datetime.now() - timedelta(hours=12)
+        min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
             (
@@ -364,7 +366,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Stop-gap
-        min_start_time = datetime.now() - timedelta(minutes=20)
+        min_start_time = datetime.now() - timedelta(minutes=30)
 
         query = (
             (
@@ -386,6 +388,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Now check if other upstream pipeline is running and if so, checkpoint (it might fail)
+        min_start_time = datetime.now() - timedelta(hours=3)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -550,7 +553,9 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         chosen_dataset_path = df3["filePath"][0]
-        self.log.debug(f"Chosen dataset to take forward: {chosen_dataset_path}")
+        self.log.debug(
+            f"Chosen dataset to take forward: {chosen_dataset_path} for dcid {dcid}"
+        )
         scaling_id = int(df3["autoProcScalingId"][0])
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
@@ -573,13 +578,13 @@ class DLSTriggerXChem(CommonService):
 
         # Read XChem SQLite for ligand info
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=20)
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
             )
 
-        except sqlite3.OperationalError as e:
+        except Exception as e:
             self.log.info(
                 f"Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
             )

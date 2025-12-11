@@ -9,7 +9,7 @@ import stat
 import string
 from collections import ChainMap
 
-INDUSTRIAL_CODES = ["ic", "il", "in", "lb", "sw"]
+INDUSTRIAL_CODES = ["ic", "il", "in", "sw"]
 
 
 class ChainMapWithReplacement(ChainMap):

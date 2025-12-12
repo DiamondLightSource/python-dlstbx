@@ -1,4 +1,4 @@
-FROM harbor.diamond.ac.uk/dockerhub-cache/dials/dials:latest
+FROM dials/dials:latest
 
 RUN yum install bzip2 libXxf86vm rrdtool git -y
 RUN pip install patchelf

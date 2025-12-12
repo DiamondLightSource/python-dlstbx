@@ -5,7 +5,7 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-    
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,4 +30,4 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/diamondlightsource/python-dlstbx:latest,ghcr.io/diamondlightsource/python-dlstbx:${{ steps.vars.outputs.sha_short }}
+          tags: ghcr.io/diamondlightsource/dlstbx:latest,ghcr.io/diamondlightsource/dlstbx:${{ steps.vars.outputs.sha_short }}

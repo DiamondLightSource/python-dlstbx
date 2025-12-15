@@ -11,7 +11,6 @@ import gemmi
 import numpy as np
 import yaml
 
-# import molviewspec as mvs
 from dlstbx.wrapper import Wrapper
 
 
@@ -36,7 +35,7 @@ class PanDDAWrapper(Wrapper):
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
         n_datasets = int(params.get("n_datasets"))
-        if n_datasets > 1:
+        if n_datasets > 1:  # array job case
             with open(model_dir / ".batch.json", "r") as f:
                 datasets = json.load(f)
                 dtag = datasets[int(slurm_task_id) - 1]
@@ -58,11 +57,9 @@ class PanDDAWrapper(Wrapper):
             self.log.error(
                 f"Multiple .smiles files found in in {compound_dir}:, {smiles_files}, warning for dtag {dtag}"
             )
-        else:
-            smiles_file = smiles_files[0]
-            CompoundCode = smiles_file.stem
+            return False
 
-        smiles_file = next(Path(compound_dir).rglob("*.smiles"), None)
+        smiles_file = smiles_files[0]
         CompoundCode = smiles_file.stem
 
         # -------------------------------------------------------
@@ -122,25 +119,16 @@ class PanDDAWrapper(Wrapper):
             return False
 
         dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
+        ligand_dir = dataset_pdir / "ligand_files"
 
         pandda_log = dataset_pdir / "pandda2.log"
         with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)
 
-        # -------------------------------------------------------
-        # Integrate back with XCE via datasource
-        # db_dict = {}
-        # db_dict["DimplePANDDAwasRun"] = True
-        # # db_dict["DimplePANDDAreject"] = False
-        # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
+        for item in compound_dir.iterdir():
+            if item.is_file():
+                shutil.copy2(item, ligand_dir / item.name)
 
-        # try:
-        #     self.update_data_source(db_dict, dtag, database_path)
-        #     self.log.info(f"Updated sqlite database for dataset {dtag}")
-        # except Exception as e:
-        #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
-
-        # -------------------------------------------------------
         modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -164,7 +152,6 @@ class PanDDAWrapper(Wrapper):
         # bdc = best_entry["BDC"]
         coord = best_entry["Centroid"]
 
-        ligand_dir = dataset_pdir / "ligand_files"
         build_dmap = dataset_pdir / f"{dtag}-z_map.native.ccp4"
         restricted_build_dmap = dataset_pdir / "build.ccp4"
         pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
@@ -196,15 +183,18 @@ class PanDDAWrapper(Wrapper):
         # Really all the cifs should be tried and the best used, or it should try the best
         # cif from PanDDA
         # This is a temporary fix that will get 90% of situations that can be improved upon
-        cifs = [x for x in ligand_dir.glob("*.cif")]
+        cifs = list(ligand_dir.glob("*.cif"))
         if len(cifs) == 0:
-            self.log.error("No .cif files found!")
+            self.log.error(
+                f"No .cif files found for dtag {dtag}, cannot launch PanDDA2 Rhofit!"
+            )
+            return True
 
         # -------------------------------------------------------
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
         {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {dmap_cut}; "
 
-        self.log.info(f"Running rhofit command: {rhofit_command}")
+        self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
         try:
             result = subprocess.run(
@@ -237,13 +227,12 @@ class PanDDAWrapper(Wrapper):
         contact_chain = self.get_contact_chain(protein_st, ligand_st)
         protein_st[0][contact_chain].add_residue(ligand_st[0][0][0])
 
+        if output_file.exists():
+            shutil.copy(output_file, modelled_dir / "pandda-internal-fitted.pdb")
+
         protein_st.write_pdb(str(output_file))
 
-        pandda_model = {modelled_dir} / f"{dtag}-pandda-model.pdb"
-        if pandda_model.exists():
-            shutil.copy(pandda_model, modelled_dir / "pandda-internal-fitted.pdb")
-
-        self.log.info("Auto PanDDA2 pipeline finished successfully")
+        self.log.info(f"Auto PanDDA2 pipeline finished successfully for dtag {dtag}")
         return True
 
     def save_xmap(self, xmap, xmap_file):
@@ -406,3 +395,15 @@ class PanDDAWrapper(Wrapper):
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)
         conn.commit()
+
+    # Integrate back with XCE via datasource
+    # db_dict = {}
+    # db_dict["DimplePANDDAwasRun"] = True
+    # # db_dict["DimplePANDDAreject"] = False
+    # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
+
+    # try:
+    #     self.update_data_source(db_dict, dtag, database_path)
+    #     self.log.info(f"Updated sqlite database for dataset {dtag}")
+    # except Exception as e:
+    #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")

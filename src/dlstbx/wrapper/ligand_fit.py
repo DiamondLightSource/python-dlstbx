@@ -8,8 +8,8 @@ import shutil
 import subprocess
 from shutil import ignore_patterns
 
-# import molviewspec as mvs
 import dlstbx.util.symlink
+from dlstbx.util.mvs.ligandfit import gen_html_ligandfit
 from dlstbx.wrapper import Wrapper
 
 
@@ -28,7 +28,7 @@ class LigandFitWrapper(Wrapper):
                 if match:
                     llist.append(match.group(1))
         file_read.close()
-        CC = llist[-1]  # take the final CC
+        CC = float(llist[-1])  # take the final CC
         return CC
 
     def send_attachments_to_ispyb(self, pipeline_directory, final_directory):
@@ -139,22 +139,20 @@ class LigandFitWrapper(Wrapper):
             self.send_attachments_to_ispyb(pipeline_directory)
             return False
 
-        CC = self.pull_CC_from_log(pipeline_directory)
-
-        if CC >= min_cc_keep:
-            os.system(
-                f"phenix.mtz2map {pipeline_directory / 'LIG_final.mtz'} {pipeline_directory / 'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
-            )
-            out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
-            out_pdb = str(pipeline_directory / "LIG_final.pdb")
-            acr = params.get("acronym", "Protein")
-
-            os.system(
-                f"module load molviewspec; gen_html_ligandfit.py --pdb_file {out_pdb} --map_file {out_map} --cc {CC} --outdir {pipeline_directory} --smiles '{smiles}' --acr {acr}"
-            )
-
+        os.system(
+            f"phenix.mtz2map {pipeline_directory / 'LIG_final.mtz'} {pipeline_directory / 'LIG_final.pdb'} directory={pipeline_directory} selection='resname LIG' buffer=3.5 labels=2FOFCWT,PH2FOFCWT"
+        )
+        out_map = str(pipeline_directory / "LIG_final_2mFo-DFc.ccp4")
+        out_pdb = str(pipeline_directory / "LIG_final.pdb")
+        acr = params.get("acronym", "Protein")
         # self.generate_smiles_png(smiles, pipeline_directory)
-        # self.generate_html_visualisation(out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr)
+        CC = self.pull_CC_from_log(pipeline_directory)
+        try:
+            gen_html_ligandfit(
+                out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr
+            )
+        except Exception as e:
+            self.log.debug(f"Exception generating mvs html: {e}")
 
         data = [
             ["Ligand_fit pipeline", "SMILES code", "Fitting CC"],
@@ -182,14 +180,7 @@ class LigandFitWrapper(Wrapper):
         self.log.info("Sending results to ISPyB")
         self.send_attachments_to_ispyb(pipeline_directory, final_directory)
 
-        if CC >= min_cc_keep:
-            self.log.info("Ligand_fitting pipeline finished successfully")
-            return True
-        else:
-            self.log.info(
-                f"Ligand_fitting pipeline finished but ligand fitting CC ({CC}) did not meet quality threshold ({min_cc_keep})"
-            )
-            return False
+        return True
 
     # def generate_smiles_png(self, smiles, outdir):
     #     mol = pybel.readstring("smi", smiles)

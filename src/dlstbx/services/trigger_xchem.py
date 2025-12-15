@@ -287,8 +287,12 @@ class DLSTriggerXChem(CommonService):
                 except Exception as e:
                     print(f"Problem reading .sqlite database for {subdir}: {e}")
 
-        xchem_visit_dir = match_dir
-        # user_settings = match_yaml["autoprocessing"]
+        if not match_dir:
+            self.log.debug(f"No directory found for {acronym}, can't continue")
+            return {"success": True}
+        else:
+            xchem_visit_dir = match_dir
+            # user_settings = match_yaml["autoprocessing"]
 
         if xchem_visit_dir:
             self.log.debug(

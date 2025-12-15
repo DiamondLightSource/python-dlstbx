@@ -136,7 +136,7 @@ class LigandFitWrapper(Wrapper):
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             self.log.info("Sending log to ISPyB")
-            self.send_attachments_to_ispyb(pipeline_directory)
+            self.send_attachments_to_ispyb(pipeline_directory, final_directory)
             return False
 
         os.system(

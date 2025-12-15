@@ -25,7 +25,6 @@ class PanDDAWrapper(Wrapper):
         )
 
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
-        # self.log.info((f"SLURM_ARRAY_TASK_ID: {slurm_task_id}"))
         params = self.recwrap.recipe_step["job_parameters"]
 
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
@@ -37,7 +36,6 @@ class PanDDAWrapper(Wrapper):
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
         n_datasets = int(params.get("n_datasets"))
-        self.log.info(f"N_datasets: {n_datasets}")
         if n_datasets > 1:
             with open(model_dir / ".batch.json", "r") as f:
                 datasets = json.load(f)
@@ -104,7 +102,7 @@ class PanDDAWrapper(Wrapper):
         self.log.info(f"Restraints generated succesfully for dtag {dtag}")
 
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} --use_ligand_data=False"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1"
 
         try:
             result = subprocess.run(
@@ -143,7 +141,6 @@ class PanDDAWrapper(Wrapper):
         #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         # -------------------------------------------------------
-        dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
         modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -242,12 +239,9 @@ class PanDDAWrapper(Wrapper):
 
         protein_st.write_pdb(str(output_file))
 
-        try:
-            shutil.copy(
-                f"{modelled_dir}/{dtag}-pandda-model.pdb, {modelled_dir}/pandda-internal-fitted.pdb"
-            )
-        except Exception as e:
-            self.log.debug(f"{e}")
+        pandda_model = {modelled_dir} / f"{dtag}-pandda-model.pdb"
+        if pandda_model.exists():
+            shutil.copy(pandda_model, modelled_dir / "pandda-internal-fitted.pdb")
 
         self.log.info("Auto PanDDA2 pipeline finished successfully")
         return True

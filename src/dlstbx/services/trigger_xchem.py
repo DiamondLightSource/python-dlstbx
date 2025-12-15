@@ -282,12 +282,13 @@ class DLSTriggerXChem(CommonService):
 
                     if name == acronym:
                         match_dir = subdir
+                        match = True
                         # match_yaml = expt_yaml
 
                 except Exception as e:
                     print(f"Problem reading .sqlite database for {subdir}: {e}")
 
-        if not match_dir:
+        if not match:
             self.log.debug(f"No directory found for {acronym}, can't continue")
             return {"success": True}
         else:

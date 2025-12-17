@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import re
 import json
 import pathlib
 import shutil
@@ -260,7 +262,7 @@ class DLSTriggerXChem(CommonService):
                         subdir / "processing/database" / "soakDBDataFile.sqlite"
                     )
                     con = sqlite3.connect(
-                        f"file:{db_path}?mode=ro", uri=True, timeout=20
+                        f"file:{db_path}?mode=ro", uri=True, timeout=10
                     )
                     cur = con.cursor()
                     cur.execute("SELECT Protein FROM soakDB")
@@ -271,12 +273,6 @@ class DLSTriggerXChem(CommonService):
                         # visit = dir.parts[-1]
                         expt_yaml = {}
                         expt_yaml["data"] = {"acronym": name}
-                        # expt_yaml["autoprocessing"] = {}
-                        # expt_yaml["autoprocessing"]["pandda"] = {
-                        #     "prerun-threshold": 300,
-                        #     "heuristic": "default",
-                        # }
-
                         with open(subdir / ".user.yaml", "w") as f:
                             yaml.dump(expt_yaml, f)
 
@@ -306,10 +302,11 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         processing_dir = xchem_visit_dir / "processing"
-        db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
+        processed_dir = xchem_visit_dir / "processed"
+        db = processing_dir / 'database' / "soakDBDataFile.sqlite"
 
-        # Make a copy of the most recent sqlite for reading
-        # db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
+        # Make a copy of the most recent sqlite for reading?
+        # db_copy = xchem_visit_dir / "processed/database" / "auto_soakDBDataFile.sqlite"
         # if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
         #     shutil.copy2(str(db), str(db_copy))
         #     self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
@@ -495,7 +492,7 @@ class DLSTriggerXChem(CommonService):
             * df["nTotalUniqueObservations"].astype(float)
         )
         # I/sigI*completeness*# unique reflections
-        df = df[["autoProcScalingId", "heuristic"]].copy()
+        df = df[["processingPrograms","autoProcScalingId", "heuristic"]].copy()
         scaling_ids = df["autoProcScalingId"].tolist()
 
         # find associated dimple jobs
@@ -562,6 +559,10 @@ class DLSTriggerXChem(CommonService):
             f"Chosen dataset to take forward: {chosen_dataset_path} for dcid {dcid}"
         )
         scaling_id = int(df3["autoProcScalingId"][0])
+        environment = df3['processingEnvironment'][0]
+        upstream_mtz = ast.literal_eval(re.search(r"data=(\[[^\]]*\])", environment).group(1))[0]
+        upstream_proc = df[df['autoProcScalingId']==scaling_id]['processingPrograms'].item()
+
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
 
@@ -583,7 +584,7 @@ class DLSTriggerXChem(CommonService):
 
         # Read XChem SQLite for ligand info
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=20)
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10)
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
@@ -619,10 +620,10 @@ class DLSTriggerXChem(CommonService):
             self.log.info(
                 f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, considering as an apo dataset"
             )
+            return {"success": True}
 
         # 3. Create the dataset directory
-        tmp_dir = pathlib.Path("/dls/tmp/xchem_diff2ir")  # TEMPORARY RESULTS DIR
-        processing_dir = tmp_dir / xchem_visit_dir.parts[-1]
+        processing_dir = xchem_visit_dir / 'processed'
         model_dir = processing_dir / "analysis" / "auto_model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
@@ -632,15 +633,16 @@ class DLSTriggerXChem(CommonService):
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
         self.log.info(f"Dataset count is: {dataset_count}")
 
-        # Copy the dimple files of the selected dataset
+        # Copy the dimple & upstream files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
         shutil.copy(mtz, str(dataset_dir / "dimple.mtz"))
+        shutil.copy(upstream_mtz, str(dataset_dir / pathlib.Path(upstream_mtz).parts[-1]))
 
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
 
         # 4. Job launch logic
-
+        
         comparator_threshold = parameters.comparator_threshold
 
         if dataset_count < comparator_threshold:

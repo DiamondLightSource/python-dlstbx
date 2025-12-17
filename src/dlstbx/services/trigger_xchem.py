@@ -617,8 +617,9 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
         elif not CompoundSMILES:
             self.log.info(
-                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, considering as an apo dataset"
+                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, apo dataset? Skipping..."
             )
+            return {"success": True}
 
         # 3. Create the dataset directory
         tmp_dir = pathlib.Path("/dls/tmp/xchem_diff2ir")  # TEMPORARY RESULTS DIR

@@ -8,7 +8,7 @@ from dlstbx.wrapper import Wrapper
 
 
 class PipedreamWrapper(Wrapper):
-    _logger_name = "dlstbx.wrap.pipedream"
+    _logger_name = "dlstbx.wrap.pipedream_xchem"
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -21,12 +21,16 @@ class PipedreamWrapper(Wrapper):
         # database_path = Path(params.get("database_path"))
         processed_dir = Path(params.get("processed_directory"))
         analysis_dir = Path(processed_dir / "analysis")
-        upstream_mtz = params.get("upstream_mtz")
-        dimple_pdb = ""
-        dimple_mtz = ""
-        out_dir = analysis_dir / "Pipedream" / dtag
-
+        model_dir = Path(params.get("model_directory"))
         dtag = params.get("dtag")
+
+        dataset_dir = model_dir / dtag
+        pipedream_dir = analysis_dir / "pipedream"
+        Path(pipedream_dir).mkdir(parents=True, exist_ok=True)
+        out_dir = pipedream_dir / dtag
+        upstream_mtz = params.get("upstream_mtz")
+        dimple_pdb = dataset_dir / "dimple.pdb"
+        dimple_mtz = dataset_dir / "dimple.mtz"
 
         self.log.info(f"Processing dtag: {dtag}")
 
@@ -60,7 +64,7 @@ class PipedreamWrapper(Wrapper):
             )
 
         except subprocess.CalledProcessError as e:
-            self.log.error(f"PanDDA2 command: '{pipedream_command}' failed")
+            self.log.error(f"Pipedream command: '{pipedream_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             return False

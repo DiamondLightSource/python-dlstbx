@@ -66,7 +66,7 @@ class PanDDA_PostParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    processing_directory: str
+    processed_directory: str
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
 
 
@@ -744,7 +744,7 @@ class DLSTriggerXChem(CommonService):
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
-        processing_directory = pathlib.Path(parameters.processing_directory)
+        processed_directory = pathlib.Path(parameters.processed_directory)
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
@@ -776,7 +776,7 @@ class DLSTriggerXChem(CommonService):
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.automatic == True)  # noqa E711
-            .filter(AutoProcProgram.processingPrograms == "PanDDA2_post")
+            .filter(AutoProcProgram.processingPrograms == "PanDDA2-post")
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
                 or_(
@@ -794,37 +794,12 @@ class DLSTriggerXChem(CommonService):
 
         self.log.debug("PanDDA2 postrun trigger: Starting")
 
-        pandda_parameters = {
+        recipe_parameters = {
             "dcid": dcid,  #
-            "processing_directory": str(processing_directory),
+            "processed_directory": str(processed_directory),
             "scaling_id": scaling_id,
         }
 
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        # jp["comments"] = parameters.comment
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "PanDDA2_post"
-        jp["recipe"] = "postprocessing-pandda2-post"
-        self.log.info(jp)
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"PanDDA2 postrun trigger: generated JobID {jobid}")
-
-        for key, value in pandda_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
-            )
-
-        self.log.debug(f"PanDDA2_post trigger: Processing job {jobid} created")
-
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"PanDDA2_post trigger: Processing job {jobid} triggered")
+        self.upsert_proc(rw, dcid, "PanDDA2-post", recipe_parameters)
 
         return {"success": True}

@@ -28,8 +28,8 @@ class PanDDAWrapper(Wrapper):
 
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         # database_path = Path(params.get("database_path"))
-        processing_dir = Path(params.get("processing_directory"))
-        analysis_dir = Path(processing_dir / "analysis")
+        processed_dir = Path(params.get("processed_directory"))
+        analysis_dir = Path(processed_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
         auto_panddas_dir = Path(analysis_dir / "auto_pandda2")
         Path(auto_panddas_dir).mkdir(exist_ok=True)

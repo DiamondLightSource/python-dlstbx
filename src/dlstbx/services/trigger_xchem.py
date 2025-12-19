@@ -648,7 +648,9 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
         elif not CompoundSMILES:
-            self.log.info(f"{dtag} has no corresponding CompoundSMILES, skipping...")
+            self.log.info(
+                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, apo dataset? Skipping..."
+            )
             return {"success": True}
 
         # 3. Create the dataset directory

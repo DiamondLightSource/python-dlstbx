@@ -59,6 +59,7 @@ class PanDDAParameters(pydantic.BaseModel):
     backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=1.1, alias="backoff-multiplier")
+    pipedream: Optional[bool] = True
 
 
 class PanDDA_PostParameters(pydantic.BaseModel):
@@ -226,6 +227,7 @@ class DLSTriggerXChem(CommonService):
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
         comparator_threshold = parameters.comparator_threshold
+        pipedream = parameters.pipedream
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         # protein_id = getattr(protein_info, "proteinId")
@@ -291,7 +293,7 @@ class DLSTriggerXChem(CommonService):
                         subdir / "processing/database" / "soakDBDataFile.sqlite"
                     )
                     con = sqlite3.connect(
-                        f"file:{db_path}?mode=ro", uri=True, timeout=20
+                        f"file:{db_path}?mode=ro", uri=True, timeout=10
                     )
                     cur = con.cursor()
                     cur.execute("SELECT Protein FROM soakDB")
@@ -692,7 +694,9 @@ class DLSTriggerXChem(CommonService):
             self.log.info(
                 f"Dataset dataset_count {dataset_count} < comparator dataset threshold of {comparator_threshold}, skipping PanDDA2 for now..."
             )
-            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
+
+            if pipedream:
+                self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
             return {"success": True}
 
         elif dataset_count == comparator_threshold:
@@ -704,13 +708,17 @@ class DLSTriggerXChem(CommonService):
             self.log.info(
                 f"Dataset dataset_count {dataset_count} = comparator dataset threshold of {comparator_threshold}, launching PanDDA2 array job"
             )
-            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
             self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+
+            if pipedream:
+                self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
 
         elif dataset_count > comparator_threshold:
             self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
-            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
             self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+
+            if pipedream:
+                self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
 
         return {"success": True}
 

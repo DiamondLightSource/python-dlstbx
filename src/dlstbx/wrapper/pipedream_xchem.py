@@ -33,6 +33,7 @@ class PipedreamWrapper(Wrapper):
         dimple_mtz = dataset_dir / "dimple.mtz"
 
         self.log.info(f"Processing dtag: {dtag}")
+        self.process_pdb_file(dimple_pdb)
 
         pipedream_command = f"module load buster; module load graphviz; \
             export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
@@ -71,6 +72,50 @@ class PipedreamWrapper(Wrapper):
 
         self.log.info(f"Pipedream finished successfully for dtag {dtag}")
         return True
+
+    def process_pdb_file(self, dimple_pdb: Path, dtag: str):
+        self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
+
+        if dimple_pdb.exists():
+            with open(dimple_pdb, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            # Count removals by component type
+            original_count = len(lines)
+            components_to_remove = ["DMS", "EDO", "GOL", "SO4", "PO4", "PEG"]
+            removed_counts = dict.fromkeys(components_to_remove, 0)
+
+            kept_lines = []
+            for line in lines:
+                if any(res in line for res in components_to_remove):
+                    # Count which component was found
+                    for comp in components_to_remove:
+                        if comp in line:
+                            removed_counts[comp] += 1
+                            break
+                else:
+                    kept_lines.append(line)
+
+            # Write cleaned file
+            with open(dimple_pdb, "w", encoding="utf-8") as f:
+                f.writelines(kept_lines)
+
+            removed_total = original_count - len(kept_lines)
+            if removed_total > 0:
+                component_summary = ", ".join(
+                    [
+                        f"{comp}: {count}"
+                        for comp, count in removed_counts.items()
+                        if count > 0
+                    ]
+                )
+                self.log.debug(
+                    f"Removed {removed_total} lines from {dtag} ({component_summary})"
+                )
+
+        else:
+            self.log.debug(f"Dimple pdb {dimple_pdb} does not exist")
+            return True
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

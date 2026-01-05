@@ -125,9 +125,10 @@ class PanDDAWrapper(Wrapper):
         with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)
 
-        for item in compound_dir.iterdir():
-            if item.is_file():
-                shutil.copy2(item, ligand_dir / item.name)
+        # does ligand dir exist if --use_ligand_data=False ?
+        # for item in compound_dir.iterdir():
+        #     if item.is_file():
+        #         shutil.copy2(item, ligand_dir / item.name)
 
         modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"

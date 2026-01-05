@@ -28,8 +28,8 @@ class PanDDAWrapper(Wrapper):
 
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         # database_path = Path(params.get("database_path"))
-        processing_dir = Path(params.get("processing_directory"))
-        analysis_dir = Path(processing_dir / "analysis")
+        processed_dir = Path(params.get("processed_directory"))
+        analysis_dir = Path(processed_dir / "analysis")
         model_dir = Path(params.get("model_directory"))
         auto_panddas_dir = Path(analysis_dir / "auto_pandda2")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
@@ -125,9 +125,10 @@ class PanDDAWrapper(Wrapper):
         with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)
 
-        for item in compound_dir.iterdir():
-            if item.is_file():
-                shutil.copy2(item, ligand_dir / item.name)
+        # does ligand dir exist if --use_ligand_data=False ?
+        # for item in compound_dir.iterdir():
+        #     if item.is_file():
+        #         shutil.copy2(item, ligand_dir / item.name)
 
         modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"

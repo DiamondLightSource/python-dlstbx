@@ -131,7 +131,6 @@ class XOalignWrapper(Wrapper):
 
             if match := unit_cell_pattern.search(line):
                 unit_cell = [float(uc_param) for uc_param in match.groups()]
-                self.log.info(f"Found unit cell: {unit_cell}")
                 found_unit_cell = True
 
             if found_space_group and found_unit_cell:

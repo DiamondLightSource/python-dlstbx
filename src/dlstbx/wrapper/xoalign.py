@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
+
+from cctbx.crystal import symmetry
 
 import dlstbx.util.symlink
 from dlstbx.util import ChainMapWithReplacement
@@ -111,7 +114,32 @@ class XOalignWrapper(Wrapper):
         found_solutions = False
 
         ispyb_command_list = []
+
+        space_group_pattern = re.compile(
+            r"Space group symbol:\s*(\S+),\s*Number:\s*(\d+),\s*Point Group:\s*(\S+)"
+        )
+        unit_cell_pattern = re.compile(
+            r"Real cell:\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)"
+        )
+        found_space_group = False
+        found_unit_cell = False
+
         for line in xoalign_log.splitlines(True):
+            if match := space_group_pattern.search(line):
+                space_group_symbol = match.group(1)
+                found_space_group = True
+
+            if match := unit_cell_pattern.search(line):
+                unit_cell = [float(uc_param) for uc_param in match.groups()]
+                self.log.info(f"Found unit cell: {unit_cell}")
+                found_unit_cell = True
+
+            if found_space_group and found_unit_cell:
+                crystal_symmetry = symmetry(
+                    unit_cell=unit_cell,
+                    space_group_symbol=space_group_symbol,
+                )
+
             if "Independent Solutions" in line:
                 found_solutions = True
                 if "SmarGon" in line:
@@ -161,7 +189,20 @@ class XOalignWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 2: Store screeningStrategy results, linked to the screeningOutputId
+            # Step 2: Store screeningOutputLattice results, linked to the screeningOutputId
+            #         Keep the screeningOutputLatticeId
+            d = {
+                "ispyb_command": "insert_screening_output_lattice",
+                "screening_output_id": f"$ispyb_screening_output_id_{solution_id}",
+                "store_result": f"ispyb_screening_output_lattice_id_{solution_id}",
+            }
+            uc_params = crystal_symmetry.unit_cell().parameters()
+            for i, p in enumerate(("a", "b", "c", "alpha", "beta", "gamma")):
+                d["unitcell%s" % p] = uc_params[i]
+            d["spacegroup"] = crystal_symmetry.space_group_info().type().lookup_symbol()
+            ispyb_command_list.append(d)
+
+            # Step 3: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
                 "program": "XOalign",
@@ -171,7 +212,7 @@ class XOalignWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 3: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            # Step 4: Store screeningStrategyWedge results, linked to the screeningStrategyId
             #         Keep the screeningStrategyWedgeId
             d = {
                 "wedgenumber": 1,

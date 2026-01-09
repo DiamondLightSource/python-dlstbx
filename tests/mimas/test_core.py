@@ -127,9 +127,8 @@ def test_eiger_screening(get_zocalo_commands):
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
-        f"zocalo.go -r strategy-align-crystal {dcid}",
-        f"zocalo.go -r strategy-edna-eiger {dcid}",
         f"zocalo.go -r strategy-mosflm {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=strategy-align-crystal --display='align_crystal' --trigger",
     }
     return
 
@@ -173,8 +172,8 @@ def test_cbf_screening(get_zocalo_commands):
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
-        f"zocalo.go -r strategy-edna {dcid}",
         f"zocalo.go -r strategy-mosflm {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=strategy-align-crystal --display='align_crystal' --trigger",
     }
 
 

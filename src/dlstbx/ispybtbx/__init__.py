@@ -894,6 +894,7 @@ def ispyb_filter(
     )
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
+    parameters["ispyb_related_images"] = []
     parameters["ispyb_reference_geometry"] = None
     if visit_directory:
         parameters["ispyb_pdb"] = i.get_linked_pdb_files_for_dcid(
@@ -940,15 +941,53 @@ def ispyb_filter(
         # if a sample is linked to the dc, then get dcids on the same sample
         sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
         related_dcids = i.get_sample_dcids(sample_id, session)
-    elif dcid := parameters.get("ispyb_dcid"):
+    elif dc_id:
         # else get dcids collected into the same image directory
-        related_dcids = i.get_related_dcids_same_directory(dcid, session)
+        related_dcids = i.get_related_dcids_same_directory(dc_id, session)
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
     parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(
         dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
     )
+
+    # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
+    # beware if other projects start using this directory structure will
+    # need to be smarter here...
+
+    # Handle related DCID properties via DataCollectionGroup, if there is one
+    if dcg_id:
+        stmt = select(
+            models.DataCollection.dataCollectionId,
+            models.DataCollection.startImageNumber,
+            models.DataCollection.numberOfImages,
+            models.DataCollection.overlap,
+            models.DataCollection.axisRange,
+            models.DataCollection.fileTemplate,
+            models.DataCollection.imageDirectory,
+        ).where(models.DataCollection.dataCollectionGroupId == dcg_id)
+
+        related_images = []
+
+        for dc in session.execute(stmt).mappings():
+            start, end = i.dc_info_to_start_end(dc)
+            parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
+            parameters["ispyb_related_images"].append(
+                (dc.dataCollectionId, i.dc_info_to_filename(dc))
+            )
+
+            # We don't get related images for /dls/mx collections
+            if (
+                not parameters["ispyb_image_directory"].startswith("/dls/mx")
+                and dc.dataCollectionId != dc_id
+                and i.dc_info_is_rotation_scan(dc)
+            ):
+                related_images.append(
+                    "%s:%d:%d" % (i.dc_info_to_filename(dc), start, end)
+                )
+
+        if not parameters.get("ispyb_images"):
+            parameters["ispyb_images"] = ",".join(related_images)
 
     pin_info = i.get_pin_info_from_sample_id(
         parameters["ispyb_dc_info"].get("BLSAMPLEID"), session
@@ -987,41 +1026,6 @@ def ispyb_filter(
     )
     parameters["ispyb_ssx_events"] = events or None
     parameters["ispyb_ssx_shots_per_image"] = shots_per_image or None
-
-    # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
-    # beware if other projects start using this directory structure will
-    # need to be smarter here...
-
-    # Handle related DCID properties via DataCollectionGroup, if there is one
-    if dcg_id:
-        stmt = select(
-            models.DataCollection.dataCollectionId,
-            models.DataCollection.startImageNumber,
-            models.DataCollection.numberOfImages,
-            models.DataCollection.overlap,
-            models.DataCollection.axisRange,
-            models.DataCollection.fileTemplate,
-            models.DataCollection.imageDirectory,
-        ).where(models.DataCollection.dataCollectionGroupId == dcg_id)
-
-        related_images = []
-
-        for dc in session.execute(stmt).mappings():
-            start, end = i.dc_info_to_start_end(dc)
-            parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
-
-            # We don't get related images for /dls/mx collections
-            if (
-                not parameters["ispyb_image_directory"].startswith("/dls/mx")
-                and dc.dataCollectionId != dc_id
-                and i.dc_info_is_rotation_scan(dc)
-            ):
-                related_images.append(
-                    "%s:%d:%d" % (i.dc_info_to_filename(dc), start, end)
-                )
-
-        if not parameters.get("ispyb_images"):
-            parameters["ispyb_images"] = ",".join(related_images)
 
     return message, parameters
 

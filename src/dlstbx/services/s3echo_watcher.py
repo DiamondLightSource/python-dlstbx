@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from pprint import pformat
+from pprint import pformat, pprint
 
 import minio
 import workflows.recipe
@@ -85,21 +85,24 @@ class S3EchoWatcher(CommonService):
             return False
 
         upload_file_list = s3echo_upload_files.keys()
+        pprint(s3echo_upload_files)
         if s3_urls := message.get("s3_urls", {}) if isinstance(message, dict) else {}:
             upload_file_list = sorted(
                 {
-                    file_name
-                    for file_name in s3echo_upload_files
-                    if all(file_name not in upload_name for upload_name in s3_urls)
+                    filename
+                    for filename, (dcid, _) in s3echo_upload_files.items()
+                    if all(
+                        f"{dcid}_{filename}" not in upload_name
+                        for upload_name in s3_urls
+                    )
                 }
             )
+        pprint(upload_file_list)
         filename = next(iter(upload_file_list))
         self.log.debug(f"Looking for {filename} file upload status.")
         try:
-            result = self.minio_client.stat_object(
-                bucket_name, "_".join([params["dcid"], filename])
-            )
-            filepath = s3echo_upload_files.get(filename)
+            dcid, filepath = s3echo_upload_files.get(filename)
+            result = self.minio_client.stat_object(bucket_name, f"{dcid}_{filename}")
             file_size = Path(filepath).stat().st_size
         except minio.error.S3Error:
             # File hasn't been uploaded yet
@@ -127,7 +130,7 @@ class S3EchoWatcher(CommonService):
             upload_s3_url = get_presigned_urls(
                 minio_client,
                 params["bucket"],
-                params["dcid"],
+                dcid,
                 [
                     filepath,
                 ],

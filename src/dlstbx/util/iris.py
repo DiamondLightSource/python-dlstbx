@@ -5,7 +5,6 @@ import glob
 import io
 import json
 import os
-import shutil
 import subprocess
 import time
 import urllib.parse
@@ -109,21 +108,27 @@ def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls, logger):
             )
 
 
-def get_image_files(working_directory, images, logger):
+def get_image_files(images, logger):
     file_list = {}
-    for h5_file in images:
-        try:
-            related = set(find_all_references(h5_file))
-        except (ValueError, KeyError):
-            logger.error(f"Could not find files related to {h5_file}", exc_info=True)
-        image_pattern = str(h5_file).split("master")[0] + "*"
-        related.union(glob.glob(image_pattern))
-        for filepath in sorted(related):
-            filename = Path(filepath).name
-            logger.info(f"Found image file {filepath}")
-            file_list[filename] = filepath
-            if working_directory:
-                shutil.copy(filepath, working_directory / filename)
+    h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
+    for h5_file in h5_paths:
+        related_files = get_related_images_files_from_h5(h5_file, logger)
+        file_list.update(related_files)
+    return file_list
+
+
+def get_related_images_files_from_h5(h5_file, logger):
+    file_list = {}
+    try:
+        related = set(find_all_references(h5_file))
+    except (ValueError, KeyError):
+        logger.error(f"Could not find files related to {h5_file}", exc_info=True)
+    image_pattern = str(h5_file).split("master")[0] + "*"
+    related.union(glob.glob(image_pattern))
+    for filepath in sorted(related):
+        filename = Path(filepath).name
+        logger.info(f"Found image file {filepath}")
+        file_list[filename] = filepath
     return file_list
 
 
@@ -189,7 +194,7 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger)
     s3_urls = {}
     store_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
     for filepath in files:
-        filename = "_".join([pid, Path(filepath).name])
+        filename = f"{pid}_{Path(filepath).name}"
         file_size = Path(filepath).stat().st_size
         upload_file = True
         if filename in store_objects:
@@ -320,7 +325,12 @@ def update_dcid_info_file(minio_client, bucket_name, dcid, status, rpid, logger)
             if rpid > 0:
                 dcid_info["pid"].append(rpid)
             else:
-                dcid_info["pid"].remove(abs(rpid))
+                try:
+                    dcid_info["pid"].remove(abs(rpid))
+                except ValueError:
+                    logger.error(
+                        f"{rpid} value not in info file list: {dcid_info['pid']}"
+                    )
 
         if status is not None or rpid is not None:
             str_buffer = io.BytesIO(json.dumps(dcid_info).encode())

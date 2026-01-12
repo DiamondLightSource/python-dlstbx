@@ -473,23 +473,6 @@ class autoPROCWrapper(Wrapper):
         )
         return success
 
-    def setup(self, working_directory: Path, params: dict):
-        # Create working directory with symbolic link
-        if params.get("create_symlink"):
-            dlstbx.util.symlink.create_parent_symlink(
-                working_directory, params["create_symlink"], levels=1
-            )
-
-        if images := params.get("s3echo_upload"):
-            try:
-                image_files = iris.get_image_files(None, images, self.log)
-                self.recwrap.environment.update({"s3echo_upload": image_files})
-            except Exception:
-                self.log.exception("Error uploading image files to S3 Echo")
-                return False
-
-        return True
-
     def run_autoPROC(self, working_directory: Path, params: dict):
         subprocess_directory = working_directory / "autoPROC"
         subprocess_directory.mkdir(parents=True, exist_ok=True)
@@ -626,6 +609,9 @@ class autoPROCWrapper(Wrapper):
         results_directory = Path(params["results_directory"]) / "autoPROC"
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                working_directory, params["create_symlink"], levels=1
+            )
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(results_directory), params["create_symlink"]
             )
@@ -803,11 +789,8 @@ class autoPROCWrapper(Wrapper):
                     )
 
         stage = params.get("stage")
-        assert stage in {None, "setup", "run", "report"}
+        assert stage in {None, "run", "report"}
         success = True
-
-        if stage in {None, "setup"}:
-            success = self.setup(working_directory, params)
 
         if stage in {None, "run"} and success:
             success = self.run_autoPROC(working_directory, params)

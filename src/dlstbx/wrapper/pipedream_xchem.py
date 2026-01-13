@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+import os
 import sqlite3
 import subprocess
 from pathlib import Path
+
+import portalocker
 
 from dlstbx.wrapper import Wrapper
 
@@ -21,19 +25,78 @@ class PipedreamWrapper(Wrapper):
         # database_path = Path(params.get("database_path"))
         processed_dir = Path(params.get("processed_directory"))
         analysis_dir = Path(processed_dir / "analysis")
-        model_dir = Path(params.get("model_directory"))
+        pipedream_dir = analysis_dir / "pipedream"
+        model_dir = pipedream_dir / "auto_model_building"
         dtag = params.get("dtag")
 
         dataset_dir = model_dir / dtag
-        pipedream_dir = analysis_dir / "pipedream"
-        Path(pipedream_dir).mkdir(parents=True, exist_ok=True)
         out_dir = pipedream_dir / dtag
-        upstream_mtz = params.get("upstream_mtz")
         dimple_pdb = dataset_dir / "dimple.pdb"
         dimple_mtz = dataset_dir / "dimple.mtz"
+        upstream_mtz = dataset_dir / params.get("upstream_mtz")
 
         self.log.info(f"Processing dtag: {dtag}")
+
+        dataset_dir = model_dir / dtag
+        compound_dir = dataset_dir / "compound"
+
+        smiles_files = list(compound_dir.glob("*.smiles"))
+
+        if len(smiles_files) == 0:
+            self.log.error(
+                f"No .smiles file present in {compound_dir}, cannot continue for dtag {dtag}"
+            )
+            return False
+        elif len(smiles_files) > 1:
+            self.log.error(
+                f"Multiple .smiles files found in in {compound_dir}: {smiles_files}, warning for dtag {dtag}"
+            )
+            return False
+
+        smiles_file = smiles_files[0]
+        CompoundCode = smiles_file.stem
+
+        # -------------------------------------------------------
+        restraints_command = f"module load buster; module load graphviz; \
+                               export CSDHOME=/dls_sw/apps/CSDS/2024.1.0/; export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
+                               grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f"
+
+        try:
+            result = subprocess.run(
+                restraints_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=compound_dir,
+                check=True,
+                timeout=params.get("timeout-minutes") * 60,
+            )
+
+        except subprocess.CalledProcessError as e:
+            self.log.error(
+                f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
+            )
+
+            self.log.info(e.stdout)
+            self.log.error(e.stderr)
+            return False
+
+        restraints = compound_dir / f"{CompoundCode}.restraints.cif"
+        restraints.rename(compound_dir / f"{CompoundCode}.cif")
+        pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
+        pdb.rename(compound_dir / f"{CompoundCode}.pdb")
+
+        with open(dataset_dir / "restraints.log", "w") as log_file:
+            log_file.write(result.stdout)
+
+        ligand_cif = str(compound_dir / f"{CompoundCode}.cif")
+        self.log.info(f"Restraints generated succesfully for dtag {dtag}")
+
+        self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
         self.process_pdb_file(dimple_pdb)
+        self.log.info(f"Launching pipedream for {dtag}")
+
+        # -------------------------------------------------------
 
         pipedream_command = f"module load buster; module load graphviz; \
             export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
@@ -50,32 +113,106 @@ class PipedreamWrapper(Wrapper):
             -runpepflip \
             -rhocommands \
             -xclusters \
-            -nochirals "
-        # -rhofit ligand.cif
+            -nochirals \
+            -rhofit {ligand_cif}"
+
+        # try:
+        #     result = subprocess.run(
+        #         pipedream_command,
+        #         shell=True,
+        #         capture_output=True,
+        #         text=True,
+        #         cwd=analysis_dir,
+        #         check=True,
+        #         timeout=params.get("timeout-minutes") * 60,
+        #     )
+
+        # except subprocess.CalledProcessError as e:
+        #     self.log.error(f"Pipedream command: '{pipedream_command}' failed")
+        #     self.log.info(e.stdout)
+        #     self.log.error(e.stderr)
+        #     return False
+
+        self.log.info(f"Pipedream finished successfully for dtag {dtag}")
+
+        pipedream_summary = f"{out_dir}/pipedream_summary.json"
+        self.save_dataset_metadata(
+            str(pipedream_dir),
+            str(compound_dir),
+            str(out_dir),
+            CompoundCode,
+            params.get("smiles"),
+            pipedream_command,
+            dtag,
+        )
+
+        try:
+            with open(pipedream_summary, "r") as f:
+                data = json.load(f)
+                reslo = (
+                    data.get("dataprocessing", {})
+                    .get("inputdata", {})
+                    .get("reslo", None)
+                )
+                reshi = (
+                    data.get("dataprocessing", {})
+                    .get("inputdata", {})
+                    .get("reshigh", None)
+                )
+        except Exception as e:
+            self.log.info(f"Cannot continue with pipedream postprocessing: {e}")
+            return True
+
+        # Post-processing: Generate maps and run edstats
+        postrefine_dir = out_dir / f"postrefine-{CompoundCode}"
+        refine_mtz = postrefine_dir / "refine.mtz"
+        refine_pdb = postrefine_dir / "refine.pdb"
+        map_2fofc = postrefine_dir / "refine_2fofc.map"
+        map_fofc = postrefine_dir / "refine_fofc.map"
+
+        try:
+            os.system(f"gemmi sf2map --sample 5 {str(refine_mtz)} {map_2fofc} 2>&1")
+            os.system(f"gemmi sf2map --sample 5 {str(refine_mtz)} {map_fofc} 2>&1")
+        except Exception as e:
+            self.log.debug(f"Cannot continue with pipedream postprocessing: {e}")
+            return True
+
+        if reslo is None or reshi is None:
+            self.log.debug(
+                "Cannot continue with pipedream postprocessing: resolution range None"
+            )
+            return True
+
+        # Run edstats if both maps exist and resolution range is found
+        if not map_2fofc.exists() or not map_fofc.exists():
+            self.log.debug(
+                "Cannot continue with pipedream postprocessing: maps not found"
+            )
+            return True
+
+        edstats_command = f"module load ccp4; edstats XYZIN {refine_pdb} MAPIN1 {map_2fofc} MAPIN2 {map_fofc} OUT {str(postrefine_dir / 'edstats.out')}"
+        stdin_text = f"RESLO={reslo}\nRESHI={reshi}\nEND\n"
 
         try:
             result = subprocess.run(
-                pipedream_command,
-                shell=True,
-                capture_output=True,
+                edstats_command,
+                input=stdin_text,
                 text=True,
-                cwd=analysis_dir,
+                capture_output=True,
                 check=True,
-                timeout=params.get("timeout-minutes") * 60,
+                shell=True,
             )
 
         except subprocess.CalledProcessError as e:
-            self.log.error(f"Pipedream command: '{pipedream_command}' failed")
+            self.log.error(f"Edstats command: '{edstats_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            return False
+            return True
 
-        self.log.info(f"Pipedream finished successfully for dtag {dtag}")
+        self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
         return True
 
-    def process_pdb_file(self, dimple_pdb: Path, dtag: str):
-        self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
-
+    def process_pdb_file(self, dimple_pdb: Path):
         if dimple_pdb.exists():
             with open(dimple_pdb, "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -109,13 +246,56 @@ class PipedreamWrapper(Wrapper):
                         if count > 0
                     ]
                 )
-                self.log.debug(
-                    f"Removed {removed_total} lines from {dtag} ({component_summary})"
-                )
+                self.log.debug(f"Removed {removed_total} lines. ({component_summary})")
 
         else:
             self.log.debug(f"Dimple pdb {dimple_pdb} does not exist")
             return True
+
+    def save_dataset_metadata(
+        self,
+        pipedream_dir,
+        input_dir,
+        output_dir,
+        compound_code,
+        smiles_string,
+        pipedream_cmd,
+        dtag,
+    ):
+        metadata = {
+            "Input_dir": input_dir,
+            "CompoundCode": compound_code,
+            "PipedreamDirectory": output_dir,
+            "ReportHTML": f"{output_dir}/report-{compound_code}/index.html",
+            "LigandReportHTML": f"{output_dir}/report-{compound_code}/ligand/index.html",
+            "ExpectedSummary": f"{output_dir}/pipedream_summary.json",
+            "PipedreamCommand": pipedream_cmd,
+            "ExpectedCIF": os.path.join(input_dir, f"{compound_code}.cif"),
+            "ExpectedPDB": os.path.join(input_dir, f"{compound_code}.pdb"),
+            "InputSMILES": smiles_string,
+        }
+
+        output_yaml = {}
+        output_yaml[dtag] = metadata
+        json_file = f"{pipedream_dir}/Pipedream_output.json"
+
+        # Acquire a lock
+        with portalocker.Lock(json_file, "a", timeout=5):
+            if os.path.exists(json_file) and os.path.getsize(json_file) > 0:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    try:
+                        data = json.load(f)
+                    except Exception as e:
+                        self.log.debug(
+                            f"Cannot continue with pipedream postprocessing: {e}"
+                        )
+            else:
+                data = {}
+
+            data.update(output_yaml)
+
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

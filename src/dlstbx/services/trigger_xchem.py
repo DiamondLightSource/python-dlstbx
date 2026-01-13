@@ -399,7 +399,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Stop-gap
-        min_start_time = datetime.now() - timedelta(minutes=30)
+        min_start_time = datetime.now() - timedelta(hours=3)
 
         query = (
             (
@@ -421,7 +421,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Now check if other upstream pipeline is running and if so, checkpoint (it might fail)
-        min_start_time = datetime.now() - timedelta(hours=3)
+        min_start_time = datetime.now() - timedelta(hours=6)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -591,10 +591,16 @@ class DLSTriggerXChem(CommonService):
         )
         scaling_id = int(df3["autoProcScalingId"][0])
         environment = df3["processingEnvironment"][0]
-        upstream_mtz = ast.literal_eval(
-            re.search(r"data=(\[[^\]]*\])", environment).group(1)
-        )[0]
-        self.log.info(f"Chosen mtz for dcid {dcid} is {upstream_mtz}")
+        environment = re.search(r"data=(\[[^\]]*\])", environment)
+
+        if environment:
+            upstream_mtz = ast.literal_eval(environment.group(1))[0]
+            self.log.info(f"Chosen mtz for dcid {dcid} is {upstream_mtz}")
+        else:
+            self.log.info(
+                "Cannot trigger PanDDA2/Pipedream: no environment information"
+            )
+
         # upstream_proc = df[df['autoProcScalingId']==scaling_id]['processingPrograms'].item() # fails
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
@@ -639,7 +645,6 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # ProteinName = df["ProteinName"].item()
         LibraryName = df["LibraryName"].item()
         CompoundSMILES = df["CompoundSMILES"].item()
         CompoundCode = df["CompoundCode"].item()
@@ -649,14 +654,21 @@ class DLSTriggerXChem(CommonService):
                 f"{dtag} is DMSO solvent screen, excluding from PanDDA analysis"
             )
             return {"success": True}
-        elif not CompoundSMILES:
+        elif not CompoundSMILES or str(CompoundSMILES).strip().lower() in [
+            "none",
+            "null",
+            "nan",
+            "",
+        ]:
             self.log.info(
-                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, apo dataset? Skipping..."
+                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES. Skipping..."
             )
             return {"success": True}
 
         # 3. Create the dataset directory
-        model_dir = processed_dir / "analysis" / "auto_model_building"
+        analysis_dir = processed_dir / "analysis"
+        pandda_dir = analysis_dir / "pandda2"
+        model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
         self.log.info(f"Creating directory {dataset_dir}")
@@ -675,19 +687,35 @@ class DLSTriggerXChem(CommonService):
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
 
+        # Create seperate pipedream directory
+        pipedream_dir = analysis_dir / "pipedream"
+        model_dir_pd = pipedream_dir / "model_building"
+        dataset_dir_pd = model_dir_pd / dtag
+        compound_dir_pd = dataset_dir_pd / "compound"
+        self.log.info(f"Creating directory {dataset_dir_pd}")
+        pathlib.Path(compound_dir_pd).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pdb, str(dataset_dir_pd / "dimple.pdb"))
+        shutil.copy(mtz, str(dataset_dir_pd / "dimple.mtz"))
+        shutil.copy(
+            upstream_mtz, str(dataset_dir_pd / pathlib.Path(upstream_mtz).parts[-1])
+        )
+
+        with open(compound_dir_pd / f"{CompoundCode}.smiles", "w") as smi_file:
+            smi_file.write(CompoundSMILES)
+
         # 4. Job launch logic
 
         recipe_parameters = {
             "dcid": dcid,
             "processed_directory": str(processed_dir),
             "model_directory": str(model_dir),
-            "dataset_directory": str(dataset_dir),
             "dtag": dtag,
             "n_datasets": 1,
             "scaling_id": scaling_id,
             "comparator_threshold": comparator_threshold,
             "database_path": str(db),
-            "upstream_mtz": upstream_mtz,
+            "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
+            "smiles": str(CompoundSMILES),
         }
 
         if dataset_count < comparator_threshold:
@@ -762,7 +790,7 @@ class DLSTriggerXChem(CommonService):
         visit_number = visit.split("-")[1]
 
         # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(hours=0.2)
+        min_start_time = datetime.now() - timedelta(minutes=20)
 
         # from proposal and visit get all dcids
         query = (

@@ -28,6 +28,7 @@ class PipedreamWrapper(Wrapper):
         pipedream_dir = analysis_dir / "pipedream"
         model_dir = pipedream_dir / "auto_model_building"
         dtag = params.get("dtag")
+        smiles = params.get("smiles")
 
         dataset_dir = model_dir / dtag
         out_dir = pipedream_dir / dtag
@@ -116,22 +117,22 @@ class PipedreamWrapper(Wrapper):
             -nochirals \
             -rhofit {ligand_cif}"
 
-        # try:
-        #     result = subprocess.run(
-        #         pipedream_command,
-        #         shell=True,
-        #         capture_output=True,
-        #         text=True,
-        #         cwd=analysis_dir,
-        #         check=True,
-        #         timeout=params.get("timeout-minutes") * 60,
-        #     )
+        try:
+            result = subprocess.run(
+                pipedream_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=analysis_dir,
+                check=True,
+                timeout=params.get("timeout-minutes") * 60,
+            )
 
-        # except subprocess.CalledProcessError as e:
-        #     self.log.error(f"Pipedream command: '{pipedream_command}' failed")
-        #     self.log.info(e.stdout)
-        #     self.log.error(e.stderr)
-        #     return False
+        except subprocess.CalledProcessError as e:
+            self.log.error(f"Pipedream command: '{pipedream_command}' failed")
+            self.log.info(e.stdout)
+            self.log.error(e.stderr)
+            return False
 
         self.log.info(f"Pipedream finished successfully for dtag {dtag}")
 
@@ -141,7 +142,7 @@ class PipedreamWrapper(Wrapper):
             str(compound_dir),
             str(out_dir),
             CompoundCode,
-            params.get("smiles"),
+            smiles,
             pipedream_command,
             dtag,
         )

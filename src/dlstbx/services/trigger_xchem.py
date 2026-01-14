@@ -796,10 +796,7 @@ class DLSTriggerXChem(CommonService):
         visit_proposal = visit.split("-")[0]
         visit_number = visit.split("-")[1]
 
-        # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(minutes=30)
-
-        # from proposal and visit get all dcids
+        # From proposal and visit get all dcids
         query = (
             session.query(Proposal, BLSession, DataCollection)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -822,7 +819,6 @@ class DLSTriggerXChem(CommonService):
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms == "PanDDA2-post")
-            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
                 or_(
                     AutoProcProgram.processingStatus == None,  # noqa E711

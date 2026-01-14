@@ -122,6 +122,11 @@ class PanDDAWrapper(Wrapper):
         dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
         ligand_dir = dataset_pdir / "ligand_files"
 
+        for file in compound_dir.rglob("*"):
+            if file.is_file() and file.suffix.lower() in {".pdb", ".cif", ".smiles"}:
+                target = ligand_dir / file.name
+                shutil.copy2(file, target)
+
         pandda_log = dataset_pdir / "pandda2.log"
         with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)

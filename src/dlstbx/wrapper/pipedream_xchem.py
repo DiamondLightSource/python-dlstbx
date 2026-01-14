@@ -26,12 +26,13 @@ class PipedreamWrapper(Wrapper):
         processed_dir = Path(params.get("processed_directory"))
         analysis_dir = Path(processed_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
-        model_dir = pipedream_dir / "auto_model_building"
+        model_dir = pipedream_dir / "model_building"
         dtag = params.get("dtag")
         smiles = params.get("smiles")
 
         dataset_dir = model_dir / dtag
         out_dir = pipedream_dir / dtag
+
         dimple_pdb = dataset_dir / "dimple.pdb"
         dimple_mtz = dataset_dir / "dimple.mtz"
         upstream_mtz = dataset_dir / params.get("upstream_mtz")
@@ -123,7 +124,7 @@ class PipedreamWrapper(Wrapper):
                 shell=True,
                 capture_output=True,
                 text=True,
-                cwd=analysis_dir,
+                cwd=pipedream_dir,
                 check=True,
                 timeout=params.get("timeout-minutes") * 60,
             )
@@ -161,7 +162,7 @@ class PipedreamWrapper(Wrapper):
                     .get("reshigh", None)
                 )
         except Exception as e:
-            self.log.info(f"Cannot continue with pipedream postprocessing: {e}")
+            self.log.info(f"Can't continue with pipedream postprocessing: {e}")
             return True
 
         # Post-processing: Generate maps and run edstats
@@ -180,14 +181,14 @@ class PipedreamWrapper(Wrapper):
 
         if reslo is None or reshi is None:
             self.log.debug(
-                "Cannot continue with pipedream postprocessing: resolution range None"
+                "Can't continue with pipedream postprocessing: resolution range None"
             )
             return True
 
         # Run edstats if both maps exist and resolution range is found
         if not map_2fofc.exists() or not map_fofc.exists():
             self.log.debug(
-                "Cannot continue with pipedream postprocessing: maps not found"
+                "Can't continue with pipedream postprocessing: maps not found"
             )
             return True
 

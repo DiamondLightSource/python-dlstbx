@@ -23,15 +23,15 @@ class PanDDAWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
+        PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         params = self.recwrap.recipe_step["job_parameters"]
 
-        PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         # database_path = Path(params.get("database_path"))
         processed_dir = Path(params.get("processed_directory"))
         analysis_dir = Path(processed_dir / "analysis")
         pandda_dir = analysis_dir / "pandda2"
-        model_dir = Path(params.get("model_directory"))
+        model_dir = pandda_dir / "model_building"
         auto_panddas_dir = Path(pandda_dir / "panddas")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 

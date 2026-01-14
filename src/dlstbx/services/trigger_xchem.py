@@ -316,7 +316,9 @@ class DLSTriggerXChem(CommonService):
                     print(f"Problem reading .sqlite database for {subdir}: {e}")
 
         if not match:
-            self.log.debug(f"No directory found for {acronym}, can't continue")
+            self.log.debug(
+                f"Exiting PanDDA2/Pipedream trigger: No directory found for {acronym}."
+            )
             return {"success": True}
         else:
             xchem_visit_dir = match_dir
@@ -324,17 +326,17 @@ class DLSTriggerXChem(CommonService):
 
         if xchem_visit_dir:
             self.log.debug(
-                f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}"
+                f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}."
             )
         else:
             self.log.debug(
-                f"Could not find a corresponding .sqlite database in XChem visit {xchem_dir} for target {acronym}, can't continue"
+                f"Exiting PanDDA2/Pipedream trigger: can't find .sqlite database in XChem visit {xchem_dir} for target {acronym}."
             )
             return {"success": True}
 
         processing_dir = xchem_visit_dir / "processing"
+        db = processing_dir / "database" / "soakDBDataFile.sqlite"
         processed_dir = xchem_visit_dir / "processed"
-        db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
         # Make a copy of the most recent sqlite for reading
         # db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
@@ -366,11 +368,11 @@ class DLSTriggerXChem(CommonService):
 
         if query.first()[0] == "fast_dp":
             self.log.info(
-                "Aborting PanDDA2 trigger as upstream processingProgram is fast_dp"
+                "Exiting PanDDA2/Pipedream trigger: upstream processingProgram is fast_dp"
             )
             return {"success": True}
 
-        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
+        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails?
         min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
@@ -394,11 +396,11 @@ class DLSTriggerXChem(CommonService):
 
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Aborting PanDDA2 trigger as another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Exiting PanDDA2/Pipedream trigger: another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
 
-        # Stop-gap
+        # Stop-gap, interval > max checkpoint time
         min_start_time = datetime.now() - timedelta(hours=3)
 
         query = (
@@ -416,7 +418,7 @@ class DLSTriggerXChem(CommonService):
 
         if triggered_processing_job := query.first():
             self.log.info(
-                "Aborting PanDDA2 trigger as another PanDDA2 job was recently launched"
+                f"Exiting PanDDA2/Pipedream trigger: another PanDDA2 job was recently launched for dcid {dcid}"
             )
             return {"success": True}
 
@@ -468,7 +470,7 @@ class DLSTriggerXChem(CommonService):
                 # Give up waiting for this program to finish and trigger
                 # pandda with remaining related results are available
                 self.log.info(
-                    f"max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
+                    f"Max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
                 )
             else:
                 # Send results to myself for next round of processing
@@ -562,7 +564,7 @@ class DLSTriggerXChem(CommonService):
         df2 = pd.read_sql(query.statement, query.session.bind)
         if df2.empty:
             self.log.info(
-                f"No successful dimple jobs for dcid {dcid}, can't continue..."
+                f"Exiting PanDDA2/Pipedream trigger: No successful dimple jobs for dcid {dcid}, skipping..."
             )
             return {"success": True}
 
@@ -581,7 +583,7 @@ class DLSTriggerXChem(CommonService):
 
         if df3.empty:
             self.log.info(
-                f"Problem finding 'best' dataset to take forward for PanDDA2 for dcid {dcid}"
+                f"Exiting PanDDA2/Pipedream trigger: Issue selecting dataset to take forward for dcid {dcid}"
             )
             return {"success": True}
 
@@ -598,8 +600,9 @@ class DLSTriggerXChem(CommonService):
             self.log.info(f"Chosen mtz for dcid {dcid} is {upstream_mtz}")
         else:
             self.log.info(
-                "Cannot trigger PanDDA2/Pipedream: no environment information"
+                "Exiting PanDDA2/Pipedream trigger: no environment information"
             )
+            return {"success": True}
 
         # upstream_proc = df[df['autoProcScalingId']==scaling_id]['processingPrograms'].item() # fails
         pdb = chosen_dataset_path + "/final.pdb"
@@ -621,7 +624,7 @@ class DLSTriggerXChem(CommonService):
         dtag = query.one()[1]
         code = query.one()[2]
 
-        # Read XChem SQLite for ligand info
+        # Read XChem SQLite database for ligand info
         try:
             conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10)
             df = pd.read_sql_query(
@@ -631,7 +634,7 @@ class DLSTriggerXChem(CommonService):
 
         except Exception as e:
             self.log.info(
-                f"Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
+                f"Exiting PanDDA2/Pipedream trigger: Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
             )
             return {"success": True}
 
@@ -641,7 +644,7 @@ class DLSTriggerXChem(CommonService):
 
         if len(df) != 1:
             self.log.info(
-                f"Unique row in .sqlite for dtag {dtag}, puck {code}, puck position {location} cannot be found in database {db}, can't continue."
+                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {code}, puck position {location} cannot be found in {db}, skipping..."
             )
             return {"success": True}
 
@@ -649,9 +652,9 @@ class DLSTriggerXChem(CommonService):
         CompoundSMILES = df["CompoundSMILES"].item()
         CompoundCode = df["CompoundCode"].item()
 
-        if LibraryName == "DMSO":  # exclude DMSO screen from PanDDA analysis
+        if LibraryName == "DMSO":
             self.log.info(
-                f"{dtag} is DMSO solvent screen, excluding from PanDDA analysis"
+                f"Exiting PanDDA2/Pipedream trigger: {dtag} is DMSO solvent screen, skipping..."
             )
             return {"success": True}
         elif not CompoundSMILES or str(CompoundSMILES).strip().lower() in [
@@ -661,7 +664,7 @@ class DLSTriggerXChem(CommonService):
             "",
         ]:
             self.log.info(
-                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES. Skipping..."
+                f"Exiting PanDDA2/Pipedream trigger: {dtag} has no corresponding CompoundSMILES, skipping..."
             )
             return {"success": True}
 
@@ -688,20 +691,21 @@ class DLSTriggerXChem(CommonService):
             smi_file.write(CompoundSMILES)
 
         # Create seperate pipedream directory
-        pipedream_dir = analysis_dir / "pipedream"
-        model_dir_pd = pipedream_dir / "model_building"
-        dataset_dir_pd = model_dir_pd / dtag
-        compound_dir_pd = dataset_dir_pd / "compound"
-        self.log.info(f"Creating directory {dataset_dir_pd}")
-        pathlib.Path(compound_dir_pd).mkdir(parents=True, exist_ok=True)
-        shutil.copy(pdb, str(dataset_dir_pd / "dimple.pdb"))
-        shutil.copy(mtz, str(dataset_dir_pd / "dimple.mtz"))
-        shutil.copy(
-            upstream_mtz, str(dataset_dir_pd / pathlib.Path(upstream_mtz).parts[-1])
-        )
+        if pipedream:
+            pipedream_dir = analysis_dir / "pipedream"
+            model_dir_pd = pipedream_dir / "model_building"
+            dataset_dir_pd = model_dir_pd / dtag
+            compound_dir_pd = dataset_dir_pd / "compound"
+            self.log.info(f"Creating directory {dataset_dir_pd}")
+            pathlib.Path(compound_dir_pd).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pdb, str(dataset_dir_pd / "dimple.pdb"))
+            shutil.copy(mtz, str(dataset_dir_pd / "dimple.mtz"))
+            shutil.copy(
+                upstream_mtz, str(dataset_dir_pd / pathlib.Path(upstream_mtz).parts[-1])
+            )
 
-        with open(compound_dir_pd / f"{CompoundCode}.smiles", "w") as smi_file:
-            smi_file.write(CompoundSMILES)
+            with open(compound_dir_pd / f"{CompoundCode}.smiles", "w") as smi_file:
+                smi_file.write(CompoundSMILES)
 
         # 4. Job launch logic
 
@@ -720,10 +724,11 @@ class DLSTriggerXChem(CommonService):
 
         if dataset_count < comparator_threshold:
             self.log.info(
-                f"Dataset dataset_count {dataset_count} < comparator dataset threshold of {comparator_threshold}, skipping PanDDA2 for now..."
+                f"{dataset_count} < comparator dataset threshold of {comparator_threshold}, skipping PanDDA2 for now..."
             )
 
             if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
                 self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
             return {"success": True}
 
@@ -734,11 +739,12 @@ class DLSTriggerXChem(CommonService):
                 json.dump(dataset_list, f)
 
             self.log.info(
-                f"Dataset dataset_count {dataset_count} = comparator dataset threshold of {comparator_threshold}, launching PanDDA2 array job"
+                f"{dataset_count} = comparator dataset threshold of {comparator_threshold}, launching PanDDA2 array job"
             )
             self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
 
             if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
                 self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
 
         elif dataset_count > comparator_threshold:
@@ -746,6 +752,7 @@ class DLSTriggerXChem(CommonService):
             self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
 
             if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
                 self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
 
         return {"success": True}
@@ -790,7 +797,7 @@ class DLSTriggerXChem(CommonService):
         visit_number = visit.split("-")[1]
 
         # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(minutes=20)
+        min_start_time = datetime.now() - timedelta(minutes=30)
 
         # from proposal and visit get all dcids
         query = (

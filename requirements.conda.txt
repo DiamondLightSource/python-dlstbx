@@ -11,6 +11,7 @@ nxmx
 pandas
 pika
 pint
+portalocker
 procrunner>=1.0.2
 prometheus_client
 pydantic>=2.0.3

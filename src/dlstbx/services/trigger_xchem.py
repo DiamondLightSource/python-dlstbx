@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import json
 import pathlib
+import re
 import shutil
 import sqlite3
 from datetime import datetime, timedelta
@@ -57,6 +59,7 @@ class PanDDAParameters(pydantic.BaseModel):
     backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=1.1, alias="backoff-multiplier")
+    pipedream: Optional[bool] = True
 
 
 class PanDDA_PostParameters(pydantic.BaseModel):
@@ -64,7 +67,7 @@ class PanDDA_PostParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    processing_directory: str
+    processed_directory: str
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
 
 
@@ -157,6 +160,34 @@ class DLSTriggerXChem(CommonService):
             return
         rw.transport.transaction_commit(txn)
 
+    def upsert_proc(self, rw, dcid, procname, recipe_parameters):
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = True
+        # jp["comments"] = parameters.comment
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "procname"
+        jp["recipe"] = f"postprocessing-{procname.lower()}"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"{procname} trigger: generated JobID {jobid}")
+
+        for key, value in recipe_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"{procname} trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        self.log.debug(f"{procname}_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"{procname}_id trigger: Processing job {jobid} triggered")
+
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_pandda_xchem(
         self,
@@ -195,6 +226,8 @@ class DLSTriggerXChem(CommonService):
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
+        comparator_threshold = parameters.comparator_threshold
+        pipedream = parameters.pipedream
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         # protein_id = getattr(protein_info, "proteinId")
@@ -204,21 +237,21 @@ class DLSTriggerXChem(CommonService):
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
         proposal = query.first()
 
-        # 0. Check that this is an XChem expt, find .sqlite database
+        # 0. Check that this is an XChem expt & locate .SQLite database
         if proposal.proposalCode not in {"lb"}:  # need to handle industrial 'sw' also
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
             )
             return {"success": True}
 
-        # TEMPORARY, OPENBIND TEST VISIT
+        # TEMPORARY, FILTER BY OPENBIND VISIT
         if proposal.proposalNumber not in {"42888"}:
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid}, only accepting data collections from lb42888 during test phase"
             )
             return {"success": True}
 
-        # Find corresponding xchem visit directory and database
+        # Find corresponding XChem visit directory and database
         xchem_dir = pathlib.Path(
             f"/dls/labxchem/data/{proposal.proposalCode}{proposal.proposalNumber}"
         )
@@ -260,7 +293,7 @@ class DLSTriggerXChem(CommonService):
                         subdir / "processing/database" / "soakDBDataFile.sqlite"
                     )
                     con = sqlite3.connect(
-                        f"file:{db_path}?mode=ro", uri=True, timeout=20
+                        f"file:{db_path}?mode=ro", uri=True, timeout=10
                     )
                     cur = con.cursor()
                     cur.execute("SELECT Protein FROM soakDB")
@@ -271,12 +304,6 @@ class DLSTriggerXChem(CommonService):
                         # visit = dir.parts[-1]
                         expt_yaml = {}
                         expt_yaml["data"] = {"acronym": name}
-                        # expt_yaml["autoprocessing"] = {}
-                        # expt_yaml["autoprocessing"]["pandda"] = {
-                        #     "prerun-threshold": 300,
-                        #     "heuristic": "default",
-                        # }
-
                         with open(subdir / ".user.yaml", "w") as f:
                             yaml.dump(expt_yaml, f)
 
@@ -289,7 +316,9 @@ class DLSTriggerXChem(CommonService):
                     print(f"Problem reading .sqlite database for {subdir}: {e}")
 
         if not match:
-            self.log.debug(f"No directory found for {acronym}, can't continue")
+            self.log.debug(
+                f"Exiting PanDDA2/Pipedream trigger: No directory found for {acronym}."
+            )
             return {"success": True}
         else:
             xchem_visit_dir = match_dir
@@ -297,16 +326,17 @@ class DLSTriggerXChem(CommonService):
 
         if xchem_visit_dir:
             self.log.debug(
-                f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}"
+                f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}."
             )
         else:
             self.log.debug(
-                f"Could not find a corresponding .sqlite database in XChem visit {xchem_dir} for target {acronym}, can't continue"
+                f"Exiting PanDDA2/Pipedream trigger: can't find .sqlite database in XChem visit {xchem_dir} for target {acronym}."
             )
             return {"success": True}
 
         processing_dir = xchem_visit_dir / "processing"
-        db = xchem_visit_dir / "processing/database" / "soakDBDataFile.sqlite"
+        db = processing_dir / "database" / "soakDBDataFile.sqlite"
+        processed_dir = xchem_visit_dir / "processed"
 
         # Make a copy of the most recent sqlite for reading
         # db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
@@ -338,11 +368,11 @@ class DLSTriggerXChem(CommonService):
 
         if query.first()[0] == "fast_dp":
             self.log.info(
-                "Aborting PanDDA2 trigger as upstream processingProgram is fast_dp"
+                "Exiting PanDDA2/Pipedream trigger: upstream processingProgram is fast_dp"
             )
             return {"success": True}
 
-        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
+        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails?
         min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
@@ -366,12 +396,12 @@ class DLSTriggerXChem(CommonService):
 
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Aborting PanDDA2 trigger as another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Exiting PanDDA2/Pipedream trigger: another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
 
-        # Stop-gap
-        min_start_time = datetime.now() - timedelta(minutes=30)
+        # Stop-gap, interval > max checkpoint time
+        min_start_time = datetime.now() - timedelta(hours=3)
 
         query = (
             (
@@ -388,12 +418,12 @@ class DLSTriggerXChem(CommonService):
 
         if triggered_processing_job := query.first():
             self.log.info(
-                "Aborting PanDDA2 trigger as another PanDDA2 job was recently launched"
+                f"Exiting PanDDA2/Pipedream trigger: another PanDDA2 job was recently launched for dcid {dcid}"
             )
             return {"success": True}
 
         # Now check if other upstream pipeline is running and if so, checkpoint (it might fail)
-        min_start_time = datetime.now() - timedelta(hours=3)
+        min_start_time = datetime.now() - timedelta(hours=6)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -440,7 +470,7 @@ class DLSTriggerXChem(CommonService):
                 # Give up waiting for this program to finish and trigger
                 # pandda with remaining related results are available
                 self.log.info(
-                    f"max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
+                    f"Max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
                 )
             else:
                 # Send results to myself for next round of processing
@@ -534,7 +564,7 @@ class DLSTriggerXChem(CommonService):
         df2 = pd.read_sql(query.statement, query.session.bind)
         if df2.empty:
             self.log.info(
-                f"No successful dimple jobs for dcid {dcid}, can't continue..."
+                f"Exiting PanDDA2/Pipedream trigger: No successful dimple jobs for dcid {dcid}, skipping..."
             )
             return {"success": True}
 
@@ -553,7 +583,7 @@ class DLSTriggerXChem(CommonService):
 
         if df3.empty:
             self.log.info(
-                f"Problem finding 'best' dataset to take forward for PanDDA2 for dcid {dcid}"
+                f"Exiting PanDDA2/Pipedream trigger: Issue selecting dataset to take forward for dcid {dcid}"
             )
             return {"success": True}
 
@@ -562,10 +592,23 @@ class DLSTriggerXChem(CommonService):
             f"Chosen dataset to take forward: {chosen_dataset_path} for dcid {dcid}"
         )
         scaling_id = int(df3["autoProcScalingId"][0])
+        environment = df3["processingEnvironment"][0]
+        environment = re.search(r"data=(\[[^\]]*\])", environment)
+
+        if environment:
+            upstream_mtz = ast.literal_eval(environment.group(1))[0]
+            self.log.info(f"Chosen mtz for dcid {dcid} is {upstream_mtz}")
+        else:
+            self.log.info(
+                "Exiting PanDDA2/Pipedream trigger: no environment information"
+            )
+            return {"success": True}
+
+        # upstream_proc = df[df['autoProcScalingId']==scaling_id]['processingPrograms'].item() # fails
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
 
-        self.log.debug("PanDDA2 trigger: Starting")
+        self.log.debug("PanDDA2/Pipedream trigger: Starting")
 
         # 2. Get ligand information, location & container code
 
@@ -581,9 +624,9 @@ class DLSTriggerXChem(CommonService):
         dtag = query.one()[1]
         code = query.one()[2]
 
-        # Read XChem SQLite for ligand info
+        # Read XChem SQLite database for ligand info
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=20)
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10)
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
@@ -591,7 +634,7 @@ class DLSTriggerXChem(CommonService):
 
         except Exception as e:
             self.log.info(
-                f"Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
+                f"Exiting PanDDA2/Pipedream trigger: Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
             )
             return {"success": True}
 
@@ -601,30 +644,34 @@ class DLSTriggerXChem(CommonService):
 
         if len(df) != 1:
             self.log.info(
-                f"Unique row in .sqlite for dcid {dcid}, puck {code}, puck position {location} cannot be found in database {db}, can't continue."
+                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {code}, puck position {location} cannot be found in {db}, skipping..."
             )
             return {"success": True}
 
-        # ProteinName = df["ProteinName"].item()
         LibraryName = df["LibraryName"].item()
         CompoundSMILES = df["CompoundSMILES"].item()
         CompoundCode = df["CompoundCode"].item()
 
-        if LibraryName == "DMSO":  # exclude DMSO screen from PanDDA analysis
+        if LibraryName == "DMSO":
             self.log.info(
-                f"Puck {code}, puck position {location} is from DMSO solvent screen, excluding from PanDDA analysis"
+                f"Exiting PanDDA2/Pipedream trigger: {dtag} is DMSO solvent screen, skipping..."
             )
             return {"success": True}
-        elif not CompoundSMILES:
+        elif not CompoundSMILES or str(CompoundSMILES).strip().lower() in [
+            "none",
+            "null",
+            "nan",
+            "",
+        ]:
             self.log.info(
-                f"Puck {code}, puck position {location} has no corresponding CompoundSMILES, apo dataset? Skipping..."
+                f"Exiting PanDDA2/Pipedream trigger: {dtag} has no corresponding CompoundSMILES, skipping..."
             )
             return {"success": True}
 
         # 3. Create the dataset directory
-        tmp_dir = pathlib.Path("/dls/tmp/xchem_diff2ir")  # TEMPORARY RESULTS DIR
-        processing_dir = tmp_dir / xchem_visit_dir.parts[-1]
-        model_dir = processing_dir / "analysis" / "auto_model_building"
+        analysis_dir = processed_dir / "analysis"
+        pandda_dir = analysis_dir / "pandda2"
+        model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
         self.log.info(f"Creating directory {dataset_dir}")
@@ -636,70 +683,77 @@ class DLSTriggerXChem(CommonService):
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
         shutil.copy(mtz, str(dataset_dir / "dimple.mtz"))
+        shutil.copy(
+            upstream_mtz, str(dataset_dir / pathlib.Path(upstream_mtz).parts[-1])
+        )
 
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
 
+        # Create seperate pipedream directory
+        if pipedream:
+            pipedream_dir = analysis_dir / "pipedream"
+            model_dir_pd = pipedream_dir / "model_building"
+            dataset_dir_pd = model_dir_pd / dtag
+            compound_dir_pd = dataset_dir_pd / "compound"
+            self.log.info(f"Creating directory {dataset_dir_pd}")
+            pathlib.Path(compound_dir_pd).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pdb, str(dataset_dir_pd / "dimple.pdb"))
+            shutil.copy(mtz, str(dataset_dir_pd / "dimple.mtz"))
+            shutil.copy(
+                upstream_mtz, str(dataset_dir_pd / pathlib.Path(upstream_mtz).parts[-1])
+            )
+
+            with open(compound_dir_pd / f"{CompoundCode}.smiles", "w") as smi_file:
+                smi_file.write(CompoundSMILES)
+
         # 4. Job launch logic
 
-        comparator_threshold = parameters.comparator_threshold
-
-        if dataset_count < comparator_threshold:
-            self.log.info(
-                f"Dataset dataset_count {dataset_count} < PanDDA2 comparator dataset threshold of {comparator_threshold}, skipping for now..."
-            )
-            return {"success": True}
-        elif dataset_count == comparator_threshold:
-            n_datasets = len(dataset_list)
-            with open(model_dir / ".batch.json", "w") as f:
-                json.dump(dataset_list, f)
-            self.log.info(
-                f"Dataset dataset_count {dataset_count} = comparator_threshold of {comparator_threshold} datasets, launching PanDDA2 array job"
-            )
-        elif dataset_count > comparator_threshold:
-            n_datasets = 1
-            self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
-
-        self.log.debug("PanDDA2 trigger: Starting")
-
-        pandda_parameters = {
-            "dcid": dcid,  #
-            "processing_directory": str(processing_dir),
+        recipe_parameters = {
+            "dcid": dcid,
+            "processed_directory": str(processed_dir),
             "model_directory": str(model_dir),
-            "dataset_directory": str(dataset_dir),
             "dtag": dtag,
-            "n_datasets": n_datasets,
+            "n_datasets": 1,
             "scaling_id": scaling_id,
             "comparator_threshold": comparator_threshold,
             "database_path": str(db),
+            "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
+            "smiles": str(CompoundSMILES),
         }
 
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        # jp["comments"] = parameters.comment
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "PanDDA2"
-        jp["recipe"] = "postprocessing-pandda2"
-        self.log.info(jp)
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"PanDDA2 trigger: generated JobID {jobid}")
-
-        for key, value in pandda_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
+        if dataset_count < comparator_threshold:
+            self.log.info(
+                f"{dataset_count} < comparator dataset threshold of {comparator_threshold}, skipping PanDDA2 for now..."
             )
 
-        self.log.debug(f"PanDDA2_id trigger: Processing job {jobid} created")
+            if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
+                self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
+            return {"success": True}
 
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
+        elif dataset_count == comparator_threshold:
+            recipe_parameters["n_datasets"] = len(dataset_list)
 
-        self.log.info(f"PanDDA2_id trigger: Processing job {jobid} triggered")
+            with open(model_dir / ".batch.json", "w") as f:
+                json.dump(dataset_list, f)
+
+            self.log.info(
+                f"{dataset_count} = comparator dataset threshold of {comparator_threshold}, launching PanDDA2 array job"
+            )
+            self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+
+            if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
+                self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
+
+        elif dataset_count > comparator_threshold:
+            self.log.info(f"Launching single PanDDA2 job for dtag {dtag}")
+            self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+
+            if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
+                self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
 
         return {"success": True}
 
@@ -735,17 +789,14 @@ class DLSTriggerXChem(CommonService):
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
-        processing_directory = pathlib.Path(parameters.processing_directory)
+        processed_directory = pathlib.Path(parameters.processed_directory)
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
         visit_proposal = visit.split("-")[0]
         visit_number = visit.split("-")[1]
 
-        # If other PanDDA2 postrun within visit running, quit
-        min_start_time = datetime.now() - timedelta(hours=0.2)
-
-        # from proposal and visit get all dcids
+        # From proposal and visit get all dcids
         query = (
             session.query(Proposal, BLSession, DataCollection)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -767,8 +818,7 @@ class DLSTriggerXChem(CommonService):
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.automatic == True)  # noqa E711
-            .filter(AutoProcProgram.processingPrograms == "PanDDA2_post")
-            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+            .filter(AutoProcProgram.processingPrograms == "PanDDA2-post")
             .filter(
                 or_(
                     AutoProcProgram.processingStatus == None,  # noqa E711
@@ -785,37 +835,12 @@ class DLSTriggerXChem(CommonService):
 
         self.log.debug("PanDDA2 postrun trigger: Starting")
 
-        pandda_parameters = {
+        recipe_parameters = {
             "dcid": dcid,  #
-            "processing_directory": str(processing_directory),
+            "processed_directory": str(processed_directory),
             "scaling_id": scaling_id,
         }
 
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        # jp["comments"] = parameters.comment
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "PanDDA2_post"
-        jp["recipe"] = "postprocessing-pandda2-post"
-        self.log.info(jp)
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"PanDDA2 postrun trigger: generated JobID {jobid}")
-
-        for key, value in pandda_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"PanDDA2 trigger: generated JobParameterID {jppid} with {key}={value}"
-            )
-
-        self.log.debug(f"PanDDA2_post trigger: Processing job {jobid} created")
-
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"PanDDA2_post trigger: Processing job {jobid} triggered")
+        self.upsert_proc(rw, dcid, "PanDDA2-post", recipe_parameters)
 
         return {"success": True}

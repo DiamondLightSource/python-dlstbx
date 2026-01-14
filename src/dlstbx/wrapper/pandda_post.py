@@ -16,10 +16,11 @@ class PanDDApostWrapper(Wrapper):
         )
 
         params = self.recwrap.recipe_step["job_parameters"]
-        processing_dir = Path(params.get("processing_directory"))
-        analysis_dir = processing_dir / "analysis"
-        model_dir = analysis_dir / "auto_model_building"
-        auto_panddas_dir = analysis_dir / "auto_pandda2"
+        processed_dir = Path(params.get("processed_directory"))
+        analysis_dir = processed_dir / "analysis"
+        pandda_dir = analysis_dir / "pandda2"
+        model_dir = pandda_dir / "model_building"
+        auto_panddas_dir = Path(pandda_dir / "panddas")
 
         # -------------------------------------------------------
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \

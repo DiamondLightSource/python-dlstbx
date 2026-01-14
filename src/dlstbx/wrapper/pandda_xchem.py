@@ -23,15 +23,16 @@ class PanDDAWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
+        PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         params = self.recwrap.recipe_step["job_parameters"]
 
-        PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         # database_path = Path(params.get("database_path"))
-        processing_dir = Path(params.get("processing_directory"))
-        analysis_dir = Path(processing_dir / "analysis")
-        model_dir = Path(params.get("model_directory"))
-        auto_panddas_dir = Path(analysis_dir / "auto_pandda2")
+        processed_dir = Path(params.get("processed_directory"))
+        analysis_dir = Path(processed_dir / "analysis")
+        pandda_dir = analysis_dir / "pandda2"
+        model_dir = pandda_dir / "model_building"
+        auto_panddas_dir = Path(pandda_dir / "panddas")
         Path(auto_panddas_dir).mkdir(exist_ok=True)
 
         n_datasets = int(params.get("n_datasets"))
@@ -66,7 +67,7 @@ class PanDDAWrapper(Wrapper):
         # acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
         restraints_command = f"module load buster; module load graphviz; \
                                export CSDHOME=/dls_sw/apps/CSDS/2024.1.0/; export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
-                               grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f; "
+                               grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f"
 
         try:
             result = subprocess.run(
@@ -121,13 +122,14 @@ class PanDDAWrapper(Wrapper):
         dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
         ligand_dir = dataset_pdir / "ligand_files"
 
+        for file in compound_dir.rglob("*"):
+            if file.is_file() and file.suffix.lower() in {".pdb", ".cif", ".smiles"}:
+                target = ligand_dir / file.name
+                shutil.copy2(file, target)
+
         pandda_log = dataset_pdir / "pandda2.log"
         with open(pandda_log, "w") as log_file:
             log_file.write(result.stdout)
-
-        for item in compound_dir.iterdir():
-            if item.is_file():
-                shutil.copy2(item, ligand_dir / item.name)
 
         modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
@@ -395,15 +397,3 @@ class PanDDAWrapper(Wrapper):
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)
         conn.commit()
-
-    # Integrate back with XCE via datasource
-    # db_dict = {}
-    # db_dict["DimplePANDDAwasRun"] = True
-    # # db_dict["DimplePANDDAreject"] = False
-    # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
-
-    # try:
-    #     self.update_data_source(db_dict, dtag, database_path)
-    #     self.log.info(f"Updated sqlite database for dataset {dtag}")
-    # except Exception as e:
-    #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")

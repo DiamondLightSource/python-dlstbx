@@ -315,6 +315,9 @@ def handle_rotation_end(
     ppl_autostart: dict[str, bool] = {}
     ppl_suffix: dict[str, str] = {}
     ppl_triggervars: dict[str, Tuple[mimas.MimasISPyBTriggerVariable, ...]] = {}
+    is_dcclass_characterization = (
+        scenario.dcclass is mimas.MimasDCClass.CHARACTERIZATION
+    )
     for ppl, recipe in (
         ("xia2/DIALS", "autoprocessing-xia2-dials"),
         ("xia2/XDS", "autoprocessing-xia2-3dii"),
@@ -325,7 +328,7 @@ def handle_rotation_end(
         ppl_autostart[ppl] = False
         ppl_suffix[ppl] = suffix_pref
         ppl_triggervars[ppl] = triggervars_pref
-        if scenario.preferred_processing == ppl:
+        if scenario.preferred_processing == ppl or is_dcclass_characterization:
             ppl_autostart[ppl] = True
         elif any(r in recipe for r in cloud_recipes):
             ppl_suffix[ppl] = suffix

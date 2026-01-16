@@ -65,9 +65,7 @@ class PanDDAWrapper(Wrapper):
 
         # -------------------------------------------------------
         # acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
-        restraints_command = f"module load buster; module load graphviz; \
-                               export CSDHOME=/dls_sw/apps/CSDS/2024.1.0/; export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
-                               grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f"
+        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f"
 
         try:
             result = subprocess.run(
@@ -97,7 +95,7 @@ class PanDDAWrapper(Wrapper):
         with open(dataset_dir / "restraints.log", "w") as log_file:
             log_file.write(result.stdout)
 
-        self.log.info(f"Restraints generated succesfully for dtag {dtag}")
+        self.log.info(f"Restraints generated succesfully for dtag {dtag}, launching PanDDA2")
 
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1"
@@ -122,10 +120,14 @@ class PanDDAWrapper(Wrapper):
         dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
         ligand_dir = dataset_pdir / "ligand_files"
 
+        # pandda2 not moving files into ligand_dir, fix
         for file in compound_dir.rglob("*"):
             if file.is_file() and file.suffix.lower() in {".pdb", ".cif", ".smiles"}:
-                target = ligand_dir / file.name
-                shutil.copy2(file, target)
+                targets = [ligand_dir / file.name, dataset_dir / file.name]
+                for target in targets:
+                    if target.exists() or target.is_symlink():
+                        target.unlink()
+                    target.symlink_to(file)
 
         pandda_log = dataset_pdir / "pandda2.log"
         with open(pandda_log, "w") as log_file:

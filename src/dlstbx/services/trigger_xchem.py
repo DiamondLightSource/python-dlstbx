@@ -238,7 +238,7 @@ class DLSTriggerXChem(CommonService):
         proposal = query.first()
 
         # 0. Check that this is an XChem expt & locate .SQLite database
-        if proposal.proposalCode not in {"lb"}:  # need to handle industrial 'sw' also
+        if proposal.proposalCode not in {"lb"}:
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
             )
@@ -337,12 +337,6 @@ class DLSTriggerXChem(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         db = processing_dir / "database" / "soakDBDataFile.sqlite"
         processed_dir = xchem_visit_dir / "processed"
-
-        # Make a copy of the most recent sqlite for reading
-        # db_copy = xchem_visit_dir / "processing/database" / "auto_soakDBDataFile.sqlite"
-        # if not db_copy.exists() or (db.stat().st_mtime != db_copy.stat().st_mtime):
-        #     shutil.copy2(str(db), str(db_copy))
-        #     self.log.info(f"Made a copy of {db}, auto_soakDBDataFile.sqlite")
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
@@ -600,11 +594,10 @@ class DLSTriggerXChem(CommonService):
             self.log.info(f"Chosen mtz for dcid {dcid} is {upstream_mtz}")
         else:
             self.log.info(
-                "Exiting PanDDA2/Pipedream trigger: no environment information"
+                f"Exiting PanDDA2/Pipedream trigger: no environment information for dcid {dcid}"
             )
             return {"success": True}
 
-        # upstream_proc = df[df['autoProcScalingId']==scaling_id]['processingPrograms'].item() # fails
         pdb = chosen_dataset_path + "/final.pdb"
         mtz = chosen_dataset_path + "/final.mtz"
 
@@ -634,7 +627,7 @@ class DLSTriggerXChem(CommonService):
 
         except Exception as e:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: Exception whilst reading ligand information from {db} for dtag {dtag}: {e}"
+                f"Exiting PanDDA2/Pipedream trigger: Exception whilst reading ligand information from {db} for dtag {dtag}, dcid {dcid}: {e}"
             )
             return {"success": True}
 
@@ -644,7 +637,7 @@ class DLSTriggerXChem(CommonService):
 
         if len(df) != 1:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {code}, puck position {location} cannot be found in {db}, skipping..."
+                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {code}, puck position {location} cannot be found in {db}, skipping dcid {dcid}"
             )
             return {"success": True}
 
@@ -683,12 +676,32 @@ class DLSTriggerXChem(CommonService):
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
         shutil.copy(mtz, str(dataset_dir / "dimple.mtz"))
-        shutil.copy(
-            upstream_mtz, str(dataset_dir / pathlib.Path(upstream_mtz).parts[-1])
-        )
+        shutil.copy(upstream_mtz, str(dataset_dir / f"{dtag}.free.mtz"))
 
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
+
+        # Check if Pipedream job was recently launched
+        min_start_time = datetime.now() - timedelta(hours=3)
+
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId == dcid)
+            .filter(ProcessingJob.automatic == True)  # noqa E711
+            .filter(AutoProcProgram.processingPrograms.in_(["Pipedream"]))
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        )
+
+        if triggered_processing_job := query.first():
+            self.log.info(
+                f"Pipedream job recently launched for dcid {dcid}, skipping pipedream trigger"
+            )
+            pipedream = False
 
         # Create seperate pipedream directory
         if pipedream:
@@ -700,9 +713,7 @@ class DLSTriggerXChem(CommonService):
             pathlib.Path(compound_dir_pd).mkdir(parents=True, exist_ok=True)
             shutil.copy(pdb, str(dataset_dir_pd / "dimple.pdb"))
             shutil.copy(mtz, str(dataset_dir_pd / "dimple.mtz"))
-            shutil.copy(
-                upstream_mtz, str(dataset_dir_pd / pathlib.Path(upstream_mtz).parts[-1])
-            )
+            shutil.copy(upstream_mtz, str(dataset_dir_pd / f"{dtag}.free.mtz"))
 
             with open(compound_dir_pd / f"{CompoundCode}.smiles", "w") as smi_file:
                 smi_file.write(CompoundSMILES)

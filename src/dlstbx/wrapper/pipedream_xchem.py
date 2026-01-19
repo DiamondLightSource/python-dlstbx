@@ -35,7 +35,7 @@ class PipedreamWrapper(Wrapper):
 
         dimple_pdb = dataset_dir / "dimple.pdb"
         dimple_mtz = dataset_dir / "dimple.mtz"
-        upstream_mtz = dataset_dir / params.get("upstream_mtz")
+        upstream_mtz = dataset_dir / f"{dtag}.free.mtz"
 
         self.log.info(f"Processing dtag: {dtag}")
 
@@ -298,6 +298,39 @@ class PipedreamWrapper(Wrapper):
 
             with open(json_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+
+    # def send_attachments_to_ispyb(self, pipeline_directory, final_directory):
+    #     for f in pipeline_directory.iterdir():
+    #         if f.stem.endswith("final"):
+    #             file_type = "Result"
+    #             importance_rank = 1
+    #         elif f.suffix == ".html":
+    #             file_type = "Result"
+    #             importance_rank = 1
+    #         elif f.suffix == ".png":
+    #             file_type = "Result"
+    #             importance_rank = 1
+    #         elif f.suffix == ".json":
+    #             file_type = "Result"
+    #             importance_rank = 1
+    #         elif f.suffix == ".log":
+    #             file_type = "Log"
+    #             importance_rank = 2
+    #         else:
+    #             continue
+    #         try:
+    #             shutil.copy(pipeline_directory / f.name, final_directory)
+    #             result_dict = {
+    #                 "file_path": str(final_directory),
+    #                 "file_name": f.name,
+    #                 "file_type": file_type,
+    #                 "importance_rank": importance_rank,
+    #             }
+    #             self.record_result_individual_file(result_dict)
+    #             self.log.info(f"Uploaded {f.name} as an attachment")
+
+    #         except Exception:
+    #             self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

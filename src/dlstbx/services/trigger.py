@@ -1803,53 +1803,56 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+
+        # Turn on multiplex clustering
+        
+        if parameters.beamline in parameters.use_clustering:
+            parameters.recipe = "postprocessing-xia2-multiplex-clustering"
+
+        # For beamlines where multiplex is triggered alongside xia2-dials need extra checks
         # Check if we have any new data collections added to any sample group
         # to decide if we need to processed triggering multiplex.
         # Run multiplex only once when processing for all samples in the group have been collected.
-        if parameters.use_clustering and parameters.program_id:
+        
+        if parameters.program_id:
+
             # Get currnent list of data collections for all samples in the sample groups
             _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
                 {}, {"ispyb_dcid": dcid}, session
             )
             ispyb_related_dcids = ispyb_info.get("ispyb_related_dcids", [])
-            beamline = ispyb_info.get("ispyb_beamline", "")
-            visit = ispyb_info.get("ispyb_visit", "")
-            if beamline in parameters.use_clustering or any(
-                el in visit for el in parameters.use_clustering
-            ):
-                parameters.recipe = "postprocessing-xia2-multiplex-clustering"
-                # If we have a sample group that doesn't have any new data collections,
-                # proceed with triggering multiplex for all sample groups
-                if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
-                    added_dcids = []
-                    for el in ispyb_related_dcids:
-                        added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
-                    # Check if there are xia2 dials jobs that were triggered on any new
-                    # data collections after current multiplex job was triggered
-                    min_start_time = datetime.now() - timedelta(hours=12)
-                    query = (
-                        (
-                            session.query(
-                                AutoProcProgram, ProcessingJob.dataCollectionId
-                            ).join(
-                                ProcessingJob,
-                                ProcessingJob.processingJobId
-                                == AutoProcProgram.processingJobId,
-                            )
+            # If we have a sample group that doesn't have any new data collections,
+            # proceed with triggering multiplex for all sample groups
+            if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
+                added_dcids = []
+                for el in ispyb_related_dcids:
+                    added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
+                # Check if there are xia2 dials jobs that were triggered on any new
+                # data collections after current multiplex job was triggered
+                min_start_time = datetime.now() - timedelta(hours=12)
+                query = (
+                    (
+                        session.query(
+                            AutoProcProgram, ProcessingJob.dataCollectionId
+                        ).join(
+                            ProcessingJob,
+                            ProcessingJob.processingJobId
+                            == AutoProcProgram.processingJobId,
                         )
-                        .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
-                        .filter(ProcessingJob.automatic == True)  # noqa E712
-                        .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
-                    # Abort triggering multiplex if we have xia2 dials running on any subsequent
-                    # data collection in all sample groups
-                    if triggered_processing_job := query.first():
-                        self.log.info(
-                            f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
-                        )
-                        return {"success": True}
+                    .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
+                    .filter(ProcessingJob.automatic == True)  # noqa E712
+                    .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                    .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                    .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                )
+                # Abort triggering multiplex if we have xia2 dials running on any subsequent
+                # data collection in all sample groups
+                if triggered_processing_job := query.first():
+                    self.log.info(
+                        f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+                    )
+                    return {"success": True}
 
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case

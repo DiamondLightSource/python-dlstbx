@@ -222,6 +222,8 @@ class MultiplexParameters(pydantic.BaseModel):
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
     use_clustering: Optional[List[str]] = None
+    beamline: str
+    trigger_every_collection: bool
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -1814,7 +1816,13 @@ class DLSTrigger(CommonService):
         # to decide if we need to processed triggering multiplex.
         # Run multiplex only once when processing for all samples in the group have been collected.
         
-        if parameters.program_id:
+        if parameters.trigger_every_collection:
+
+            self.log.info("Triggering xia2.multiplex after every data collection.")
+
+        else:
+
+            self.log.info("Checking for subsequent dcids that are still processing.")
 
             # Get currnent list of data collections for all samples in the sample groups
             _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(

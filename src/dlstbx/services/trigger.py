@@ -1738,17 +1738,22 @@ class DLSTrigger(CommonService):
         will be created, and the resulting list of processingJobIds will be sent to
         the `processing_recipe` queue.
 
-        If clustering algorithm is enabled, skip triggering multiplex if new related dcid
-        values are added into all defined sample groups to run multiplex only once when
-        all samples in one of the groups have been collected. When running multiplex
-        only include results from datasets collected prior to the current one in all
-        sample groups.
+        If clustering algorithm is enabled, further commandline options are added.
+
+        There are two ways to trigger multiplex controlled by trigger_every_collection.
+        Multiplex will either be triggered after every dials collection (useful for
+        beamlines that use multiplex for mid-experiment feedback), or if there are
+        no subsequent datasets still processing (vmxi). The latter equates to
+        "once per sample group" if the experiment is rapidly collecting with no
+        significant delays.
 
         Recipe parameters:
         - target: set this to "multiplex"
+        - beamline: the beamline as a string
         - dcid: the dataCollectionId for the given data collection
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
+        - trigger_every_collection: decide triggering behaviour of multiplex
         - ispyb_parameters: a dictionary of ispyb_reprocessing_parameters set in the
             parent xia2-dials processing job
         - related_dcids: a list of groups of related data collection ids. Each item in
@@ -1807,21 +1812,22 @@ class DLSTrigger(CommonService):
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
 
         # Turn on multiplex clustering
-        
-        if parameters.beamline in parameters.use_clustering:
+
+        if (
+            parameters.use_clustering
+            and parameters.beamline in parameters.use_clustering
+        ):
             parameters.recipe = "postprocessing-xia2-multiplex-clustering"
 
         # For beamlines where multiplex is triggered alongside xia2-dials need extra checks
         # Check if we have any new data collections added to any sample group
         # to decide if we need to processed triggering multiplex.
         # Run multiplex only once when processing for all samples in the group have been collected.
-        
-        if parameters.trigger_every_collection:
 
+        if parameters.trigger_every_collection:
             self.log.info("Triggering xia2.multiplex after every data collection.")
 
         else:
-
             self.log.info("Checking for subsequent dcids that are still processing.")
 
             # Get currnent list of data collections for all samples in the sample groups

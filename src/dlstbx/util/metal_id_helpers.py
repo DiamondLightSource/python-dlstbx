@@ -60,12 +60,15 @@ def dcids_from_related_dcids(
             f"Skipping metal id trigger: dcid info missing for dcid '{parameters.dcid}'"
         )
         return []
-
-    if match := re.search(r"_E(\d+)$", str(dc_info.imagePrefix)):
-        energy_num = int(match.group(1))
+    # Regex to check imagePrefix in format <prefix>_E<energy number> and extract information
+    pattern = re.compile(r"^(?P<prefix>.*)_E(?P<energy_num>\d+)$")
+    assert dc_info.imagePrefix is not None
+    if match := pattern.match(dc_info.imagePrefix):
+        energy_num = int(match.group("energy_num"))
+        prefix_prefix = match.group("prefix")
     else:
         logger.info(
-            "Skipping metal id trigger: Image prefix does not end with _E# where # is an integer"
+            f"Skipping metal id trigger: Image prefix '{dc_info.imagePrefix}' does not match expected pattern"
         )
         return []
 
@@ -78,7 +81,7 @@ def dcids_from_related_dcids(
         .filter(DataCollection.dataCollectionId.in_(dcids))
         .filter(DataCollection.numberOfImages == dc_info.numberOfImages)
         .filter(DataCollection.startImageNumber == dc_info.startImageNumber)
-        .filter(DataCollection.imagePrefix.endswith(f"_E{energy_num - 1}"))
+        .filter(DataCollection.imagePrefix == f"{prefix_prefix}_E{energy_num - 1}")
         .filter(DataCollection.SESSIONID == dc_info.SESSIONID)
         .filter(DataCollection.dataCollectionNumber == dc_info.dataCollectionNumber)
     )

@@ -1795,6 +1795,7 @@ class DLSTrigger(CommonService):
         dcid = parameters.dcid
         program_id = parameters.program_id
         parameters.recipe = "postprocessing-xia2-multiplex"
+        output_clusters = False
 
         # Take related dcids from recipe in preference or checkpointed message
         if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
@@ -1817,7 +1818,7 @@ class DLSTrigger(CommonService):
             parameters.use_clustering
             and parameters.beamline in parameters.use_clustering
         ):
-            parameters.recipe = "postprocessing-xia2-multiplex-clustering"
+            output_clusters = True
 
         # For beamlines where multiplex is triggered alongside xia2-dials need extra checks
         # Check if we have any new data collections added to any sample group
@@ -2082,7 +2083,7 @@ class DLSTrigger(CommonService):
             self.log.debug(set_dcids)
             self.log.debug(multiplex_job_dcids)
             # Check if upstream dials job has succeeded when we run multiplex per data collection
-            if ("clustering" not in parameters.recipe) and (dcid not in set_dcids):
+            if (not output_clusters) and (dcid not in set_dcids):
                 self.log.info(
                     f"Skipping xia2.multiplex trigger: upstream dials job failed for dcid={dcid} group={group}"
                 )
@@ -2153,7 +2154,7 @@ class DLSTrigger(CommonService):
                         ("absorption_level", "high"),
                     ]
                 )
-            if "clustering" in parameters.recipe:
+            if output_clusters:
                 job_parameters.extend(
                     [
                         ("clustering.method", "coordinate"),

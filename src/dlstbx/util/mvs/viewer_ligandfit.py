@@ -37,7 +37,7 @@ def gen_html_ligandfit(pdb_file, map_file, resname, outdir, acr, smiles, cc):
 
     snapshot1 = builder.get_snapshot(
         title="Main View",
-        description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC at 1.5σ, blue \n - Fitting CC = {cc}",
+        description=f"## Ligand_Fit Results: \n ### {acr} with ligand & electron density map \n - SMILES: {smiles} \n - 2FO-FC map at 1.5σ, blue \n - Fitting CC = {cc}",
         transition_duration_ms=700,
         linger_duration_ms=4000,
     )

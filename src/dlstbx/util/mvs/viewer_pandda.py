@@ -110,7 +110,7 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles):
         ui="stories",
     )
 
-    out_file = Path(f"{outdir}/pandda2.html")
+    out_file = Path(f"{outdir}/pandda2_mvs.html")
     with open(out_file, "w") as f:
         f.write(html)
 

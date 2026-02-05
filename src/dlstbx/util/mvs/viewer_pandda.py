@@ -85,7 +85,7 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles):
 
     snapshot2 = builder.get_snapshot(
         title="Z_map",
-        description=f"## PanDDA2 Results: \n ### {dtag} \n - SMILES: {smiles} \n - Z-map at 3σ, green",
+        description=f"## PanDDA2 Results: \n ### {dtag} \n - SMILES: {smiles} \n - Z_map at 3σ, green",
         transition_duration_ms=700,
         linger_duration_ms=4000,
     )

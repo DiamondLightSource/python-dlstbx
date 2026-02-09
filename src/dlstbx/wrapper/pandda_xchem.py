@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -477,45 +476,36 @@ class PanDDAWrapper(Wrapper):
 
     def send_attachments_to_ispyb(self, attachments, final_directory):
         for f in attachments:
-            if f.suffix == ".html":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".ccp4":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".cif":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".pdb":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".log":
-                file_type = "Log"
-                importance_rank = 2
-            else:
-                continue
-            try:
-                shutil.copy(f, final_directory)
-                result_dict = {
-                    "file_path": str(final_directory),
-                    "file_name": f.name,
-                    "file_type": file_type,
-                    "importance_rank": importance_rank,
-                }
-                self.record_result_individual_file(result_dict)
-                self.log.info(f"Uploaded {f.name} as an attachment")
+            if f.exists():
+                if f.suffix == ".html":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".ccp4":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".cif":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".pdb":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".log":
+                    file_type = "Log"
+                    importance_rank = 2
+                else:
+                    continue
+                try:
+                    shutil.copy(f, final_directory)
+                    result_dict = {
+                        "file_path": str(final_directory),
+                        "file_name": f.name,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                    self.record_result_individual_file(result_dict)
+                    self.log.info(f"Uploaded {f.name} as an attachment")
 
-            except Exception:
-                self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
-
-    def update_data_source(self, db_dict, dtag, database_path):
-        sql = (
-            "UPDATE mainTable SET "
-            + ", ".join([f"{k} = :{k}" for k in db_dict])
-            + f" WHERE CrystalName = '{dtag}'"
-        )
-        conn = sqlite3.connect(database_path)
-        # conn.execute("PRAGMA journal_mode=WAL;")
-        cursor = conn.cursor()
-        cursor.execute(sql, db_dict)
-        conn.commit()
+                except Exception:
+                    self.log.warning(
+                        f"Could not attach {f.name} to ISPyB", exc_info=True
+                    )

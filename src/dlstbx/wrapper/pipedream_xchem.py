@@ -243,7 +243,8 @@ class PipedreamWrapper(Wrapper):
             self.send_attachments_to_ispyb(attachments, final_directory)
             return True
 
-        edstats_command = f"module load ccp4; edstats XYZIN {refine_pdb} MAPIN1 {map_2fofc} MAPIN2 {map_fofc} OUT {str(postrefine_dir / 'edstats.out')}"
+        edstats_out = postrefine_dir / "edstats.out"
+        edstats_command = f"module load ccp4; edstats XYZIN {refine_pdb} MAPIN1 {map_2fofc} MAPIN2 {map_fofc} OUT {str(edstats_out)}"
         stdin_text = f"RESLO={reslo}\nRESHI={reshi}\nEND\n"
 
         try:
@@ -264,6 +265,8 @@ class PipedreamWrapper(Wrapper):
             return True
 
         self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
+
+        attachments.extend([edstats_out])
         self.send_attachments_to_ispyb(attachments, final_directory)
         return True
 
@@ -354,39 +357,42 @@ class PipedreamWrapper(Wrapper):
 
     def send_attachments_to_ispyb(self, attachments, final_directory):
         for f in attachments:
-            if f.suffix == ".html":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".mtz":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".cif":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".pdb":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".pdf":
-                file_type = "Result"
-                importance_rank = 1
-            elif f.suffix == ".log":
-                file_type = "Log"
-                importance_rank = 2
-            else:
-                continue
-            try:
-                shutil.copy(f, final_directory)
-                result_dict = {
-                    "file_path": str(final_directory),
-                    "file_name": f.name,
-                    "file_type": file_type,
-                    "importance_rank": importance_rank,
-                }
-                self.record_result_individual_file(result_dict)
-                self.log.info(f"Uploaded {f.name} as an attachment")
+            if f.exists():
+                if f.suffix == ".html":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".mtz":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".cif":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".pdb":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".pdf":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".log":
+                    file_type = "Log"
+                    importance_rank = 2
+                else:
+                    continue
+                try:
+                    shutil.copy(f, final_directory)
+                    result_dict = {
+                        "file_path": str(final_directory),
+                        "file_name": f.name,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                    self.record_result_individual_file(result_dict)
+                    self.log.info(f"Uploaded {f.name} as an attachment")
 
-            except Exception:
-                self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
+                except Exception:
+                    self.log.warning(
+                        f"Could not attach {f.name} to ISPyB", exc_info=True
+                    )
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

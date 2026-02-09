@@ -113,6 +113,8 @@ class PanDDAWrapper(Wrapper):
         ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
         ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
 
+        ligand_cif = compound_dir / f"{CompoundCode}.cif"
+
         self.log.info(
             f"Restraints generated succesfully for dtag {dtag}, launching PanDDA2"
         )
@@ -124,7 +126,7 @@ class PanDDAWrapper(Wrapper):
         dataset_pdir.mkdir(exist_ok=True)
         pandda2_log = dataset_pdir / "pandda2.log"
 
-        attachments.extend([pandda2_log, restraints, ligand_pdb])
+        attachments.extend([pandda2_log, ligand_cif])
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1 > {pandda2_log}"
 
@@ -165,9 +167,6 @@ class PanDDAWrapper(Wrapper):
         out_dir.mkdir(parents=True, exist_ok=True)
         events_yaml = dataset_pdir / "events.yaml"
 
-        z_map = dataset_pdir / f"{dtag}-z_map.native.ccp4"
-        attachments.extend([z_map, events_yaml])
-
         if not events_yaml.exists():
             self.log.info(
                 (f"No events in {events_yaml}, can't continue with PanDDA2 Rhofit")
@@ -188,6 +187,7 @@ class PanDDAWrapper(Wrapper):
         coord = best_entry["Centroid"]
 
         restricted_build_dmap = dataset_pdir / "build.ccp4"
+        z_map = dataset_pdir / f"{dtag}-z_map.native.ccp4"
         event_map = list(dataset_pdir.glob(f"{dtag}-event_{event_idx}*"))[0]
         # event_map = dataset_dir / f'{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4' #round BDC to 2dp?
         pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
@@ -215,7 +215,7 @@ class PanDDAWrapper(Wrapper):
         cifs = list(ligand_dir.glob("*.cif"))
 
         rhofit_log = dataset_pdir / "rhofit.log"
-        attachments.extend([event_map, rhofit_log])
+        attachments.extend([event_map, z_map, rhofit_log])
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
         {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut 2.0 > {rhofit_log};"  # dmap_cut=2.0
 
@@ -257,15 +257,15 @@ class PanDDAWrapper(Wrapper):
         # -------------------------------------------------------
         # Ligand scoring
 
-        attachments.extend([pandda_model, z_map])
         ligand_score = dataset_pdir / "ligand_score.txt"
+        attachments.extend([pandda_model, ligand_score])
 
         st = gemmi.read_structure(str(pandda_model))
         chain, res = find_residue_by_name(st, "LIG")
         ligand_id = chain.name + f"/{res.seqid.num}"
 
         score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={pandda_model} --out_path={ligand_score}"
+        python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={pandda_model} --out_path={ligand_score}"
 
         self.log.info(f"Running Ligand Score command: {score_command}")
 
@@ -284,7 +284,11 @@ class PanDDAWrapper(Wrapper):
             self.log.error(f"Ligand score command: '{score_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory)
+
+        with open(ligand_score, "r") as file:
+            score = float(file.read().strip())
+
+        self.log.info(f"Ligand score for {dtag} = {score}")
 
         try:
             cropped_event_map = save_cropped_map(
@@ -301,6 +305,7 @@ class PanDDAWrapper(Wrapper):
                 outdir=dataset_pdir,
                 dtag=dtag,
                 smiles=smiles,
+                score=score,
             )
             attachments.extend([mvs_html])
         except Exception as e:
@@ -477,6 +482,7 @@ class PanDDAWrapper(Wrapper):
                 importance_rank = 1
             elif f.suffix == ".ccp4":
                 file_type = "Result"
+                importance_rank = 1
             elif f.suffix == ".cif":
                 file_type = "Result"
                 importance_rank = 1
@@ -484,9 +490,6 @@ class PanDDAWrapper(Wrapper):
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".log":
-                file_type = "Log"
-                importance_rank = 2
-            elif f.suffix == ".yaml":
                 file_type = "Log"
                 importance_rank = 2
             else:

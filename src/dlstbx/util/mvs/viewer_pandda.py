@@ -8,7 +8,7 @@ import molviewspec as mvs
 from dlstbx.util.mvs.helpers import find_residue_by_name
 
 
-def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles):
+def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles, score):
     # make an mvs story from snapshots
     st = gemmi.read_structure(pdb_file)
     chain, res = find_residue_by_name(st, resname)
@@ -22,6 +22,9 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles):
     structure.component(selector="polymer").representation().opacity(
         opacity=0.25
     ).color(custom={"molstar_color_theme_name": "chain_id"})
+    structure.component(selector="ligand").representation(
+        type="surface", size_factor=0.7
+    ).opacity(opacity=0.1).color(custom={"molstar_color_theme_name": "element-symbol"})
 
     structure.component(selector=residue).focus().representation(
         type="ball_and_stick"
@@ -44,8 +47,8 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles):
     )
 
     snapshot1 = builder.get_snapshot(
-        title="Eventmap",
-        description=f"## PanDDA2 Results: \n ### {dtag} \n - SMILES: {smiles} \n - Event map at 2σ, blue",
+        title="Event_map",
+        description=f"## PanDDA2 Results: \n ### {dtag} \n - Ligand score: {score} \n - SMILES: {smiles} \n - Event map at 3σ, blue",
         transition_duration_ms=700,
         linger_duration_ms=4000,
     )
@@ -85,13 +88,13 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles):
 
     snapshot2 = builder.get_snapshot(
         title="Z_map",
-        description=f"## PanDDA2 Results: \n ### {dtag} \n - SMILES: {smiles} \n - Z_map at 3σ, green",
+        description=f"## PanDDA2 Results: \n ### {dtag} \n - Ligand score: {score} \n - SMILES: {smiles} \n - Z_map at 3σ, green",
         transition_duration_ms=700,
         linger_duration_ms=4000,
     )
 
     states = mvs.States(
-        snapshots=[snapshot2],  # [snapshot1, snapshot2]
+        snapshots=[snapshot1, snapshot2],  # [snapshot1, snapshot2]
         metadata=mvs.GlobalMetadata(description="PanDDA2 Results"),
     )
 

@@ -44,7 +44,7 @@ def gen_html_pipedream(pdb_file, map_file, resname, outdir, dtag, smiles):
     )
 
     snapshot1 = builder.get_snapshot(
-        title="Eventmap",
+        title="Main View",
         description=f"## Pipedream Results: \n ### {dtag} \n - SMILES: {smiles} \n - 2FO-FC map map at 1.5σ, blue",
         transition_duration_ms=700,
         linger_duration_ms=4000,

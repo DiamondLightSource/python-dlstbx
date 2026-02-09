@@ -11,7 +11,7 @@ import portalocker
 
 import dlstbx.util.symlink
 from dlstbx.util.mvs.helpers import save_cropped_map
-from dlstbx.util.mvs.viewer_pandda import gen_html_pipedream
+from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
 from dlstbx.wrapper import Wrapper
 
 
@@ -103,7 +103,7 @@ class PipedreamWrapper(Wrapper):
         ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
         ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
 
-        ligand_cif = str(compound_dir / f"{CompoundCode}.cif")
+        ligand_cif = compound_dir / f"{CompoundCode}.cif"
         self.log.info(f"Restraints generated succesfully for dtag {dtag}")
 
         self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
@@ -114,7 +114,7 @@ class PipedreamWrapper(Wrapper):
         # Pipedream
 
         pipedream_log = out_dir / "pipedream.log"
-        attachments.extend([pipedream_log, restraints, ligand_pdb])
+        attachments.extend([pipedream_log, ligand_cif])
 
         pipedream_command = f"/dls_sw/apps/GPhL/BUSTER/20250717/scripts/pipedream \
             -nolmr \
@@ -130,10 +130,10 @@ class PipedreamWrapper(Wrapper):
             -rhocommands \
             -xclusters \
             -nochirals \
-            -rhofit {ligand_cif}"
+            -rhofit {str(ligand_cif)}"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 pipedream_command,
                 shell=True,
                 capture_output=True,
@@ -148,9 +148,13 @@ class PipedreamWrapper(Wrapper):
             self.log.info(e.stdout)
             self.log.error(e.stderr)
 
-            with open(out_dir / "rhofit.log", "w") as log_file:
-                log_file.write(result.stdout)
+            with open(pipedream_log, "w") as log_file:
+                log_file.write(e.stdout)
 
+            with open(out_dir / "pipedream.stderr", "w") as stderr:
+                stderr.write(e.stderr)
+
+            attachments.extend([out_dir / "pipedream.stderr"])
             self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
@@ -260,6 +264,7 @@ class PipedreamWrapper(Wrapper):
             return True
 
         self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
+        self.send_attachments_to_ispyb(attachments, final_directory)
         return True
 
     def process_pdb_file(self, dimple_pdb: Path):
@@ -354,6 +359,7 @@ class PipedreamWrapper(Wrapper):
                 importance_rank = 1
             elif f.suffix == ".mtz":
                 file_type = "Result"
+                importance_rank = 1
             elif f.suffix == ".cif":
                 file_type = "Result"
                 importance_rank = 1

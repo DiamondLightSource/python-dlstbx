@@ -238,9 +238,52 @@ class PanDDAWrapper(Wrapper):
             self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
+        # -------------------------------------------------------
+        # Ligand scoring
+        # Go over rhofit builds and score each one 
+        builds = [x for x in out_dir.glob('Hit*.pdb')]
+        scores = {}
+        for build_path in builds:
+            ligand_score = out_dir / f"{build_path.stem}.txt"
+            attachments.extend([pandda_model, ligand_score])
+
+            st = gemmi.read_structure(str(build_path))
+            chain, res = find_residue_by_name(st, "LIG")
+            ligand_id = chain.name + f"/{res.seqid.num}"
+
+            score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
+            python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={pandda_model} --out_path={ligand_score}"
+
+            self.log.info(f"Running Ligand Score command: {score_command}")
+
+            try:
+                subprocess.run(
+                    score_command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=panddas_dir,
+                    check=True,
+                    timeout=10 * 60,
+                )
+
+            except subprocess.CalledProcessError as e:
+                self.log.error(f"Ligand score command: '{score_command}' failed")
+                self.log.info(e.stdout)
+                self.log.error(e.stderr)
+
+            with open(ligand_score, "r") as file:
+                scores[build_path] = float(file.read().strip())
+
+        best_build_path = min(scores, key=lambda _x: scores[_x])
+        score = scores[best_build_path]
+
+        # -------------------------------------------------------
+        # Best build merging
+
         # Merge the protein structure with ligand -> pandda model
         protein_st_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
-        ligand_st_file = out_dir / "rhofit" / "best.pdb"
+        ligand_st_file = best_build_path
         pandda_model = modelled_dir / f"{dtag}-pandda-model.pdb"
 
         protein_st = gemmi.read_structure(str(protein_st_file))
@@ -253,39 +296,9 @@ class PanDDAWrapper(Wrapper):
 
         protein_st.write_pdb(str(pandda_model))
 
+        
         # -------------------------------------------------------
-        # Ligand scoring
-
-        ligand_score = dataset_pdir / "ligand_score.txt"
-        attachments.extend([pandda_model, ligand_score])
-
-        st = gemmi.read_structure(str(pandda_model))
-        chain, res = find_residue_by_name(st, "LIG")
-        ligand_id = chain.name + f"/{res.seqid.num}"
-
-        score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={pandda_model} --out_path={ligand_score}"
-
-        self.log.info(f"Running Ligand Score command: {score_command}")
-
-        try:
-            subprocess.run(
-                score_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=panddas_dir,
-                check=True,
-                timeout=10 * 60,
-            )
-
-        except subprocess.CalledProcessError as e:
-            self.log.error(f"Ligand score command: '{score_command}' failed")
-            self.log.info(e.stdout)
-            self.log.error(e.stderr)
-
-        with open(ligand_score, "r") as file:
-            score = float(file.read().strip())
+        # Output
 
         self.log.info(f"Ligand score for {dtag} = {score}")
 

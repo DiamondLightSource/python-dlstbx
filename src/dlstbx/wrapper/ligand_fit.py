@@ -9,7 +9,7 @@ import subprocess
 from shutil import ignore_patterns
 
 import dlstbx.util.symlink
-from dlstbx.util.mvs.ligandfit import gen_html_ligandfit
+from dlstbx.util.mvs.viewer_ligandfit import gen_html_ligandfit
 from dlstbx.wrapper import Wrapper
 
 
@@ -149,7 +149,13 @@ class LigandFitWrapper(Wrapper):
         CC = self.pull_CC_from_log(pipeline_directory)
         try:
             gen_html_ligandfit(
-                out_pdb, out_map, pipeline_directory, cc=CC, smiles=smiles, acr=acr
+                out_pdb,
+                out_map,
+                resname="LIG",
+                outdir=pipeline_directory,
+                cc=CC,
+                smiles=smiles,
+                acr=acr,
             )
         except Exception as e:
             self.log.debug(f"Exception generating mvs html: {e}")

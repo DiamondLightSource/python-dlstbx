@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
 
 import portalocker
 
+import dlstbx.util.symlink
+from dlstbx.util.mvs.helpers import save_cropped_map
+from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
 from dlstbx.wrapper import Wrapper
 
 
@@ -37,6 +41,14 @@ class PipedreamWrapper(Wrapper):
         dimple_mtz = dataset_dir / "dimple.mtz"
         upstream_mtz = dataset_dir / f"{dtag}.free.mtz"
 
+        if pipeline_final_params := params.get("pipeline-final", []):
+            final_directory = Path(pipeline_final_params["path"])
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params.get("create_symlink")
+                )
+
         self.log.info(f"Processing dtag: {dtag}")
 
         dataset_dir = model_dir / dtag
@@ -59,39 +71,39 @@ class PipedreamWrapper(Wrapper):
         CompoundCode = smiles_file.stem
 
         # -------------------------------------------------------
-        restraints_command = f"module load buster; module load graphviz; \
-                               export CSDHOME=/dls_sw/apps/CSDS/2024.1.0/; export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
-                               grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f"
+        # Ligand restraint generation
+
+        restraints_log = dataset_dir / "restraints.log"
+        attachments = [restraints_log]  # synchweb attachments
+
+        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 restraints_command,
                 shell=True,
                 capture_output=True,
                 text=True,
                 cwd=compound_dir,
                 check=True,
-                timeout=params.get("timeout-minutes") * 60,
+                timeout=30 * 60,
             )
 
         except subprocess.CalledProcessError as e:
             self.log.error(
                 f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
             )
-
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
         restraints = compound_dir / f"{CompoundCode}.restraints.cif"
         restraints.rename(compound_dir / f"{CompoundCode}.cif")
-        pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
-        pdb.rename(compound_dir / f"{CompoundCode}.pdb")
+        ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
+        ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
 
-        with open(dataset_dir / "restraints.log", "w") as log_file:
-            log_file.write(result.stdout)
-
-        ligand_cif = str(compound_dir / f"{CompoundCode}.cif")
+        ligand_cif = compound_dir / f"{CompoundCode}.cif"
         self.log.info(f"Restraints generated succesfully for dtag {dtag}")
 
         self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
@@ -99,10 +111,12 @@ class PipedreamWrapper(Wrapper):
         self.log.info(f"Launching pipedream for {dtag}")
 
         # -------------------------------------------------------
+        # Pipedream
 
-        pipedream_command = f"module load buster; module load graphviz; \
-            export BDG_TOOL_MOGUL=/dls_sw/apps/CSDS/2024.1.0/ccdc-software/mogul/bin/mogul; \
-            /dls_sw/apps/GPhL/BUSTER/20250717/scripts/pipedream \
+        pipedream_log = out_dir / "summary.out"
+        attachments.extend([pipedream_log, ligand_cif])
+
+        pipedream_command = f"/dls_sw/apps/GPhL/BUSTER/20250717/scripts/pipedream \
             -nolmr \
             -hklin {upstream_mtz} \
             -xyzin {dimple_pdb} \
@@ -116,10 +130,10 @@ class PipedreamWrapper(Wrapper):
             -rhocommands \
             -xclusters \
             -nochirals \
-            -rhofit {ligand_cif}"
+            -rhofit {str(ligand_cif)}"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 pipedream_command,
                 shell=True,
                 capture_output=True,
@@ -133,11 +147,26 @@ class PipedreamWrapper(Wrapper):
             self.log.error(f"Pipedream command: '{pipedream_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+
+            with open(out_dir / "stderr.out", "w") as stderr:
+                stderr.write(e.stderr)
+
+            attachments.extend([out_dir / "stderr.out"])
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
         self.log.info(f"Pipedream finished successfully for dtag {dtag}")
 
-        pipedream_summary = f"{out_dir}/pipedream_summary.json"
+        # -------------------------------------------------------
+
+        report_dir = out_dir / f"report-{CompoundCode}"
+        buster_report = report_dir / "report.pdf"
+
+        postrefine_dir = out_dir / f"postrefine-{CompoundCode}"
+        refine_mtz = postrefine_dir / "refine.mtz"
+        refine_pdb = postrefine_dir / "refine.pdb"
+
+        pipedream_summary = out_dir / "pipedream_summary.json"
         self.save_dataset_metadata(
             str(pipedream_dir),
             str(compound_dir),
@@ -147,6 +176,8 @@ class PipedreamWrapper(Wrapper):
             pipedream_command,
             dtag,
         )
+
+        attachments.extend([buster_report, refine_mtz, refine_pdb, pipedream_summary])
 
         try:
             with open(pipedream_summary, "r") as f:
@@ -163,12 +194,10 @@ class PipedreamWrapper(Wrapper):
                 )
         except Exception as e:
             self.log.info(f"Can't continue with pipedream postprocessing: {e}")
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return True
 
         # Post-processing: Generate maps and run edstats
-        postrefine_dir = out_dir / f"postrefine-{CompoundCode}"
-        refine_mtz = postrefine_dir / "refine.mtz"
-        refine_pdb = postrefine_dir / "refine.pdb"
         map_2fofc = postrefine_dir / "refine_2fofc.map"
         map_fofc = postrefine_dir / "refine_fofc.map"
 
@@ -177,12 +206,30 @@ class PipedreamWrapper(Wrapper):
             os.system(f"gemmi sf2map --sample 5 {str(refine_mtz)} {map_fofc} 2>&1")
         except Exception as e:
             self.log.debug(f"Cannot continue with pipedream postprocessing: {e}")
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return True
+
+        try:
+            cropped_map = save_cropped_map(
+                str(refine_pdb), str(map_2fofc), "LIG", radius=6
+            )
+            mvs_html = gen_html_pipedream(
+                str(refine_pdb),
+                cropped_map,
+                resname="LIG",
+                outdir=out_dir,
+                dtag=dtag,
+                smiles=smiles,
+            )
+            attachments.extend([mvs_html])
+        except Exception as e:
+            self.log.debug(f"Exception generating mvs html: {e}")
 
         if reslo is None or reshi is None:
             self.log.debug(
                 "Can't continue with pipedream postprocessing: resolution range None"
             )
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return True
 
         # Run edstats if both maps exist and resolution range is found
@@ -190,13 +237,15 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: maps not found"
             )
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return True
 
-        edstats_command = f"module load ccp4; edstats XYZIN {refine_pdb} MAPIN1 {map_2fofc} MAPIN2 {map_fofc} OUT {str(postrefine_dir / 'edstats.out')}"
+        edstats_out = postrefine_dir / "edstats.out"
+        edstats_command = f"module load ccp4; edstats XYZIN {refine_pdb} MAPIN1 {map_2fofc} MAPIN2 {map_fofc} OUT {str(edstats_out)}"
         stdin_text = f"RESLO={reslo}\nRESHI={reshi}\nEND\n"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 edstats_command,
                 input=stdin_text,
                 text=True,
@@ -209,9 +258,13 @@ class PipedreamWrapper(Wrapper):
             self.log.error(f"Edstats command: '{edstats_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return True
 
         self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
+
+        attachments.extend([edstats_out])
+        self.send_attachments_to_ispyb(attachments, final_directory)
         return True
 
     def process_pdb_file(self, dimple_pdb: Path):
@@ -299,38 +352,47 @@ class PipedreamWrapper(Wrapper):
             with open(json_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
-    # def send_attachments_to_ispyb(self, pipeline_directory, final_directory):
-    #     for f in pipeline_directory.iterdir():
-    #         if f.stem.endswith("final"):
-    #             file_type = "Result"
-    #             importance_rank = 1
-    #         elif f.suffix == ".html":
-    #             file_type = "Result"
-    #             importance_rank = 1
-    #         elif f.suffix == ".png":
-    #             file_type = "Result"
-    #             importance_rank = 1
-    #         elif f.suffix == ".json":
-    #             file_type = "Result"
-    #             importance_rank = 1
-    #         elif f.suffix == ".log":
-    #             file_type = "Log"
-    #             importance_rank = 2
-    #         else:
-    #             continue
-    #         try:
-    #             shutil.copy(pipeline_directory / f.name, final_directory)
-    #             result_dict = {
-    #                 "file_path": str(final_directory),
-    #                 "file_name": f.name,
-    #                 "file_type": file_type,
-    #                 "importance_rank": importance_rank,
-    #             }
-    #             self.record_result_individual_file(result_dict)
-    #             self.log.info(f"Uploaded {f.name} as an attachment")
+    def send_attachments_to_ispyb(self, attachments, final_directory):
+        for f in attachments:
+            if f.exists():
+                if f.suffix == ".html":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".mtz":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".cif":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".pdb":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".pdf":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".out":
+                    file_type = "Log"
+                    importance_rank = 2
+                elif f.suffix == ".log":
+                    file_type = "Log"
+                    importance_rank = 2
+                else:
+                    continue
+                try:
+                    shutil.copy(f, final_directory)
+                    result_dict = {
+                        "file_path": str(final_directory),
+                        "file_name": f.name,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                    self.record_result_individual_file(result_dict)
+                    self.log.info(f"Uploaded {f.name} as an attachment")
 
-    #         except Exception:
-    #             self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
+                except Exception:
+                    self.log.warning(
+                        f"Could not attach {f.name} to ISPyB", exc_info=True
+                    )
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

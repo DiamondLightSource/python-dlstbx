@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -11,6 +10,12 @@ import gemmi
 import numpy as np
 import yaml
 
+import dlstbx.util.symlink
+from dlstbx.util.mvs.helpers import (
+    find_residue_by_name,
+    save_cropped_map,
+)
+from dlstbx.util.mvs.viewer_pandda import gen_html_pandda
 from dlstbx.wrapper import Wrapper
 
 
@@ -32,8 +37,8 @@ class PanDDAWrapper(Wrapper):
         analysis_dir = Path(processed_dir / "analysis")
         pandda_dir = analysis_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
-        auto_panddas_dir = Path(pandda_dir / "panddas")
-        Path(auto_panddas_dir).mkdir(exist_ok=True)
+        panddas_dir = Path(pandda_dir / "panddas")
+        Path(panddas_dir).mkdir(exist_ok=True)
 
         n_datasets = int(params.get("n_datasets"))
         if n_datasets > 1:  # array job case
@@ -43,10 +48,20 @@ class PanDDAWrapper(Wrapper):
         else:
             dtag = params.get("dtag")
 
-        self.log.info(f"Processing dtag: {dtag}")
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
 
+        if pipeline_final_params := params.get("pipeline-final", []):
+            final_directory = Path(pipeline_final_params["path"])
+            final_directory.mkdir(parents=True, exist_ok=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    final_directory, params.get("create_symlink")
+                )
+
+        self.log.info(f"Processing dtag: {dtag}")
+
+        smiles = params.get("smiles")
         smiles_files = list(compound_dir.glob("*.smiles"))
 
         if len(smiles_files) == 0:
@@ -56,7 +71,7 @@ class PanDDAWrapper(Wrapper):
             return False
         elif len(smiles_files) > 1:
             self.log.error(
-                f"Multiple .smiles files found in in {compound_dir}:, {smiles_files}, warning for dtag {dtag}"
+                f"Multiple .smiles files found in in {compound_dir}: {smiles_files}, warning for dtag {dtag}"
             )
             return False
 
@@ -64,18 +79,22 @@ class PanDDAWrapper(Wrapper):
         CompoundCode = smiles_file.stem
 
         # -------------------------------------------------------
+        # Ligand restraint generation
+
+        restraints_log = dataset_dir / "restraints.log"
+        attachments = [restraints_log]  # synchweb attachments
+        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
         # acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
-        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 restraints_command,
                 shell=True,
                 capture_output=True,
                 text=True,
                 cwd=compound_dir,
                 check=True,
-                timeout=params.get("timeout-minutes") * 60,
+                timeout=30 * 60,
             )
 
         except subprocess.CalledProcessError as e:
@@ -85,23 +104,33 @@ class PanDDAWrapper(Wrapper):
 
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
         restraints = compound_dir / f"{CompoundCode}.restraints.cif"
         restraints.rename(compound_dir / f"{CompoundCode}.cif")
-        pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
-        pdb.rename(compound_dir / f"{CompoundCode}.pdb")
+        ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
+        ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
 
-        with open(dataset_dir / "restraints.log", "w") as log_file:
-            log_file.write(result.stdout)
+        ligand_cif = compound_dir / f"{CompoundCode}.cif"
 
-        self.log.info(f"Restraints generated succesfully for dtag {dtag}, launching PanDDA2")
+        self.log.info(
+            f"Restraints generated succesfully for dtag {dtag}, launching PanDDA2"
+        )
 
-        pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1"
+        # -------------------------------------------------------
+        # PanDDA2
+
+        dataset_pdir = panddas_dir / "processed_datasets" / dtag
+        dataset_pdir.mkdir(exist_ok=True)
+        pandda2_log = dataset_pdir / "pandda2.log"
+
+        attachments.extend([pandda2_log, ligand_cif])
+        pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1 > {pandda2_log}"
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 pandda2_command,
                 shell=True,
                 capture_output=True,
@@ -115,9 +144,12 @@ class PanDDAWrapper(Wrapper):
             self.log.error(f"PanDDA2 command: '{pandda2_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
-        dataset_pdir = auto_panddas_dir / "processed_datasets" / dtag
+        # -------------------------------------------------------
+        # PanDDA Rhofit ligand fitting
+
         ligand_dir = dataset_pdir / "ligand_files"
 
         # pandda2 not moving files into ligand_dir, fix
@@ -129,52 +161,47 @@ class PanDDAWrapper(Wrapper):
                         target.unlink()
                     target.symlink_to(file)
 
-        pandda_log = dataset_pdir / "pandda2.log"
-        with open(pandda_log, "w") as log_file:
-            log_file.write(result.stdout)
-
         modelled_dir = dataset_pdir / "modelled_structures"
         out_dir = modelled_dir / "rhofit"
         out_dir.mkdir(parents=True, exist_ok=True)
-        event_yaml = dataset_pdir / "events.yaml"
+        events_yaml = dataset_pdir / "events.yaml"
 
-        with open(event_yaml, "r") as file:
-            data = yaml.load(file, Loader=yaml.SafeLoader)
-
-        if not data:
+        if not events_yaml.exists():
             self.log.info(
-                (f"No events in {event_yaml}, can't continue with PanDDA2 Rhofit")
+                (f"No events in {events_yaml}, can't continue with PanDDA2 Rhofit")
             )
-            return True  # False
+            self.send_attachments_to_ispyb(attachments, final_directory)
+            return False
+
+        with open(events_yaml, "r") as file:
+            data = yaml.load(file, Loader=yaml.SafeLoader)
 
         # Determine which builds to perform. More than one binder is unlikely and score ranks
         # well so build the best scoring event of each dataset.
         best_key = max(data, key=lambda k: data[k]["Score"])
         best_entry = data[best_key]
 
-        # event_idx = best_key
+        event_idx = best_key
         # bdc = best_entry["BDC"]
         coord = best_entry["Centroid"]
 
-        build_dmap = dataset_pdir / f"{dtag}-z_map.native.ccp4"
         restricted_build_dmap = dataset_pdir / "build.ccp4"
+        z_map = dataset_pdir / f"{dtag}-z_map.native.ccp4"
+        event_map = list(dataset_pdir.glob(f"{dtag}-event_{event_idx}*"))[0]
+        # event_map = dataset_dir / f'{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4' #round BDC to 2dp?
         pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
         restricted_pdb_file = dataset_pdir / "build.pdb"
 
-        dmap_cut = 2.0
-        # This is usually quite a good contour for building and consistent
-        # (usually) with the cutoffs PanDDA 2 uses for event finding
-
         # Rhofit can be confused by hunting non-binding site density. This can be avoided
         # by truncating the map to near the binding site
-        dmap = self.read_pandda_map(build_dmap)
+        dmap = self.read_pandda_map(event_map)
         dmap = self.mask_map(dmap, coord)
         self.save_xmap(dmap, restricted_build_dmap)
 
         # Rhofit masks the protein before building. If the original protein
         # model clips the event then this results in autobuilding becoming impossible.
-        # To address tis residues within a 10A neighbourhood of the binding event
+        # To address this residues within a 10A neighbourhood of the binding event
         # are removed.
         self.log.debug("Removing nearby atoms to make room for autobuilding")
         self.remove_nearby_atoms(
@@ -184,57 +211,116 @@ class PanDDAWrapper(Wrapper):
             restricted_pdb_file,
         )
 
-        # Really all the cifs should be tried and the best used, or it should try the best
-        # cif from PanDDA
-        # This is a temporary fix that will get 90% of situations that can be improved upon
         cifs = list(ligand_dir.glob("*.cif"))
-        if len(cifs) == 0:
-            self.log.error(
-                f"No .cif files found for dtag {dtag}, cannot launch PanDDA2 Rhofit!"
-            )
-            return True
 
-        # -------------------------------------------------------
+        rhofit_log = dataset_pdir / "rhofit.log"
+        attachments.extend([event_map, z_map, rhofit_log])
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {dmap_cut}; "
+        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut 2.0 > {rhofit_log};"  # dmap_cut=2.0
 
         self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 rhofit_command,
                 shell=True,
                 capture_output=True,
                 text=True,
-                cwd=auto_panddas_dir,
+                cwd=panddas_dir,
                 check=True,
-                timeout=params.get("timeout-minutes") * 60,
+                timeout=60 * 60,
             )
 
         except subprocess.CalledProcessError as e:
             self.log.error(f"Rhofit command: '{rhofit_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
+            self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
-        with open(out_dir / "rhofit.log", "w") as log_file:
-            log_file.write(result.stdout)
-
-        # -------------------------------------------------------
-        # Merge the protein structure with ligand
+        # Merge the protein structure with ligand -> pandda model
         protein_st_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         ligand_st_file = out_dir / "rhofit" / "best.pdb"
-        output_file = modelled_dir / f"{dtag}-pandda-model.pdb"
+        pandda_model = modelled_dir / f"{dtag}-pandda-model.pdb"
 
         protein_st = gemmi.read_structure(str(protein_st_file))
         ligand_st = gemmi.read_structure(str(ligand_st_file))
         contact_chain = self.get_contact_chain(protein_st, ligand_st)
         protein_st[0][contact_chain].add_residue(ligand_st[0][0][0])
 
-        if output_file.exists():
-            shutil.copy(output_file, modelled_dir / "pandda-internal-fitted.pdb")
+        if pandda_model.exists():  # backup previous model
+            shutil.copy2(pandda_model, modelled_dir / "pandda-internal-fitted.pdb")
 
-        protein_st.write_pdb(str(output_file))
+        protein_st.write_pdb(str(pandda_model))
+
+        # -------------------------------------------------------
+        # Ligand scoring
+
+        ligand_score = dataset_pdir / "ligand_score.txt"
+        attachments.extend([pandda_model, ligand_score])
+
+        st = gemmi.read_structure(str(pandda_model))
+        chain, res = find_residue_by_name(st, "LIG")
+        ligand_id = chain.name + f"/{res.seqid.num}"
+
+        score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
+        python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={pandda_model} --out_path={ligand_score}"
+
+        self.log.info(f"Running Ligand Score command: {score_command}")
+
+        try:
+            subprocess.run(
+                score_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=panddas_dir,
+                check=True,
+                timeout=10 * 60,
+            )
+
+        except subprocess.CalledProcessError as e:
+            self.log.error(f"Ligand score command: '{score_command}' failed")
+            self.log.info(e.stdout)
+            self.log.error(e.stderr)
+
+        with open(ligand_score, "r") as file:
+            score = float(file.read().strip())
+
+        self.log.info(f"Ligand score for {dtag} = {score}")
+
+        try:
+            cropped_event_map = save_cropped_map(
+                str(pandda_model), str(z_map), "LIG", radius=6
+            )
+            cropped_z_map = save_cropped_map(
+                str(pandda_model), str(z_map), "LIG", radius=6
+            )
+            mvs_html = gen_html_pandda(
+                str(pandda_model),
+                cropped_event_map,
+                cropped_z_map,
+                resname="LIG",
+                outdir=dataset_pdir,
+                dtag=dtag,
+                smiles=smiles,
+                score=score,
+            )
+            attachments.extend([mvs_html])
+        except Exception as e:
+            self.log.debug(f"Exception generating mvs html: {e}")
+
+        # data = [
+        #     ["SMILES code", "Fitted_ligand?", "Hit?"],
+        #     [f"{smiles}", "True", "True"],
+        # ]
+        # json_results = dataset_pdir / "pandda2_results.json"
+        # with open(json_results, "w") as f:
+        #     json.dump(data, f)
+        # attachments.extend([json_results])
+
+        self.log.info(f"Attachments list: {attachments}")
+        self.send_attachments_to_ispyb(attachments, final_directory)
 
         self.log.info(f"Auto PanDDA2 pipeline finished successfully for dtag {dtag}")
         return True
@@ -299,7 +385,7 @@ class PanDDAWrapper(Wrapper):
 
         return dmap
 
-    def remove_nearby_atoms(self, pdb_file, coord, radius, output_file):
+    def remove_nearby_atoms(self, pdb_file, coord, radius, pandda_model):
         """An inelegant method for removing residues near the event centroid and creating
         a new, truncated pdb file. GEMMI doesn't have a super nice way to remove
         residues according to a specific criteria."""
@@ -334,7 +420,7 @@ class PanDDAWrapper(Wrapper):
 
                     if add_res:
                         new_st[j][k].add_residue(res)
-        new_st.write_pdb(str(output_file))
+        new_st.write_pdb(str(pandda_model))
 
     def get_contact_chain(self, protein_st, ligand_st):
         """A simple estimation of the contact chain based on which chain has the most atoms
@@ -388,14 +474,38 @@ class PanDDAWrapper(Wrapper):
 
         return min(chain_counts, key=lambda _x: chain_counts[_x])
 
-    def update_data_source(self, db_dict, dtag, database_path):
-        sql = (
-            "UPDATE mainTable SET "
-            + ", ".join([f"{k} = :{k}" for k in db_dict])
-            + f" WHERE CrystalName = '{dtag}'"
-        )
-        conn = sqlite3.connect(database_path)
-        # conn.execute("PRAGMA journal_mode=WAL;")
-        cursor = conn.cursor()
-        cursor.execute(sql, db_dict)
-        conn.commit()
+    def send_attachments_to_ispyb(self, attachments, final_directory):
+        for f in attachments:
+            if f.exists():
+                if f.suffix == ".html":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".ccp4":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".cif":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".pdb":
+                    file_type = "Result"
+                    importance_rank = 1
+                elif f.suffix == ".log":
+                    file_type = "Log"
+                    importance_rank = 2
+                else:
+                    continue
+                try:
+                    shutil.copy(f, final_directory)
+                    result_dict = {
+                        "file_path": str(final_directory),
+                        "file_name": f.name,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                    self.record_result_individual_file(result_dict)
+                    self.log.info(f"Uploaded {f.name} as an attachment")
+
+                except Exception:
+                    self.log.warning(
+                        f"Could not attach {f.name} to ISPyB", exc_info=True
+                    )

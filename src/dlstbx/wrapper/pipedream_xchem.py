@@ -113,7 +113,7 @@ class PipedreamWrapper(Wrapper):
         # -------------------------------------------------------
         # Pipedream
 
-        pipedream_log = out_dir / "pipedream.log"
+        pipedream_log = out_dir / "summary.out"
         attachments.extend([pipedream_log, ligand_cif])
 
         pipedream_command = f"/dls_sw/apps/GPhL/BUSTER/20250717/scripts/pipedream \
@@ -148,13 +148,10 @@ class PipedreamWrapper(Wrapper):
             self.log.info(e.stdout)
             self.log.error(e.stderr)
 
-            with open(pipedream_log, "w") as log_file:
-                log_file.write(e.stdout)
-
-            with open(out_dir / "pipedream.stderr", "w") as stderr:
+            with open(out_dir / "stderr.out", "w") as stderr:
                 stderr.write(e.stderr)
 
-            attachments.extend([out_dir / "pipedream.stderr"])
+            attachments.extend([out_dir / "stderr.out"])
             self.send_attachments_to_ispyb(attachments, final_directory)
             return False
 
@@ -169,7 +166,7 @@ class PipedreamWrapper(Wrapper):
         refine_mtz = postrefine_dir / "refine.mtz"
         refine_pdb = postrefine_dir / "refine.pdb"
 
-        pipedream_summary = f"{out_dir}/pipedream_summary.json"
+        pipedream_summary = out_dir / "pipedream_summary.json"
         self.save_dataset_metadata(
             str(pipedream_dir),
             str(compound_dir),
@@ -373,6 +370,9 @@ class PipedreamWrapper(Wrapper):
                 elif f.suffix == ".pdf":
                     file_type = "Result"
                     importance_rank = 1
+                elif f.suffix == ".out":
+                    file_type = "Log"
+                    importance_rank = 2
                 elif f.suffix == ".log":
                     file_type = "Log"
                     importance_rank = 2

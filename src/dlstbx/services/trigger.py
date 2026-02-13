@@ -272,6 +272,14 @@ class AlignCrystalParameters(pydantic.BaseModel):
     symlink: str = pydantic.Field(default="")
 
 
+class StrategyParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    comment: Optional[str] = None
+    experiment_type: str
+    wavelength: float = pydantic.Field(gt=0)
+    default_wavelength: float = pydantic.Field(gt=0)
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -2778,5 +2786,54 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Align_crystal trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_strategy(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: StrategyParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type != "Characterization":
+            self.log.info(
+                f"Skipping strategy trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        resolution = 2.2  # TODO - get resolution from parameters or from ispyb
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "udc-strategy"
+        jp["recipe"] = "postprocessing-udc-strategy"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"Strategy trigger: generated JobID {jobid}")
+
+        strategy_parameters = {
+            "resolution": resolution,
+            "wavelength": parameters.wavelength,
+            "default_wavelength": parameters.default_wavelength,
+        }
+
+        for key, value in strategy_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Strategy trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Strategy trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

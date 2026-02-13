@@ -231,6 +231,29 @@ class DLSMimas(CommonService):
             # Create cloud specification entry for each element in zocalo.mimas.cloud
             # Add specification to the list if science cluster if oversubscribed
             # and cluster statistics are up-to-date
+            is_iris_live = (
+                self.cluster_stats["iris"]["last_cluster_update"] > timeout_threshold
+            )
+            is_s3echo_live = (
+                self.cluster_stats["s3echo"]["last_cluster_update"] > timeout_threshold
+            )
+            is_s3echo_quota = self.cluster_stats["s3echo"]["total"] < s3echo_quota
+            cloudbursting = is_iris_live and is_s3echo_live and is_s3echo_quota
+            self.log.debug(
+                pformat(
+                    {
+                        "is_iris_live": is_iris_live,
+                        "is_s3echo_live": is_s3echo_live,
+                        "is_s3echo_quota": is_s3echo_quota,
+                    }
+                )
+            )
+            if not cloudbursting:
+                return cloud_spec_list
+
+            # Create cloud specification entry for each element in zocalo.mimas.cloud
+            # Add specification to the list if science cluster if oversubscribed
+            # and cluster statistics are up-to-date
             for group in self.config.storage.get("zocalo.mimas.cloud", []):
                 if not group.get("cloudbursting", True):
                     continue
@@ -240,30 +263,28 @@ class DLSMimas(CommonService):
                     beamlines=set(group.get("beamlines", []))
                 )
                 group_max_jobs_waiting = group.get("max_jobs_waiting", max_jobs_waiting)
-                if (
-                    (
-                        (
-                            self.cluster_stats["slurm"]["jobs_waiting"]
-                            > group_max_jobs_waiting["slurm"]
-                        )
-                        or (
-                            self.cluster_stats["slurm"]["last_cluster_update"]
-                            < timeout_threshold
-                        )
+                is_slurm_max_jobs = (
+                    self.cluster_stats["slurm"]["jobs_waiting"]
+                    > group_max_jobs_waiting["slurm"]
+                )
+                is_slurm_timeout = (
+                    self.cluster_stats["slurm"]["last_cluster_update"]
+                    < timeout_threshold
+                )
+                is_iris_max_jobs = (
+                    self.cluster_stats["iris"]["jobs_waiting"]
+                    < group_max_jobs_waiting["iris"]
+                )
+                self.log.debug(
+                    pformat(
+                        {
+                            "is_slurm_max_jobs": is_slurm_max_jobs,
+                            "is_slurm_timeout": is_slurm_timeout,
+                            "is_iris_max_jobs": is_iris_max_jobs,
+                        }
                     )
-                    and (
-                        self.cluster_stats["iris"]["jobs_waiting"]
-                        < group_max_jobs_waiting["iris"]
-                    )
-                    and (
-                        self.cluster_stats["iris"]["last_cluster_update"]
-                        > timeout_threshold
-                    )
-                    and (
-                        self.cluster_stats["s3echo"]["last_cluster_update"]
-                        > timeout_threshold
-                    )
-                ):
+                )
+                if (is_slurm_max_jobs or is_slurm_timeout) and is_iris_max_jobs:
                     cloud_spec_list.append(
                         {
                             "cloud_spec": cloud_spec,

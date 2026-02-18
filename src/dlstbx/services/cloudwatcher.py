@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from math import log2
 from pprint import pformat
 
 import workflows.recipe
@@ -217,20 +218,25 @@ class CloudWatcher(CommonService):
                 message_delay = max(1, message_delay)
             else:
                 message_delay = 1
-            self.log.debug(
-                (
-                    "No further jobs in list finished after a total time of {time:.1f} seconds\n"
-                    "{jobs_seen} of {jobs_total} still running."
-                ).format(
-                    time=time.time() - first_seen,
-                    jobs_seen=len(seen_jobs),
-                    jobs_total=jobcount,
-                ),
-                extra={
-                    "stat-time-max": os_stat_profiler.max,
-                    "stat-time-mean": os_stat_profiler.mean,
-                },
+            # Log job status update when runtime values in seconds are near powers of 2.
+            logging_threshold = log2(max(runtime, 2)) - log2(
+                max(runtime - 3 * message_delay, 1)
             )
+            if logging_threshold:
+                self.log.debug(
+                    (
+                        "No further jobs in list finished after a total time of {time:.1f} seconds\n"
+                        "{jobs_seen} of {jobs_total} still running."
+                    ).format(
+                        time=runtime,
+                        jobs_seen=len(seen_jobs),
+                        jobs_total=jobcount,
+                    ),
+                    extra={
+                        "stat-time-max": os_stat_profiler.max,
+                        "stat-time-mean": os_stat_profiler.mean,
+                    },
+                )
 
         # Send results to myself for next round of processing
         rw.checkpoint(

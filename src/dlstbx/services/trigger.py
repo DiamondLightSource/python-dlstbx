@@ -1625,10 +1625,13 @@ class DLSTrigger(CommonService):
                     pass
 
                 for input_file in ("data", "scaled_unmerged_mtz"):
-                    processing_params = parameter_map.get(app.processingPrograms, {})
+                    processing_params = ChainMapWithReplacement(
+                        parameter_map.get(app.processingPrograms, {}),
+                        substitutions=rw.environment,
+                    )
                     input_filename = getattr(
                         parameters, input_file
-                    ) or processing_params.get(input_file)
+                    ) or processing_params.get(input_file, "")
                     if pathlib.Path(input_filename).is_file():
                         big_ep_params[input_file] = pathlib.Path(input_filename)
                     else:
@@ -1636,12 +1639,7 @@ class DLSTrigger(CommonService):
                         app_file = pathlib.Path(app.filePath) / app.fileName
                         if re.search(str(input_filename), str(app_file)):
                             big_ep_params[input_file] = app_file
-            big_ep_params = BigEPParams(
-                **ChainMapWithReplacement(
-                    big_ep_params,
-                    substitutions=rw.environment,
-                )
-            )
+            big_ep_params = BigEPParams(**big_ep_params)
         else:
             self.log.error("big_ep trigger failed: No scaling_id value specified")
             return False

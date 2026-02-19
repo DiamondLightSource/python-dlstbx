@@ -274,10 +274,10 @@ class AlignCrystalParameters(pydantic.BaseModel):
 
 class StrategyParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    beamline: str
     comment: Optional[str] = None
     experiment_type: str
     wavelength: float = pydantic.Field(gt=0)
-    default_wavelength: float = pydantic.Field(gt=0)
 
 
 class DLSTrigger(CommonService):
@@ -2804,6 +2804,8 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        # TODO Add check to see if UDC strategy has already run for this data collection.
+
         resolution = 2.2  # TODO - get resolution from parameters or from ispyb
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -2816,9 +2818,9 @@ class DLSTrigger(CommonService):
         self.log.debug(f"Strategy trigger: generated JobID {jobid}")
 
         strategy_parameters = {
+            "beamline": parameters.beamline,
             "resolution": resolution,
             "wavelength": parameters.wavelength,
-            "default_wavelength": parameters.default_wavelength,
         }
 
         for key, value in strategy_parameters.items():

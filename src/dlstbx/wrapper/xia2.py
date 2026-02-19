@@ -56,7 +56,11 @@ class Xia2Wrapper(Wrapper):
                 "unit_cell": "xia2.settings.unit_cell",
             }
             for param, value in params["ispyb_parameters"].items():
-                command.append(translation.get(param, param) + "=" + value)
+                if "spotfinder" in param:
+                    if "find_spots.phil_file=spots.phil" not in command:
+                        command.append("find_spots.phil_file=spots.phil")
+                else:
+                    command.append(translation.get(param, param) + "=" + value)
 
         return command
 
@@ -195,10 +199,21 @@ class Xia2Wrapper(Wrapper):
                     f"Could not create run_xia2.sh script file in the working directory {working_directory}"
                 )
                 return False
-            command = ["sh", f"{working_directory}/run_xia2.sh"]
+            run_command = ["sh", f"{working_directory}/run_xia2.sh"]
+        else:
+            run_command = command
 
         subprocess_directory = working_directory / params["program_name"]
         subprocess_directory.mkdir(parents=True, exist_ok=True)
+
+        # Write out spot finding parameters that are not directly accessible in xia2 to phil file
+
+        if "find_spots.phil_file=spots.phil" in command:
+            with open(subprocess_directory / "spots.phil", "w") as phil:
+                for param, value in params["ispyb_parameters"].items():
+                    if "spotfinder" in param:
+                        phil.write(f"{param}={value}\n")
+            self.log.info(f"Created spots.phil in {subprocess_directory}")
 
         if "dials.integrate.phil_file" in params["xia2"]:
             dials_integrate_phil_file = subprocess_directory / params["xia2"].get(
@@ -219,7 +234,7 @@ class Xia2Wrapper(Wrapper):
         try:
             start_time = time.perf_counter()
             result = subprocess.run(
-                command,
+                run_command,
                 timeout=params.get("timeout"),
                 cwd=subprocess_directory,
             )

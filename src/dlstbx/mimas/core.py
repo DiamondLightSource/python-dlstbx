@@ -44,6 +44,19 @@ XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(key="ice_rings.filter", value="true"),
 )
 
+XIA2_DIALS_VMXM_SPOTFINDING_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
+    mimas.MimasISPyBParameter(key="spotfinder.filter.max_separation", value="8"),
+    mimas.MimasISPyBParameter(
+        key="spotfinder.threshold.dispersion.kernel_size", value="6,6"
+    ),
+    mimas.MimasISPyBParameter(
+        key="spotfinder.threshold.dispersion.sigma_background", value="3"
+    ),
+    mimas.MimasISPyBParameter(
+        key="spotfinder.threshold.dispersion.sigma_strong", value="1"
+    ),
+)
+
 
 def xia2_dials_absorption_params(
     scenario: mimas.MimasScenario,
@@ -298,6 +311,8 @@ def handle_rotation_end(
         xia2_dials_beamline_extra_params = (
             *XIA2_DIALS_COPPER_RINGS_PARAMS,
             mimas.MimasISPyBParameter(key="failover", value="true"),
+            mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
+            *XIA2_DIALS_VMXM_SPOTFINDING_PARAMS,
         )
 
     triggervars_pref: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()

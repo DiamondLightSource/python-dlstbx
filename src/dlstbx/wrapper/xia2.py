@@ -56,7 +56,7 @@ class Xia2Wrapper(Wrapper):
                 "unit_cell": "xia2.settings.unit_cell",
             }
             for param, value in params["ispyb_parameters"].items():
-                if "spotfinder" in param:
+                if param.startswith("spotfinder"):
                     if "find_spots.phil_file=spots.phil" not in command:
                         command.append("find_spots.phil_file=spots.phil")
                 else:

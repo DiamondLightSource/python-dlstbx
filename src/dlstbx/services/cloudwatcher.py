@@ -219,7 +219,7 @@ class CloudWatcher(CommonService):
             else:
                 message_delay = 1
             # Log job status update when runtime values in seconds are near powers of 2.
-            logging_threshold = int(log2(max(runtime, 2))) - int(
+            logging_threshold = int(log2(max(runtime, 1))) - int(
                 log2(max(runtime - 3 * message_delay, 1))
             )
             if logging_threshold:

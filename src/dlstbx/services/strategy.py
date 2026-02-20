@@ -10,19 +10,27 @@ from workflows.services.common_service import CommonService
 from dlstbx.util import ChainMapWithReplacement
 
 
-def apply_limit(parameter: float, limits: tuple[float, float]) -> float:
-    return max(limits[0], min(limits[1], parameter))
-
-
 def scale_parameter(
     value: float, scale_factor: float, limits: tuple[float, float] | None = None
 ) -> tuple[float, float]:
+    def apply_limit(parameter: float, limits: tuple[float, float]) -> float:
+        lower_limit, upper_limit = limits
+        if lower_limit is not None:
+            parameter = max(lower_limit, parameter)
+        if upper_limit is not None:
+            parameter = min(upper_limit, parameter)
+        return parameter
+
     ref_value = value * scale_factor
-    scaled_value = apply_limit(ref_value, limits) if limits else ref_value
+    if limits is not None:
+        scaled_value = apply_limit(ref_value, limits)
+    else:
+        scaled_value = ref_value
     if scaled_value == 0:
         raise ValueError("Scaled value cannot be zero")
-    inverse_scale_factor = ref_value / scaled_value
-    return (scaled_value, inverse_scale_factor)
+    # Scale factor to apply to opposite parameter to achieve the desired scaling effect, accounting for limits
+    corrective_scale_factor = ref_value / scaled_value
+    return scaled_value, corrective_scale_factor
 
 
 def get_resolution_scale(resolution: float) -> float:
@@ -37,6 +45,59 @@ def parse_agamemnon_recipe(recipe_path: Path) -> list[dict]:
     with open(recipe_path, "r") as f:
         recipe = yaml.safe_load(f)
     return recipe
+
+
+def parse_config_file(config_file: Path) -> dict:
+    config = {}
+
+    for record in open(config_file, errors="ignore"):
+        if "#" in record:
+            record = record.split("#")[0]
+        record = record.strip()
+        if not record:
+            continue
+        if "=" not in record:
+            continue
+
+        key, value = record.split("=")
+        key = key.strip()
+        value = value.strip()
+
+        if key == "include":
+            if value.startswith(".."):
+                include = config_file.parent / value
+                name = Path(value).name.split(".")[0]
+                included = parse_config_file(include)
+                for k in included:
+                    config[f"{name}.{k}"] = included[k]
+            continue
+
+        config[key] = value
+    # Resolve references to other variables
+    for key, val in config.items():
+        if isinstance(val, str) and val[:2] == "${" and val[-1] == "}":
+            try:
+                config[key] = config[val[2:-1]]
+            except KeyError:
+                continue
+    return config
+
+
+LimitMapping = tuple[str, tuple[str, str]]
+LIMITS_MAPPINGS_LIST: list[LimitMapping] = [
+    (
+        "exposure_time",
+        ("gda.exptTableModel.minImageTime", "gda.exptTableModel.maxImageTime"),
+    ),
+    (
+        "exposure_time",
+        ("gda.mx.udc.minImageTime", "gda.mx.udc.maxImageTime"),
+    ),
+    (
+        "transmission",
+        ("gda.mx.udc.minTransmission", "gda.mx.udc.maxTransmission"),
+    ),
+]
 
 
 class AgamemnonParameters(BaseModel):
@@ -109,15 +170,51 @@ class DLSStrategy(CommonService):
             else float(parameters["resolution"])
         )
         resolution = max((resolution_estimate) - 0.5, 0.9)
-        # TODO get limits from filesystem
-        tranmission_limits = (0.0001, 1.0)
-        exposure_time_limits = (0.001, 1.0)
+
+        # beamline_limits = {
+        #     "exposure_time": (None, None),
+        #     "transmission": (0.0001, 1.0)
+        # }
+
+        beamline_config = parse_config_file(
+            Path(
+                f"/dls_sw/{beamline}/software/daq_configuration/domain/domain.properties"
+            )
+        )
+        # TODO - Refactor these monstrocities
+        transmission_limits = (
+            float(beamline_config.get("gda.mx.udc.minTransmission", 0.0)),
+            float(beamline_config.get("gda.mx.udc.maxTransmission", 1.0)),
+        )
+        exposure_time_limits = (
+            float(
+                beamline_config.get(
+                    "gda.mx.udc.minImageTime",
+                    beamline_config.get("gda.exptTableModel.minImageTime", 0.0),
+                )
+            ),
+            float(
+                beamline_config.get(
+                    "gda.mx.udc.maxImageTime",
+                    beamline_config.get(
+                        "gda.exptTableModel.maxImageTime", float("inf")
+                    ),
+                )
+            ),
+        )
+
+        # for mapping in LIMITS_MAPPINGS_LIST:
+        #     parameter_name, keys = mapping
+        #     for index, key in enumerate(keys):
+        #         if key in beamline_config:
+        #             beamline_limits[parameter_name][index] = float(beamline_config[key])
+        #     self.log.debug(f"Limits for {parameter_name} set to {beamline_limits[parameter_name]} from keys {keys}")
 
         recipes = ("OSC.yaml", "Ligand binding.yaml")
         recipe_aliases = {"OSC.yaml": "OSC", "Ligand binding.yaml": "Ligand"}
+        ispyb_command_list = []
 
         for recipe in recipes:
-            ispyb_command_list = []
             recipe_path = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes/{recipe}")
             recipe_steps = parse_agamemnon_recipe(recipe_path)
 
@@ -168,17 +265,17 @@ class DLSStrategy(CommonService):
                 for _ in range(2):
                     if scale > 1.0:
                         transmission, scale = scale_parameter(
-                            transmission, scale, limits=tranmission_limits
+                            transmission, scale, limits=transmission_limits
                         )
                         exposure_time, scale = scale_parameter(
                             exposure_time, scale, limits=exposure_time_limits
                         )
                     else:
                         exposure_time, scale = scale_parameter(
-                            exposure_time, scale, exposure_time_limits
+                            exposure_time, scale, limits=exposure_time_limits
                         )
                         transmission, scale = scale_parameter(
-                            transmission, scale, limits=tranmission_limits
+                            transmission, scale, limits=transmission_limits
                         )
                     self.log.debug(
                         f"Exposure time scaled to {exposure_time:.3f} s, transmission scaled to {transmission:.3f}, scale factor now {scale:.3f}"
@@ -194,6 +291,7 @@ class DLSStrategy(CommonService):
                         "kappa": recipe_step.kappa,
                         "wavelength": wavelength,
                         "dosetotal": dose,
+                        "comments": recipe_aliases[recipe],
                         "ispyb_command": "insert_screening_strategy_wedge",
                         "screening_strategy_id": "$ispyb_screening_strategy_id",
                         "store_result": f"ispyb_screening_strategy_wedge_id_{n_step}",

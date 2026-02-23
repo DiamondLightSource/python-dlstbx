@@ -1,11 +1,12 @@
 # pytest configuration file
 from __future__ import annotations
 
+import importlib.metadata
 import os
 from typing import List
+from unittest.mock import patch
 
 import ispyb.sqlalchemy
-import pkg_resources
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -85,20 +86,23 @@ def handle_i99(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation
 
 @pytest.fixture
 def with_dummy_plugins():
-    # Get the current distribution and entry map
-    dist = pkg_resources.get_distribution("dlstbx")
-    entry_map = pkg_resources.get_entry_map("dlstbx", group="zocalo.mimas.handlers")
+    real_entry_points = importlib.metadata.entry_points(group="zocalo.mimas.handlers")
+    fake_entry_points = [
+        importlib.metadata.EntryPoint(
+            name="i99", value=f"{__name__}:handle_i99", group="zocalo.mimas.handlers"
+        ),
+        importlib.metadata.EntryPoint(
+            name="i99_rotation",
+            value=f"{__name__}:handle_i99_rotation",
+            group="zocalo.mimas.handlers",
+        ),
+    ]
+    combined = list(real_entry_points) + fake_entry_points
 
-    # Create the fake entry point definitions and add the mapping
-    entry_map["i99"] = pkg_resources.EntryPoint.parse(
-        f"i99 = {__name__}:handle_i99", dist=dist
-    )
-    entry_map["i99_rotation"] = pkg_resources.EntryPoint.parse(
-        f"i99_rotation = {__name__}:handle_i99_rotation", dist=dist
-    )
-    mimas._get_handlers.cache_clear()
-    yield
-    # cleanup
-    del entry_map["i99"]
-    del entry_map["i99_rotation"]
+    with patch(
+        "dlstbx.mimas.importlib.metadata.entry_points",
+        return_value=combined,
+    ):
+        mimas._get_handlers.cache_clear()
+        yield
     mimas._get_handlers.cache_clear()

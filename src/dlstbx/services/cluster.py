@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import errno
 import getpass
+import importlib.metadata
 import json
 import logging
 import math
@@ -10,7 +11,6 @@ import os
 import pathlib
 from typing import Optional
 
-import pkg_resources
 import pydantic
 import requests
 import workflows.recipe
@@ -159,8 +159,8 @@ class DLSCluster(CommonService):
 
         self.schedulers = {
             f.name: f.load()
-            for f in pkg_resources.iter_entry_points(
-                "zocalo.services.cluster.schedulers"
+            for f in importlib.metadata.entry_points(
+                group="zocalo.services.cluster.schedulers"
             )
         }
         self.log.debug(f"Supported schedulers: {', '.join(self.schedulers.keys())}")

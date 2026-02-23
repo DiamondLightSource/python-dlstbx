@@ -29,6 +29,7 @@ class Xia2Wrapper(Wrapper):
         Takes job parameter dictionary, returns array."""
 
         command = ["xia2"]
+        spotfinding_params = []
 
         for param, values in params["xia2"].items():
             if param == "images":
@@ -57,12 +58,13 @@ class Xia2Wrapper(Wrapper):
             }
             for param, value in params["ispyb_parameters"].items():
                 if param.startswith("spotfinder"):
+                    spotfinding_params.append(f"{param}={value}\n")
                     if "find_spots.phil_file=spots.phil" not in command:
                         command.append("find_spots.phil_file=spots.phil")
                 else:
                     command.append(translation.get(param, param) + "=" + value)
 
-        return command
+        return command, spotfinding_params
 
     def send_results_to_ispyb(
         self,
@@ -174,7 +176,7 @@ class Xia2Wrapper(Wrapper):
                 )
                 return False
 
-        command = self.construct_commandline(
+        command, spotfinding_params = self.construct_commandline(
             working_directory, params, "s3_urls" in self.recwrap.environment
         )
         self.log.info("command: %s", " ".join(command))
@@ -199,20 +201,17 @@ class Xia2Wrapper(Wrapper):
                     f"Could not create run_xia2.sh script file in the working directory {working_directory}"
                 )
                 return False
-            run_command = ["sh", f"{working_directory}/run_xia2.sh"]
-        else:
-            run_command = command
+            command = ["sh", f"{working_directory}/run_xia2.sh"]
 
         subprocess_directory = working_directory / params["program_name"]
         subprocess_directory.mkdir(parents=True, exist_ok=True)
 
         # Write out spot finding parameters that are not directly accessible in xia2 to phil file
 
-        if "find_spots.phil_file=spots.phil" in command:
+        if spotfinding_params:
             with open(subprocess_directory / "spots.phil", "w") as phil:
-                for param, value in params["ispyb_parameters"].items():
-                    if "spotfinder" in param:
-                        phil.write(f"{param}={value}\n")
+                for phil_param in spotfinding_params:
+                    phil.write(phil_param)
             self.log.info(f"Created spots.phil in {subprocess_directory}")
 
         if "dials.integrate.phil_file" in params["xia2"]:
@@ -234,7 +233,7 @@ class Xia2Wrapper(Wrapper):
         try:
             start_time = time.perf_counter()
             result = subprocess.run(
-                run_command,
+                command,
                 timeout=params.get("timeout"),
                 cwd=subprocess_directory,
             )

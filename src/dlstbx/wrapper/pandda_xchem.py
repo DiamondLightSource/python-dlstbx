@@ -122,7 +122,7 @@ class PanDDAWrapper(Wrapper):
         # PanDDA2
 
         dataset_pdir = panddas_dir / "processed_datasets" / dtag
-        dataset_pdir.mkdir(exist_ok=True)
+        dataset_pdir.mkdir(parents=True, exist_ok=True)
         pandda2_log = dataset_pdir / "pandda2.log"
 
         attachments.extend([pandda2_log, ligand_cif])
@@ -151,6 +151,7 @@ class PanDDAWrapper(Wrapper):
         # PanDDA Rhofit ligand fitting
 
         ligand_dir = dataset_pdir / "ligand_files"
+        ligand_dir.mkdir(exist_ok=True)
 
         # pandda2 not moving files into ligand_dir, fix
         for file in compound_dir.rglob("*"):

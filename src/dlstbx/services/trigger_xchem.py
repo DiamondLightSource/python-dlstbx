@@ -9,6 +9,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 
+import gemmi
 import ispyb
 import pandas as pd
 import prometheus_client
@@ -26,6 +27,7 @@ from ispyb.sqlalchemy import (
     BLSample,
     BLSession,
     Container,
+    Crystal,
     DataCollection,
     ProcessingJob,
     ProcessingJobParameter,
@@ -250,10 +252,30 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # Find corresponding XChem visit directory and database
-        xchem_dir = pathlib.Path(
-            f"/dls/labxchem/data/{proposal.proposalCode}{proposal.proposalNumber}"
+        # Get sample details
+        query = (
+            session.query(DataCollection, BLSample)
+            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
+            .join(Container, Container.containerId == BLSample.containerId)
+            .filter(DataCollection.dataCollectionId == dcid)
         )
+
+        query = query.with_entities(BLSample.name, BLSample.location, Container.code)
+        dtag = query.one()[0]
+        location = int(query.one()[1])
+        container_code = query.one()[2]
+
+        # Get user defined spacegroup
+        query = (
+            session.query(Crystal.spaceGroup)
+            .join(BLSample, BLSample.crystalId == Crystal.crystalId)
+            .filter(BLSample.name == dtag)
+        )
+
+        user_sg = gemmi.find_spacegroup_by_name(query.one()[0]).hm
+
+        # Find corresponding XChem visit directory and database
+        xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
         yaml_files = []
 
         for subdir in xchem_dir.iterdir():
@@ -486,6 +508,7 @@ class DLSTriggerXChem(CommonService):
                     AutoProcProgram,
                     AutoProcScalingStatistics,
                     AutoProcScaling.autoProcScalingId,
+                    AutoProc.spaceGroup,
                 )
                 .join(
                     ProcessingJob,
@@ -512,16 +535,23 @@ class DLSTriggerXChem(CommonService):
         )
 
         df = pd.read_sql(query.statement, query.session.bind)
+        df_filteredbysg = df[df["spaceGroup"] == user_sg]
+
+        # use datasets processed in user spacegroup if possible
+        if not df_filteredbysg.empty:
+            df = df_filteredbysg
+
+        # rank datasets by I/sigI*completeness*# unique reflections
         df["heuristic"] = (
             df["meanIOverSigI"].astype(float)
             * df["completeness"].astype(float)
             * df["nTotalUniqueObservations"].astype(float)
         )
-        # I/sigI*completeness*# unique reflections
+
         df = df[["autoProcScalingId", "heuristic"]].copy()
         scaling_ids = df["autoProcScalingId"].tolist()
 
-        # find associated dimple jobs
+        # find associated dimple jobs from scaling_ids
         query = (
             (
                 session.query(
@@ -602,25 +632,12 @@ class DLSTriggerXChem(CommonService):
 
         self.log.debug("PanDDA2/Pipedream trigger: Starting")
 
-        # 2. Get ligand information, location & container code
+        # 2. Read XChem SQLite database for ligand info
 
-        query = (
-            session.query(DataCollection, BLSample)
-            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
-            .join(Container, Container.containerId == BLSample.containerId)
-            .filter(DataCollection.dataCollectionId == dcid)
-        )
-
-        query = query.with_entities(BLSample.location, BLSample.name, Container.code)
-        location = int(query.one()[0])  # never multiple?
-        dtag = query.one()[1]
-        code = query.one()[2]
-
-        # Read XChem SQLite database for ligand info
         try:
             conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10)
             df = pd.read_sql_query(
-                f"SELECT * from mainTable WHERE Puck = '{code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
+                f"SELECT * from mainTable WHERE Puck = '{container_code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
             )
 
@@ -636,7 +653,7 @@ class DLSTriggerXChem(CommonService):
 
         if len(df) != 1:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {code}, puck position {location} cannot be found in {db}, skipping dcid {dcid}"
+                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {container_code}, puck position {location} cannot be found in {db}, skipping dcid {dcid}"
             )
             return {"success": True}
 

@@ -21,13 +21,14 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcScaling,
     AutoProcScalingHasInt,
+    AutoProcScalingStatistics,
     BLSession,
     DataCollection,
     ProcessingJob,
     Proposal,
     Protein,
 )
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
@@ -277,6 +278,7 @@ class StrategyParameters(pydantic.BaseModel):
     beamline: str
     comment: Optional[str] = None
     experiment_type: str
+    program_id: int = pydantic.Field(gt=0)
     wavelength: float = pydantic.Field(gt=0)
 
 
@@ -2804,9 +2806,28 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        # TODO Add check to see if UDC strategy has already run for this data collection.
+        # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
+        resolution = (
+            session.query(func.min(AutoProcScalingStatistics.resolutionLimitHigh))
+            .join(
+                AutoProcScaling,
+                AutoProcScaling.autoProcScalingId
+                == AutoProcScalingStatistics.autoProcScalingId,
+            )
+            .join(AutoProc, AutoProc.autoProcId == AutoProcScaling.autoProcId)
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            )
+            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
+            .scalar()
+        )
 
-        resolution = 2.2  # TODO - get resolution from parameters or from ispyb
+        if not resolution:
+            self.log.info(
+                f"Skipping strategy trigger: no resolution estimate found for dcid={parameters.dcid} auto_proc_program_id={parameters.program_id}"
+            )
+            return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["comments"] = parameters.comment

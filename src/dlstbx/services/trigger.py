@@ -2589,6 +2589,7 @@ class DLSTrigger(CommonService):
                 )
                 .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
                 .filter(AutoProcProgramAttachment.fileName == "shelxt.ins")
+                .distinct()
             )
             ins_file_attachment = query.one()
             if ins_file_attachment:

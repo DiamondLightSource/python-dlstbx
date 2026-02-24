@@ -236,18 +236,17 @@ class DLSTriggerXChem(CommonService):
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
         proposal = query.first()
+        proposal_code = proposal.proposalCode
+        proposal_number = proposal.proposalNumber
+        proposal_string = proposal_code + proposal_number
+
+        # TEMPORARY FILTER
+        allowed_proposals = ["lb42888", "sw44107"]
 
         # 0. Check that this is an XChem expt & locate .SQLite database
-        if proposal.proposalCode not in {"lb"}:
+        if proposal_string not in allowed_proposals:
             self.log.debug(
-                f"Not triggering PanDDA2 pipeline for dcid={dcid} with proposal_code={proposal.proposalCode}"
-            )
-            return {"success": True}
-
-        # TEMPORARY, FILTER BY OPENBIND VISIT
-        if proposal.proposalNumber not in {"42888"}:
-            self.log.debug(
-                f"Not triggering PanDDA2 pipeline for dcid={dcid}, only accepting data collections from lb42888 during test phase"
+                f"Not triggering PanDDA2 pipeline for dcid={dcid} proposal {proposal_string}"
             )
             return {"success": True}
 

@@ -2,6 +2,7 @@
 <icat version="1.0 RC6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="icatXSD.xsd">
   <study>
     <investigation>
+      <!--Producer: Zocalo dlstbx.services.archiver-->
       <inv_number>DIALS</inv_number>
       <visit_id>DIALS</visit_id>
       <instrument>science</instrument>

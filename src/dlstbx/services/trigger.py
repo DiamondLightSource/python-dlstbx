@@ -245,7 +245,7 @@ class AlphaFoldParameters(pydantic.BaseModel):
 
 class ShelxtParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    ins_file_location: pathlib.Path
+    ins_file_location: Optional[pathlib.Path] = None
     prefix: Optional[str] = None
     automatic: Optional[bool] = False
     scaling_id: int = pydantic.Field(gt=0)
@@ -2560,6 +2560,45 @@ class DLSTrigger(CommonService):
         """Trigger a shelxt job for a given data collection."""
 
         dcid = parameters.dcid
+        if not parameters.ins_file_location:
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+                .filter(AutoProcProgramAttachment.fileName == "shelxt.ins")
+            )
+            ins_file_attachment = query.one()
+            if ins_file_attachment:
+                parameters.ins_file_location = ins_file_attachment.filePath
+            else:
+                self.log.error(
+                    "Skipping shelxt trigger: shelxt.ins input data file not found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
 
         shelx_parameters: dict[str, list[Any]] = {
             "ins_file_location": [os.fspath(parameters.ins_file_location)],

@@ -333,9 +333,11 @@ class PipedreamWrapper(Wrapper):
         output_yaml = {}
         output_yaml[dtag] = metadata
         json_file = f"{pipedream_dir}/Pipedream_output.json"
+        if not os.path.exists(json_file):
+            open(json_file, "w").close()
 
         # Acquire a lock
-        with portalocker.Lock(json_file, "a", timeout=5):
+        with portalocker.Lock(json_file, timeout=5):
             if os.path.exists(json_file) and os.path.getsize(json_file) > 0:
                 with open(json_file, "r", encoding="utf-8") as f:
                     try:
@@ -344,6 +346,7 @@ class PipedreamWrapper(Wrapper):
                         self.log.debug(
                             f"Cannot continue with pipedream postprocessing: {e}"
                         )
+                        return
             else:
                 data = {}
 

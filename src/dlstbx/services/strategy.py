@@ -41,10 +41,29 @@ def get_wavelength_scale(wavelength: float, default_wavelength: float) -> float:
     return (default_wavelength / wavelength) ** 2
 
 
-def parse_agamemnon_recipe(recipe_path: Path) -> list[dict]:
+class AgamemnonParameters(BaseModel):
+    chi: float
+    comment: str
+    exposure_time: float = Field(gt=0)
+    dose: float = Field(gt=0)
+    kappa: float
+    number_of_images: int = Field(gt=0)
+    omega_increment: float = Field(gt=0)
+    omega_overlap: float
+    omega_start: float
+    phi_increment: float
+    phi_overlap: float
+    phi_start: float
+    scan_axis: str
+    transmission: float = Field(gt=0)
+    two_theta: float
+    wavelength: float = Field(gt=0)
+
+
+def parse_agamemnon_recipe(recipe_path: Path) -> list[AgamemnonParameters]:
     with open(recipe_path, "r") as f:
         recipe = yaml.safe_load(f)
-    return recipe
+    return [AgamemnonParameters(**step) for step in recipe]
 
 
 def parse_config_file(config_file: Path) -> dict:
@@ -100,25 +119,6 @@ LIMITS_MAPPINGS_LIST: list[LimitMapping] = [
 ]
 
 
-class AgamemnonParameters(BaseModel):
-    chi: float
-    comment: str
-    exposure_time: float = Field(gt=0)
-    dose: float = Field(gt=0)
-    kappa: float
-    number_of_images: int = Field(gt=0)
-    omega_increment: float = Field(gt=0)
-    omega_overlap: float
-    omega_start: float
-    phi_increment: float
-    phi_overlap: float
-    phi_start: float
-    scan_axis: str
-    transmission: float = Field(gt=0)
-    two_theta: float
-    wavelength: float = Field(gt=0)
-
-
 class DLSStrategy(CommonService):
     """Service for creating data collection strategies."""
 
@@ -139,11 +139,25 @@ class DLSStrategy(CommonService):
             log_extender=self.extend_log,
         )
 
+    def failure(
+        self, rw: workflows.recipe.RecipeWrapper, message: str, transaction: int
+    ):
+        """Handle failure by sending a message to ISPyB via 'failure' output to log the failure."""
+        rw.send_to(
+            "failure",
+            {
+                "message": f"{message}",
+            },
+            transaction=transaction,
+        )
+        self._transport.transaction_commit(transaction)
+
     def generate_strategy(
         self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict
     ):
         """Generate a strategy from the results of an upstream pipeline"""
         self.log.info("Received strategy request, generating strategy")
+
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
             rw.recipe_step["parameters"].get("ispyb_parameters", {}),
@@ -171,16 +185,17 @@ class DLSStrategy(CommonService):
         )
         resolution = max((resolution_estimate) - 0.5, 0.9)
 
-        # beamline_limits = {
-        #     "exposure_time": (None, None),
-        #     "transmission": (0.0001, 1.0)
-        # }
-
-        beamline_config = parse_config_file(
-            Path(
-                f"/dls_sw/{beamline}/software/daq_configuration/domain/domain.properties"
-            )
+        beamline_config_file = Path(
+            f"/dls_sw/{beamline}/software/daq_configuration/domain/domain.properties"
         )
+        if not beamline_config_file.is_file():
+            self.log.error(
+                f"Beamline configuration file {beamline_config_file} not found, terminating strategy generation"
+            )
+            self.failure(rw, "Beamline configuration file not found", txn)
+            return
+        beamline_config = parse_config_file(beamline_config_file)
+
         # TODO - Refactor these monstrocities
         transmission_limits = (
             float(beamline_config.get("gda.mx.udc.minTransmission", 0.0)),
@@ -203,20 +218,23 @@ class DLSStrategy(CommonService):
             ),
         )
 
-        # for mapping in LIMITS_MAPPINGS_LIST:
-        #     parameter_name, keys = mapping
-        #     for index, key in enumerate(keys):
-        #         if key in beamline_config:
-        #             beamline_limits[parameter_name][index] = float(beamline_config[key])
-        #     self.log.debug(f"Limits for {parameter_name} set to {beamline_limits[parameter_name]} from keys {keys}")
-
-        recipes = ("OSC.yaml", "Ligand binding.yaml")
-        recipe_aliases = {"OSC.yaml": "OSC", "Ligand binding.yaml": "Ligand"}
+        recipes = {"OSC.yaml": "OSC", "Ligand binding.yaml": "Ligand"}
         ispyb_command_list = []
 
-        for recipe in recipes:
-            recipe_path = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes/{recipe}")
-            recipe_steps = parse_agamemnon_recipe(recipe_path)
+        for recipe, recipe_alias in recipes.items():
+            recipe_path = Path(f"/dls/tmp/dwe15129/agamemnon-recipes/{recipe}")
+            if not recipe_path.is_file():
+                self.log.error(
+                    f"Recipe file {recipe_path} not found, terminating strategy generation"
+                )
+                self.failure(rw, f"Recipe file for '{recipe_alias}' not found", txn)
+                return
+            try:
+                recipe_steps = parse_agamemnon_recipe(recipe_path)
+            except ValidationError as e:
+                self.log.error(f"Invalid recipe step in {recipe_path}: {e}")
+                self.failure(rw, f"Invalid recipe step in '{recipe_alias}'", txn)
+                return
 
             # Step 1: Create screeningOutput record for recipe, linked to the screeningId
             #         Keep the screeningOutputId
@@ -232,7 +250,7 @@ class DLSStrategy(CommonService):
             # Step 2: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
-                "program": f"udc-strategy: {recipe_aliases[recipe]}",
+                "program": f"udc-strategy: {recipe_alias}",
                 "ispyb_command": "insert_screening_strategy",
                 "screening_output_id": "$ispyb_screening_output_id",
                 "store_result": "ispyb_screening_strategy_id",
@@ -240,12 +258,6 @@ class DLSStrategy(CommonService):
             ispyb_command_list.append(d)
 
             for n_step, recipe_step in enumerate(recipe_steps, start=1):
-                try:
-                    recipe_step = AgamemnonParameters(**recipe_step)
-                except ValidationError as e:
-                    self.log.error(f"Invalid recipe step in {recipe_path}: {e}")
-                    # TODO handle this error - Send a message to ISPyB to log the failure and skip the rest of the recipe steps.
-                    break
                 scale = 1.0
                 default_wavelength = recipe_step.wavelength
                 scale *= get_wavelength_scale(wavelength, default_wavelength)
@@ -291,7 +303,7 @@ class DLSStrategy(CommonService):
                         "kappa": recipe_step.kappa,
                         "wavelength": wavelength,
                         "dosetotal": dose,
-                        "comments": recipe_aliases[recipe],
+                        "comments": recipe_alias,
                         "ispyb_command": "insert_screening_strategy_wedge",
                         "screening_strategy_id": "$ispyb_screening_strategy_id",
                         "store_result": f"ispyb_screening_strategy_wedge_id_{n_step}",

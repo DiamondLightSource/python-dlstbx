@@ -2806,6 +2806,12 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        if parameters.beamline not in ["i03", "i04"]:
+            self.log.info(
+                f"Skipping strategy trigger: beamline {parameters.beamline} not supported"
+            )
+            return {"success": True}
+
         # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
         resolution = (
             session.query(func.min(AutoProcScalingStatistics.resolutionLimitHigh))

@@ -122,18 +122,18 @@ class PanDDAWrapper(Wrapper):
         # PanDDA2
 
         dataset_pdir = panddas_dir / "processed_datasets" / dtag
-        dataset_pdir.mkdir(parents=True, exist_ok=True)
         pandda2_log = dataset_pdir / "pandda2.log"
-
         attachments.extend([pandda2_log, ligand_cif])
+
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1 > {pandda2_log}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1"
 
         try:
-            subprocess.run(
+            result = subprocess.run(
                 pandda2_command,
                 shell=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
                 cwd=dataset_dir,
                 check=True,
@@ -143,9 +143,13 @@ class PanDDAWrapper(Wrapper):
         except subprocess.CalledProcessError as e:
             self.log.error(f"PanDDA2 command: '{pandda2_command}' failed")
             self.log.info(e.stdout)
-            self.log.error(e.stderr)
+            with open(pandda2_log, "w") as log_file:
+                log_file.write(e.stdout)
             self.send_attachments_to_ispyb(attachments, final_directory)
             return False
+
+        with open(pandda2_log, "w") as log_file:
+            log_file.write(result.stdout)
 
         # -------------------------------------------------------
         # PanDDA Rhofit ligand fitting

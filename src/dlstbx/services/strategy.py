@@ -102,21 +102,16 @@ def parse_config_file(config_file: Path) -> dict:
     return config
 
 
-LimitMapping = tuple[str, tuple[str, str]]
-LIMITS_MAPPINGS_LIST: list[LimitMapping] = [
-    (
-        "exposure_time",
-        ("gda.exptTableModel.minImageTime", "gda.exptTableModel.maxImageTime"),
-    ),
-    (
-        "exposure_time",
-        ("gda.mx.udc.minImageTime", "gda.mx.udc.maxImageTime"),
-    ),
-    (
-        "transmission",
-        ("gda.mx.udc.minTransmission", "gda.mx.udc.maxTransmission"),
-    ),
-]
+def get_beamline_param(
+    config: dict, param_names: tuple[str, ...], default: float
+) -> float:
+    """
+    Get a beamline parameter from the config, trying multiple possible parameter names and returning the first one found, or a default value if none are found.
+    """
+    for param_name in param_names:
+        if param_name in config:
+            return float(config[param_name])
+    return default
 
 
 class DLSStrategy(CommonService):
@@ -196,25 +191,20 @@ class DLSStrategy(CommonService):
             return
         beamline_config = parse_config_file(beamline_config_file)
 
-        # TODO - Refactor these monstrocities
         transmission_limits = (
-            float(beamline_config.get("gda.mx.udc.minTransmission", 0.0)),
-            float(beamline_config.get("gda.mx.udc.maxTransmission", 1.0)),
+            get_beamline_param(beamline_config, ("gda.mx.udc.minTransmission",), 0.0),
+            get_beamline_param(beamline_config, ("gda.mx.udc.maxTransmission",), 1.0),
         )
         exposure_time_limits = (
-            float(
-                beamline_config.get(
-                    "gda.mx.udc.minImageTime",
-                    beamline_config.get("gda.exptTableModel.minImageTime", 0.0),
-                )
+            get_beamline_param(
+                beamline_config,
+                ("gda.mx.udc.minExposureTime", "gda.exptTableModel.minExposureTime"),
+                0.0,
             ),
-            float(
-                beamline_config.get(
-                    "gda.mx.udc.maxImageTime",
-                    beamline_config.get(
-                        "gda.exptTableModel.maxImageTime", float("inf")
-                    ),
-                )
+            get_beamline_param(
+                beamline_config,
+                ("gda.mx.udc.maxExposureTime", "gda.exptTableModel.maxExposureTime"),
+                float("inf"),
             ),
         )
 

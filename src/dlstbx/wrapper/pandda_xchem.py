@@ -42,6 +42,7 @@ class PanDDAWrapper(Wrapper):
 
         n_datasets = int(params.get("n_datasets"))
         if n_datasets > 1:  # array job case
+            batch = True
             with open(model_dir / ".batch.json", "r") as f:
                 datasets = json.load(f)
                 dtag = datasets[int(slurm_task_id) - 1]
@@ -104,7 +105,7 @@ class PanDDAWrapper(Wrapper):
 
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments, final_directory, batch)
             return False
 
         restraints = compound_dir / f"{CompoundCode}.restraints.cif"
@@ -145,7 +146,7 @@ class PanDDAWrapper(Wrapper):
             self.log.info(e.stdout)
             with open(pandda2_log, "w") as log_file:
                 log_file.write(e.stdout)
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments, final_directory, batch)
             return False
 
         with open(pandda2_log, "w") as log_file:
@@ -175,7 +176,7 @@ class PanDDAWrapper(Wrapper):
             self.log.info(
                 (f"No events in {events_yaml}, can't continue with PanDDA2 Rhofit")
             )
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments, final_directory, batch)
             return False
 
         with open(events_yaml, "r") as file:
@@ -217,11 +218,12 @@ class PanDDAWrapper(Wrapper):
         )
 
         cifs = list(ligand_dir.glob("*.cif"))
+        cut = self.map_sigma(restricted_build_dmap, sigma=1)
 
         rhofit_log = dataset_pdir / "rhofit.log"
         attachments.extend([event_map, z_map, rhofit_log])
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut 2.0 > {rhofit_log};"  # dmap_cut=2.0
+        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"  # dmap_cut=2.0
 
         self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
@@ -240,8 +242,8 @@ class PanDDAWrapper(Wrapper):
             self.log.error(f"Rhofit command: '{rhofit_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory)
-            return False
+            self.send_attachments_to_ispyb(attachments, final_directory, batch)
+            return True
 
         # -------------------------------------------------------
         # Ligand scoring
@@ -336,7 +338,7 @@ class PanDDAWrapper(Wrapper):
         # attachments.extend([json_results])
 
         self.log.info(f"Attachments list: {attachments}")
-        self.send_attachments_to_ispyb(attachments, final_directory)
+        self.send_attachments_to_ispyb(attachments, final_directory, batch)
 
         self.log.info(f"Auto PanDDA2 pipeline finished successfully for dtag {dtag}")
         return True
@@ -356,6 +358,16 @@ class PanDDAWrapper(Wrapper):
         dmap_ccp4.setup(0.0)
         dmap = dmap_ccp4.grid
         return dmap
+
+    def map_sigma(xmap, sigma):
+        ccp4 = gemmi.read_ccp4_map(str(xmap))
+        ccp4.setup(0.0)
+        grid = ccp4.grid
+        grid_array = np.array(grid, copy=False)
+        std = np.std(grid_array)
+        non_zero_std = np.std(grid_array[(grid_array < -0.05) | (grid_array > 0.05)])
+        new_sigma = sigma * (non_zero_std / std)
+        return new_sigma
 
     def expand_event_map(self, bdc, ground_state_file, xmap_file, coord, out_file):
         """DEPRECATED. A method for recalculating event maps over the full cell."""
@@ -490,7 +502,9 @@ class PanDDAWrapper(Wrapper):
 
         return min(chain_counts, key=lambda _x: chain_counts[_x])
 
-    def send_attachments_to_ispyb(self, attachments, final_directory):
+    def send_attachments_to_ispyb(self, attachments, final_directory, batch):
+        if batch:  # synchweb attachments not supported for array job processing
+            return
         for f in attachments:
             if f.exists():
                 if f.suffix == ".html":

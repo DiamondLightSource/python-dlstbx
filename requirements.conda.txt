@@ -1,6 +1,6 @@
 drmaa
 hdf5plugin
-ispyb>=11.1.0
+ispyb>=11.1.2
 junit-xml>=1.9
 marshmallow-sqlalchemy
 minio>=7.1.0

@@ -4,6 +4,7 @@ import json
 import os.path
 import pathlib
 import time
+from datetime import datetime
 from typing import List
 
 import ispyb.sqlalchemy
@@ -323,7 +324,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
             return False
 
-    def do_register_processing(self, parameters, **kwargs):
+    def do_register_processing(
+        self, parameters, session: sqlalchemy.orm.Session, **kwargs
+    ):
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
@@ -335,25 +338,25 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
         environment = environment[: min(255, len(environment))]
         rpid = parameters("rpid")
+        parent_autoprocprogramid = parameters("parent_autoprocprogramid") or None
         if rpid and not rpid.isdigit():
             self.log.error("Invalid processing id '%s'", rpid)
             return False
         try:
-            result = self.ispyb.mx_processing.upsert_program_ex(
-                job_id=rpid,
-                name=program,
-                command=cmdline,
-                environment=environment,
-                pipeline_id=processingpipelineid,
+            new_app = ispyb.sqlalchemy.AutoProcProgram(
+                processingJobId=rpid,
+                processingPrograms=program,
+                processingCommandLine=cmdline,
+                processingEnvironment=environment,
+                processingPipelineId=processingpipelineid,
+                parentAutoProcProgramId=parent_autoprocprogramid,
+                recordTimeStamp=datetime.now(),
             )
+            session.add(new_app)
+            session.commit()
+            result = new_app.autoProcProgramId
             self.log.info(
-                "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' with result '%s'.",
-                program,
-                rpid,
-                cmdline,
-                environment,
-                processingpipelineid,
-                result,
+                f"Registered new program '{program}' for processing id '{rpid}' with command line '{cmdline}' and environment '{environment}', pipeline id '{processingpipelineid}' and parent program id '{parent_autoprocprogramid}' with result '{result}'.",
             )
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:

@@ -360,7 +360,7 @@ class PanDDAWrapper(Wrapper):
         dmap = dmap_ccp4.grid
         return dmap
 
-    def map_sigma(xmap, sigma):
+    def map_sigma(self, xmap, sigma):
         ccp4 = gemmi.read_ccp4_map(str(xmap))
         ccp4.setup(0.0)
         grid = ccp4.grid

@@ -48,6 +48,7 @@ class PanDDAWrapper(Wrapper):
                 dtag = datasets[int(slurm_task_id) - 1]
         else:
             dtag = params.get("dtag")
+            batch = False
 
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"

@@ -21,13 +21,14 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcScaling,
     AutoProcScalingHasInt,
+    AutoProcScalingStatistics,
     BLSession,
     DataCollection,
     ProcessingJob,
     Proposal,
     Protein,
 )
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
@@ -272,6 +273,15 @@ class AlignCrystalParameters(pydantic.BaseModel):
     experiment_type: str
     experiment_file: pathlib.Path
     symlink: str = pydantic.Field(default="")
+
+
+class StrategyParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    beamline: str
+    comment: Optional[str] = None
+    experiment_type: str
+    program_id: int = pydantic.Field(gt=0)
+    wavelength: float = pydantic.Field(gt=0)
 
 
 class DLSTrigger(CommonService):
@@ -2834,5 +2844,81 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Align_crystal trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_strategy(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: StrategyParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type != "Characterization":
+            self.log.info(
+                f"Skipping strategy trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        if parameters.beamline not in ["i03", "i04"]:
+            self.log.info(
+                f"Skipping strategy trigger: beamline {parameters.beamline} not supported"
+            )
+            return {"success": True}
+
+        # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
+        resolution = (
+            session.query(func.min(AutoProcScalingStatistics.resolutionLimitHigh))
+            .join(
+                AutoProcScaling,
+                AutoProcScaling.autoProcScalingId
+                == AutoProcScalingStatistics.autoProcScalingId,
+            )
+            .join(AutoProc, AutoProc.autoProcId == AutoProcScaling.autoProcId)
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            )
+            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
+            .scalar()
+        )
+
+        if not resolution:
+            self.log.info(
+                f"Skipping strategy trigger: no resolution estimate found for dcid={parameters.dcid} auto_proc_program_id={parameters.program_id}"
+            )
+            return {"success": True}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "udc-strategy"
+        jp["recipe"] = "postprocessing-udc-strategy"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"Strategy trigger: generated JobID {jobid}")
+
+        strategy_parameters = {
+            "beamline": parameters.beamline,
+            "resolution": resolution,
+            "wavelength": parameters.wavelength,
+        }
+
+        for key, value in strategy_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Strategy trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Strategy trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

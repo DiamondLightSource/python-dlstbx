@@ -365,10 +365,8 @@ class PanDDAWrapper(Wrapper):
         ccp4.setup(0.0)
         grid = ccp4.grid
         grid_array = np.array(grid, copy=False)
-        std = np.std(grid_array)
         non_zero_std = np.std(grid_array[(grid_array < -0.05) | (grid_array > 0.05)])
-        new_sigma = sigma * (non_zero_std / std)
-        return new_sigma
+        return non_zero_std * sigma
 
     def expand_event_map(self, bdc, ground_state_file, xmap_file, coord, out_file):
         """DEPRECATED. A method for recalculating event maps over the full cell."""

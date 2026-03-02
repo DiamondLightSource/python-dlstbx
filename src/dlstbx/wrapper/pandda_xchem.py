@@ -219,7 +219,7 @@ class PanDDAWrapper(Wrapper):
         )
 
         cifs = list(ligand_dir.glob("*.cif"))
-        cut = self.map_sigma(restricted_build_dmap, sigma=1)
+        cut = self.map_sigma(restricted_build_dmap)
 
         rhofit_log = dataset_pdir / "rhofit.log"
         attachments.extend([event_map, z_map, rhofit_log])
@@ -360,7 +360,7 @@ class PanDDAWrapper(Wrapper):
         dmap = dmap_ccp4.grid
         return dmap
 
-    def map_sigma(self, xmap, sigma):
+    def map_sigma(self, xmap, sigma=1):
         ccp4 = gemmi.read_ccp4_map(str(xmap))
         ccp4.setup(0.0)
         grid = ccp4.grid

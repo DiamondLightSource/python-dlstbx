@@ -272,7 +272,8 @@ class DLSTriggerXChem(CommonService):
             .filter(BLSample.name == dtag)
         )
 
-        user_sg = gemmi.find_spacegroup_by_name(query.one()[0]).hm
+        if query.one()[0]:
+            user_sg = gemmi.find_spacegroup_by_name(query.one()[0]).hm
 
         # Find corresponding XChem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
@@ -535,11 +536,13 @@ class DLSTriggerXChem(CommonService):
         )
 
         df = pd.read_sql(query.statement, query.session.bind)
-        df_filteredbysg = df[df["spaceGroup"] == user_sg]
 
         # use datasets processed in user spacegroup if possible
-        if not df_filteredbysg.empty:
-            df = df_filteredbysg
+        if "user_sg" in locals():
+            df_filteredbysg = df[df["spaceGroup"] == user_sg]
+
+            if not df_filteredbysg.empty:
+                df = df_filteredbysg
 
         # rank datasets by I/sigI*completeness*# unique reflections
         df["heuristic"] = (

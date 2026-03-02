@@ -278,14 +278,12 @@ class DLSTriggerXChem(CommonService):
         # Find corresponding XChem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
         yaml_files = []
+        match_dirs = []
 
         for subdir in xchem_dir.iterdir():
             user_yaml = subdir / ".user.yaml"
             if user_yaml.exists():
                 yaml_files.append(user_yaml)
-
-        if not yaml_files:
-            match = False
 
         for yaml_file in yaml_files:
             with open(yaml_file, "r") as file:
@@ -295,12 +293,40 @@ class DLSTriggerXChem(CommonService):
             directory = yaml_file.parents[0]
             if acr == acronym:
                 match = True
-                match_dir = directory
+                match_dirs.append(directory)
                 # match_yaml = expt_yaml
-                self.log.info(f"Found user yaml for dcid {dcid} at {yaml_file}")
-                break
-            else:
-                match = False
+                self.log.info(f"Found user yaml for dtag {dtag} at {yaml_file}")
+
+        if not match_dirs:
+            match = False
+        elif len(match_dirs) == 1:
+            match_dir = match_dirs[0]
+        elif (
+            len(match_dirs) > 1
+        ):  # account for potentially multiple labxchem visits for a single target
+            for path in match_dirs:
+                try:
+                    db_path = str(
+                        path / "processing/database" / "soakDBDataFile.sqlite"
+                    )
+                    conn = sqlite3.connect(
+                        f"file:{db_path}?mode=ro", uri=True, timeout=10
+                    )
+                    df = pd.read_sql_query(
+                        f"SELECT * from mainTable WHERE Puck = '{container_code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
+                        conn,
+                    )
+                    conn.close()
+
+                    if not df.empty:
+                        match_dir = path
+                        self.log.info(f"labxchem visit {path} found for dtag {dtag}")
+                        break
+
+                except Exception as e:
+                    self.log.info(
+                        f"Exception whilst reading ligand information from {db_path} for dtag {dtag}, dcid {dcid}: {e}"
+                    )
 
         if not match:
             self.log.info(
@@ -335,7 +361,7 @@ class DLSTriggerXChem(CommonService):
                         # match_yaml = expt_yaml
 
                 except Exception as e:
-                    print(f"Problem reading .sqlite database for {subdir}: {e}")
+                    self.log.info(f"Problem reading .sqlite database for {subdir}: {e}")
 
         if not match:
             self.log.debug(

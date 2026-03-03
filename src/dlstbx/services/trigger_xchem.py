@@ -277,8 +277,8 @@ class DLSTriggerXChem(CommonService):
 
         # Find corresponding XChem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
-        yaml_files = []
-        match_dirs = []
+        yaml_files = []  # user settings
+        match_dirs = []  # labxchem visit
 
         for subdir in xchem_dir.iterdir():
             user_yaml = subdir / ".user.yaml"
@@ -292,18 +292,14 @@ class DLSTriggerXChem(CommonService):
             acr = expt_yaml["data"]["acronym"]
             directory = yaml_file.parents[0]
             if acr == acronym:
-                match = True
                 match_dirs.append(directory)
                 # match_yaml = expt_yaml
                 self.log.info(f"Found user yaml for dtag {dtag} at {yaml_file}")
 
-        if not match_dirs:
-            match = False
-        elif len(match_dirs) == 1:
+        # account for potentially multiple labxchem visits for a single target
+        if len(match_dirs) == 1:
             match_dir = match_dirs[0]
-        elif (
-            len(match_dirs) > 1
-        ):  # account for potentially multiple labxchem visits for a single target
+        elif len(match_dirs) > 1:
             for path in match_dirs:
                 try:
                     db_path = str(
@@ -328,7 +324,7 @@ class DLSTriggerXChem(CommonService):
                         f"Exception whilst reading ligand information from {db_path} for dtag {dtag}, dcid {dcid}: {e}"
                     )
 
-        if not match:
+        if "match_dir" not in locals():
             self.log.info(
                 f"No user yaml found in {xchem_dir}, proceeding with default settings..."
             )
@@ -357,15 +353,14 @@ class DLSTriggerXChem(CommonService):
 
                     if name == acronym:
                         match_dir = subdir
-                        match = True
                         # match_yaml = expt_yaml
 
                 except Exception as e:
                     self.log.info(f"Problem reading .sqlite database for {subdir}: {e}")
 
-        if not match:
+        if "match_dir" not in locals():
             self.log.debug(
-                f"Exiting PanDDA2/Pipedream trigger: No directory found for {acronym}."
+                f"Exiting PanDDA2/Pipedream trigger: No labxchem directory found for {acronym}."
             )
             return {"success": True}
         else:

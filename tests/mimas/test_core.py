@@ -411,7 +411,12 @@ def test_vmxm_rotation(get_zocalo_commands):
         "--add-param=ice_rings.unit_cell:3.615,3.615,3.615,90,90,90 "
         "--add-param=ice_rings.space_group:fm-3m --add-param=ice_rings.width:0.01 "
         "--add-param=ice_rings.filter:true "
-        "--add-param=failover:true --add-param=absorption_level:medium --display='xia2 dials' --trigger",
+        "--add-param=failover:true --add-param=remove_blanks:true "
+        "--add-param=spotfinder.filter.max_separation:8 "
+        "--add-param=spotfinder.threshold.dispersion.kernel_size:6,6 "
+        "--add-param=spotfinder.threshold.dispersion.sigma_background:3 "
+        "--add-param=spotfinder.threshold.dispersion.sigma_strong:1 "
+        "--add-param=absorption_level:medium --display='xia2 dials' --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",

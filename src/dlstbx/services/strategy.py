@@ -134,19 +134,6 @@ class DLSStrategy(CommonService):
             log_extender=self.extend_log,
         )
 
-    def failure(
-        self, rw: workflows.recipe.RecipeWrapper, message: str, transaction: int
-    ):
-        """Handle failure by sending a message to ISPyB via 'failure' output to log the failure."""
-        rw.send_to(
-            "failure",
-            {
-                "message": f"{message}",
-            },
-            transaction=transaction,
-        )
-        self._transport.transaction_commit(transaction)
-
     def generate_strategy(
         self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict
     ):
@@ -187,8 +174,9 @@ class DLSStrategy(CommonService):
             self.log.error(
                 f"Beamline configuration file {beamline_config_file} not found, terminating strategy generation"
             )
-            self.failure(rw, "Beamline configuration file not found", txn)
-            return
+            raise FileNotFoundError(
+                f"Beamline configuration file {beamline_config_file} not found"
+            )
         beamline_config = parse_config_file(beamline_config_file)
 
         transmission_limits = (
@@ -217,14 +205,12 @@ class DLSStrategy(CommonService):
                 self.log.error(
                     f"Recipe file {recipe_path} not found, terminating strategy generation"
                 )
-                self.failure(rw, f"Recipe file for '{recipe_alias}' not found", txn)
-                return
+                raise FileNotFoundError(f"Recipe file {recipe_path} not found")
             try:
                 recipe_steps = parse_agamemnon_recipe(recipe_path)
             except ValidationError as e:
                 self.log.error(f"Invalid recipe step in {recipe_path}: {e}")
-                self.failure(rw, f"Invalid recipe step in '{recipe_alias}'", txn)
-                return
+                raise ValidationError(f"Invalid recipe step in {recipe_path}: {e}")
 
             # Step 1: Create screeningOutput record for recipe, linked to the screeningId
             #         Keep the screeningOutputId

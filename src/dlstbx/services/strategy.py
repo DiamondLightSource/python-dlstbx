@@ -34,10 +34,22 @@ def scale_parameter(
 
 
 def get_resolution_scale(resolution: float) -> float:
+    """
+    Set dose scaling factor based on resolution. Comes from polynomial fit to empirical user and test data
+    modelling dose limits vs resolution. Loosely based on: Atakisi, H., Conger, L., Moreau, D. W., & Thorne,
+    R. E. (2019). Resolution and dose dependence of radiation damage in biomolecular systems. IUCrJ, 6(Pt 6),
+    1040–1053. https://doi.org/10.1107/S2052252519008777
+    """
     return resolution**2 - 0.4 * resolution + 0.5
 
 
 def get_wavelength_scale(wavelength: float, default_wavelength: float) -> float:
+    """
+    Set dose scaling factor for wavelength. Dose is proportional to energy * X-ray absorption. Dominant
+    absorption at typical wavelengths is by photoelectric effect, which is proportional to wavelength^3,
+    but energy is inversely proportional to wavelength, so overall dose is approximately proportional to
+    wavelength^2.
+    """
     return (default_wavelength / wavelength) ** 2
 
 

@@ -165,7 +165,9 @@ class DLSStrategy(CommonService):
             if isinstance(parameters["resolution"], list)
             else float(parameters["resolution"])
         )
-        resolution = max((resolution_estimate) - 0.5, 0.9)
+        resolution_offset = 0.5
+        min_resolution = 0.9
+        resolution = max((resolution_estimate) - resolution_offset, min_resolution)
 
         beamline_config_file = Path(
             f"/dls_sw/{beamline}/software/daq_configuration/domain/domain.properties"

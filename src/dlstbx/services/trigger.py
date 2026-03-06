@@ -28,7 +28,7 @@ from ispyb.sqlalchemy import (
     Proposal,
     Protein,
 )
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
@@ -2806,7 +2806,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        if parameters.beamline not in ["i03", "i04"]:
+        if parameters.beamline not in ["i03", "i04", "i04-1"]:
             self.log.info(
                 f"Skipping strategy trigger: beamline {parameters.beamline} not supported"
             )
@@ -2814,7 +2814,7 @@ class DLSTrigger(CommonService):
 
         # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
         resolution = (
-            session.query(func.min(AutoProcScalingStatistics.resolutionLimitHigh))
+            session.query(AutoProcScalingStatistics.resolutionLimitHigh)
             .join(
                 AutoProcScaling,
                 AutoProcScaling.autoProcScalingId
@@ -2826,6 +2826,7 @@ class DLSTrigger(CommonService):
                 AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
             )
             .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
+            .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
             .scalar()
         )
 

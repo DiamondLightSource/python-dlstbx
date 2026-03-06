@@ -189,7 +189,7 @@ class DLSStrategy(CommonService):
             get_beamline_param(
                 beamline_config,
                 ("gda.mx.udc.minExposureTime", "gda.exptTableModel.minExposureTime"),
-                0.0,
+                0.002,
             ),
             get_beamline_param(
                 beamline_config,
@@ -202,7 +202,7 @@ class DLSStrategy(CommonService):
         ispyb_command_list = []
 
         for recipe, recipe_alias in recipes.items():
-            recipe_path = Path(f"/dls/tmp/dwe15129/agamemnon-recipes/{recipe}")
+            recipe_path = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes/{recipe}")
             if not recipe_path.is_file():
                 self.log.error(
                     f"Recipe file {recipe_path} not found, terminating strategy generation"

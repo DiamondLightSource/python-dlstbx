@@ -283,41 +283,41 @@ class DLSStrategy(CommonService):
                         f"Exposure time scaled to {exposure_time:.3f} s, transmission scaled to {transmission:.3f}, scale factor now {scale:.3f}"
                     )
 
-                    # Step 3: Store screeningStrategyWedge results, linked to the screeningStrategyId
-                    #         Keep the screeningStrategyWedgeId
-                    d = {
-                        "wedgenumber": n_step,
-                        "resolution": resolution,
-                        "phi": recipe_step.phi_start,
-                        "chi": recipe_step.chi,
-                        "kappa": recipe_step.kappa,
-                        "wavelength": wavelength,
-                        "dosetotal": dose,
-                        "comments": recipe_alias,
-                        "ispyb_command": "insert_screening_strategy_wedge",
-                        "screening_strategy_id": "$ispyb_screening_strategy_id",
-                        "store_result": f"ispyb_screening_strategy_wedge_id_{n_step}",
-                    }
-                    ispyb_command_list.append(d)
+                # Step 3: Store screeningStrategyWedge results, linked to the screeningStrategyId
+                #         Keep the screeningStrategyWedgeId
+                d = {
+                    "wedgenumber": n_step,
+                    "resolution": resolution,
+                    "phi": recipe_step.phi_start,
+                    "chi": recipe_step.chi,
+                    "kappa": recipe_step.kappa,
+                    "wavelength": wavelength,
+                    "dosetotal": dose,
+                    "comments": recipe_alias,
+                    "ispyb_command": "insert_screening_strategy_wedge",
+                    "screening_strategy_id": "$ispyb_screening_strategy_id",
+                    "store_result": f"ispyb_screening_strategy_wedge_id_{n_step}",
+                }
+                ispyb_command_list.append(d)
 
-                    # Step 4: Store second screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
-                    #         Keep the screeningStrategyWedgeId
-                    d = {
-                        "subwedgenumber": 1,
-                        "rotationaxis": recipe_step.scan_axis,
-                        "axisstart": rotation_start,
-                        "axisend": rotation_start
-                        + rotation_increment * recipe_step.number_of_images,
-                        "exposuretime": exposure_time,
-                        "transmission": transmission,
-                        "oscillationrange": rotation_increment,
-                        "numberOfImages": recipe_step.number_of_images,
-                        "resolution": resolution,
-                        "ispyb_command": "insert_screening_strategy_sub_wedge",
-                        "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",
-                        "store_result": f"ispyb_screening_strategy_sub_wedge_id_{n_step}",
-                    }
-                    ispyb_command_list.append(d)
+                # Step 4: Store second screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
+                #         Keep the screeningStrategyWedgeId
+                d = {
+                    "subwedgenumber": 1,
+                    "rotationaxis": recipe_step.scan_axis,
+                    "axisstart": rotation_start,
+                    "axisend": rotation_start
+                    + rotation_increment * recipe_step.number_of_images,
+                    "exposuretime": exposure_time,
+                    "transmission": transmission,
+                    "oscillationrange": rotation_increment,
+                    "numberOfImages": recipe_step.number_of_images,
+                    "resolution": resolution,
+                    "ispyb_command": "insert_screening_strategy_sub_wedge",
+                    "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",
+                    "store_result": f"ispyb_screening_strategy_sub_wedge_id_{n_step}",
+                }
+                ispyb_command_list.append(d)
 
         # Send results onwards
         rw.set_default_channel("ispyb")

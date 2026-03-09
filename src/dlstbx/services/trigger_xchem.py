@@ -74,7 +74,7 @@ class PanDDA_PostParameters(pydantic.BaseModel):
 
 
 class DLSTriggerXChem(CommonService):
-    """A service that creates and runs downstream processing jobs."""
+    """A service that creates and runs downstream processing jobs for XChem."""
 
     # Human readable service name
     _service_name = "DLS TriggerXChem"
@@ -701,14 +701,22 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # 3. Create the dataset directory
+        # 3. Create dataset directory structure
         analysis_dir = processed_dir / "analysis"
         pandda_dir = analysis_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
+
         self.log.info(f"Creating directory {dataset_dir}")
-        pathlib.Path(compound_dir).mkdir(parents=True, exist_ok=True)
+        try:
+            compound_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            self.log.info(
+                f"Exiting PanDDA2/Pipedream trigger: directory already exists for {dtag}"
+            )
+            return {"success": True}
+
         dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
         self.log.info(f"Dataset count is: {dataset_count}")

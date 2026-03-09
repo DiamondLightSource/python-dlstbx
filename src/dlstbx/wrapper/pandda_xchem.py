@@ -310,7 +310,7 @@ class PanDDAWrapper(Wrapper):
 
         try:
             cropped_event_map = save_cropped_map(
-                str(pandda_model), str(z_map), "LIG", radius=6
+                str(pandda_model), str(event_map), "LIG", radius=6
             )
             cropped_z_map = save_cropped_map(
                 str(pandda_model), str(z_map), "LIG", radius=6

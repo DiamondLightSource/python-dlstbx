@@ -243,7 +243,7 @@ class DLSTriggerXChem(CommonService):
         proposal_string = proposal_code + proposal_number
 
         # TEMPORARY FILTER
-        allowed_proposals = ["lb42888", "sw44107"]
+        allowed_proposals = ["lb42888", "sw44107", "lb36049"]
 
         # 0. Check that this is an XChem expt & locate .SQLite database
         if proposal_string not in allowed_proposals:

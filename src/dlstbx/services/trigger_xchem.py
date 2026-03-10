@@ -438,7 +438,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Stop-gap, interval > max checkpoint time
-        min_start_time = datetime.now() - timedelta(hours=3)
+        min_start_time = datetime.now() - timedelta(minutes=30)
 
         query = (
             (
@@ -728,28 +728,6 @@ class DLSTriggerXChem(CommonService):
 
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
-
-        # Check if Pipedream job was recently launched
-        min_start_time = datetime.now() - timedelta(hours=3)
-
-        query = (
-            (
-                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
-                    ProcessingJob,
-                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-                )
-            )
-            .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)  # noqa E711
-            .filter(AutoProcProgram.processingPrograms.in_(["Pipedream"]))
-            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
-        )
-
-        if triggered_processing_job := query.first():
-            self.log.info(
-                f"Pipedream job recently launched for dcid {dcid}, skipping pipedream trigger"
-            )
-            pipedream = False
 
         # Create seperate pipedream directory
         if pipedream:

@@ -112,7 +112,7 @@ def handle_vmxi_rotation_scan(
         # xia2-3dii
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,
-            autostart=scenario.preferred_processing == "xia2/XDS",
+            autostart=scenario.preferred_processing == "xia2/3dii",
             recipe="autoprocessing-xia2-3dii-eiger",
             source="automatic",
             displayname="xia2 3dii",

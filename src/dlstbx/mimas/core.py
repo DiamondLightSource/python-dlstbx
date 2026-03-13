@@ -335,10 +335,8 @@ def handle_rotation_end(
     )
     for ppl, recipe in (
         ("xia2/DIALS", "autoprocessing-xia2-dials"),
-        ("xia2/XDS", "autoprocessing-xia2-3dii"),
+        ("xia2/3dii", "autoprocessing-xia2-3dii"),
         ("autoPROC", "autoprocessing-autoPROC"),
-        ("mxia2/DIALS", "autoprocessing-multi-xia2-dials"),
-        ("mxia2/XDS", "autoprocessing-multi-xia2-3dii"),
     ):
         ppl_autostart[ppl] = False
         ppl_suffix[ppl] = suffix_pref

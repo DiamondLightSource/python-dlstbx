@@ -337,6 +337,8 @@ def handle_rotation_end(
         ("xia2/DIALS", "autoprocessing-xia2-dials"),
         ("xia2/3dii", "autoprocessing-xia2-3dii"),
         ("autoPROC", "autoprocessing-autoPROC"),
+        ("mxia2/DIALS", "autoprocessing-multi-xia2-dials"),
+        ("mxia2/3dii", "autoprocessing-multi-xia2-3dii"),
     ):
         ppl_autostart[ppl] = False
         ppl_suffix[ppl] = suffix_pref
@@ -370,8 +372,8 @@ def handle_rotation_end(
                 # xia2-3dii
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
-                    autostart=ppl_autostart["xia2/XDS"],
-                    recipe=f"autoprocessing-xia2-3dii{ppl_suffix['xia2/XDS']}",
+                    autostart=ppl_autostart["xia2/3dii"],
+                    recipe=f"autoprocessing-xia2-3dii{ppl_suffix['xia2/3dii']}",
                     source="automatic",
                     displayname="xia2 3dii",
                     parameters=(
@@ -380,7 +382,7 @@ def handle_rotation_end(
                         ),
                         *params,
                     ),
-                    triggervariables=ppl_triggervars["xia2/XDS"],
+                    triggervariables=ppl_triggervars["xia2/3dii"],
                 ),
                 # autoPROC
                 mimas.MimasISPyBJobInvocation(
@@ -419,7 +421,7 @@ def handle_rotation_end(
                     mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,  # no priority processing for multi-xia2
-                        recipe=f"autoprocessing-multi-xia2-3dii{ppl_suffix['mxia2/XDS']}",
+                        recipe=f"autoprocessing-multi-xia2-3dii{ppl_suffix['mxia2/3dii']}",
                         source="automatic",
                         displayname="xia2 3dii (multi)",
                         parameters=(
@@ -429,7 +431,7 @@ def handle_rotation_end(
                             *params,
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=ppl_triggervars["mxia2/XDS"],
+                        triggervariables=ppl_triggervars["mxia2/3dii"],
                     ),
                 ]
             )

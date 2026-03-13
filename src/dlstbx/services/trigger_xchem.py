@@ -409,7 +409,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails?
+        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
         min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
@@ -699,18 +699,13 @@ class DLSTriggerXChem(CommonService):
         # 3. Create dataset directory structure
         analysis_dir = processed_dir / "analysis"
         pandda_dir = analysis_dir / "pandda2"
+        pandda_pdir = pandda_dir / f"panddas/processed_datasets/{dtag}"
         model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
 
         self.log.info(f"Creating directory {dataset_dir}")
-        try:
-            compound_dir.mkdir(parents=True, exist_ok=False)
-        except FileExistsError:
-            self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: directory already exists for {dtag}"
-            )
-            return {"success": True}
+        compound_dir.mkdir(parents=True, exist_ok=False)
 
         dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
         dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
@@ -753,6 +748,12 @@ class DLSTriggerXChem(CommonService):
             "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
             "smiles": str(CompoundSMILES),
         }
+
+        if pandda_pdir.exists():
+            self.log.info(
+                f"Exiting PanDDA2/Pipedream trigger: {pandda_pdir} already exists"
+            )
+            return {"success": True}
 
         if dataset_count < comparator_threshold:
             self.log.info(

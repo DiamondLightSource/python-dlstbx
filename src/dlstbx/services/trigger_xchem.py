@@ -699,17 +699,18 @@ class DLSTriggerXChem(CommonService):
         # 3. Create dataset directory structure
         analysis_dir = processed_dir / "analysis"
         pandda_dir = analysis_dir / "pandda2"
-        pandda_pdir = pandda_dir / f"panddas/processed_datasets/{dtag}"
         model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
 
         self.log.info(f"Creating directory {dataset_dir}")
-        compound_dir.mkdir(parents=True, exist_ok=False)
-
-        dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
-        dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
-        self.log.info(f"Dataset count is: {dataset_count}")
+        try:
+            compound_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            self.log.info(
+                f"Exiting PanDDA2/Pipedream trigger: {dataset_dir} already exists"
+            )
+            return {"success": True}
 
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
@@ -749,11 +750,9 @@ class DLSTriggerXChem(CommonService):
             "smiles": str(CompoundSMILES),
         }
 
-        if pandda_pdir.exists():
-            self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: {pandda_pdir} already exists"
-            )
-            return {"success": True}
+        dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
+        dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
+        self.log.info(f"Dataset count is: {dataset_count}")
 
         if dataset_count < comparator_threshold:
             self.log.info(

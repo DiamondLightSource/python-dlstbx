@@ -106,7 +106,7 @@ class PanDDAWrapper(Wrapper):
 
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory, batch)
+            self.send_attachments_to_ispyb(attachments, batch)
             return False
 
         restraints = compound_dir / f"{CompoundCode}.restraints.cif"
@@ -147,7 +147,7 @@ class PanDDAWrapper(Wrapper):
             self.log.info(e.stdout)
             with open(pandda2_log, "w") as log_file:
                 log_file.write(e.stdout)
-            self.send_attachments_to_ispyb(attachments, final_directory, batch)
+            self.send_attachments_to_ispyb(attachments, batch)
             return False
 
         with open(pandda2_log, "w") as log_file:
@@ -177,7 +177,7 @@ class PanDDAWrapper(Wrapper):
             self.log.info(
                 (f"No events in {events_yaml}, can't continue with PanDDA2 Rhofit")
             )
-            self.send_attachments_to_ispyb(attachments, final_directory, batch)
+            self.send_attachments_to_ispyb(attachments, batch)
             return False
 
         with open(events_yaml, "r") as file:
@@ -243,7 +243,7 @@ class PanDDAWrapper(Wrapper):
             self.log.error(f"Rhofit command: '{rhofit_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory, batch)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         # -------------------------------------------------------
@@ -339,7 +339,7 @@ class PanDDAWrapper(Wrapper):
         # attachments.extend([json_results])
 
         self.log.info(f"Attachments list: {attachments}")
-        self.send_attachments_to_ispyb(attachments, final_directory, batch)
+        self.send_attachments_to_ispyb(attachments, batch)
 
         self.log.info(f"Auto PanDDA2 pipeline finished successfully for dtag {dtag}")
         return True
@@ -501,7 +501,7 @@ class PanDDAWrapper(Wrapper):
 
         return min(chain_counts, key=lambda _x: chain_counts[_x])
 
-    def send_attachments_to_ispyb(self, attachments, final_directory, batch):
+    def send_attachments_to_ispyb(self, attachments, batch):
         if batch:  # synchweb attachments not supported for array job processing
             return
         for f in attachments:
@@ -524,9 +524,8 @@ class PanDDAWrapper(Wrapper):
                 else:
                     continue
                 try:
-                    shutil.copy(f, final_directory)
                     result_dict = {
-                        "file_path": str(final_directory),
+                        "file_path": str(f.parents[0]),
                         "file_name": f.name,
                         "file_type": file_type,
                         "importance_rank": importance_rank,

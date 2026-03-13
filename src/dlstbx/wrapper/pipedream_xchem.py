@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -95,7 +94,7 @@ class PipedreamWrapper(Wrapper):
             )
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return False
 
         restraints = compound_dir / f"{CompoundCode}.restraints.cif"
@@ -152,7 +151,7 @@ class PipedreamWrapper(Wrapper):
                 stderr.write(e.stderr)
 
             attachments.extend([out_dir / "stderr.out"])
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return False
 
         self.log.info(f"Pipedream finished successfully for dtag {dtag}")
@@ -194,7 +193,7 @@ class PipedreamWrapper(Wrapper):
                 )
         except Exception as e:
             self.log.info(f"Can't continue with pipedream postprocessing: {e}")
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return True
 
         # Post-processing: Generate maps and run edstats
@@ -206,7 +205,7 @@ class PipedreamWrapper(Wrapper):
             os.system(f"gemmi sf2map --sample 5 {str(refine_mtz)} {map_fofc} 2>&1")
         except Exception as e:
             self.log.debug(f"Cannot continue with pipedream postprocessing: {e}")
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return True
 
         try:
@@ -229,7 +228,7 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: resolution range None"
             )
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return True
 
         # Run edstats if both maps exist and resolution range is found
@@ -237,7 +236,7 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: maps not found"
             )
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return True
 
         edstats_out = postrefine_dir / "edstats.out"
@@ -258,13 +257,13 @@ class PipedreamWrapper(Wrapper):
             self.log.error(f"Edstats command: '{edstats_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, final_directory)
+            self.send_attachments_to_ispyb(attachments)
             return True
 
         self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
 
         attachments.extend([edstats_out])
-        self.send_attachments_to_ispyb(attachments, final_directory)
+        self.send_attachments_to_ispyb(attachments)
         return True
 
     def process_pdb_file(self, dimple_pdb: Path):
@@ -355,7 +354,7 @@ class PipedreamWrapper(Wrapper):
             with open(json_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
-    def send_attachments_to_ispyb(self, attachments, final_directory):
+    def send_attachments_to_ispyb(self, attachments):
         for f in attachments:
             if f.exists():
                 if f.suffix == ".html":
@@ -382,9 +381,8 @@ class PipedreamWrapper(Wrapper):
                 else:
                     continue
                 try:
-                    shutil.copy(f, final_directory)
                     result_dict = {
-                        "file_path": str(final_directory),
+                        "file_path": str(f.parents[0]),
                         "file_name": f.name,
                         "file_type": file_type,
                         "importance_rank": importance_rank,

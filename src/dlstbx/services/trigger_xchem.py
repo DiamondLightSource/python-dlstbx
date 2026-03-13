@@ -420,7 +420,6 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms.in_(["dimple", "PanDDA2"]))
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
@@ -448,7 +447,6 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2"]))
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
         )
@@ -469,7 +467,6 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(AutoProcProgram.processingPrograms.in_(program_list))
             .filter(
@@ -550,7 +547,6 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms.in_(program_list))
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
@@ -600,7 +596,6 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms == "dimple")
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(ProcessingJobParameter.parameterKey == "scaling_id")
@@ -854,7 +849,6 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(ProcessingJob.automatic == True)  # noqa E711
             .filter(AutoProcProgram.processingPrograms == "PanDDA2-post")
             .filter(
                 or_(

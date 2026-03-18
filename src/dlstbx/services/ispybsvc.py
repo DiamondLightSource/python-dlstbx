@@ -329,8 +329,16 @@ class DLSISPyB(EM_Mixin, CommonService):
     ):
         program = parameters("program")
         cmdline = parameters("cmdline")
-        environment = parameters("environment") or ""
+        environment = parameters("environment") or {}
         upstream_source = parameters("upstream_source") or ""
+        scaling_id = parameters("scaling_id") or environment.get("scaling_id")
+        if isinstance(scaling_id, list):
+            scaling_id = scaling_id[0]
+        parent_appid = (
+            crud.get_app_id_for_scaling_id(session, int(scaling_id))
+            if scaling_id
+            else None
+        )
         processingpipelineid = self.get_pipeline_id(program, upstream_source)
         if isinstance(environment, dict):
             environment = ", ".join(
@@ -338,7 +346,6 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
         environment = environment[: min(255, len(environment))]
         rpid = parameters("rpid")
-        parent_autoprocprogramid = parameters("parent_autoprocprogramid") or None
         if rpid and not rpid.isdigit():
             self.log.error("Invalid processing id '%s'", rpid)
             return False
@@ -349,14 +356,14 @@ class DLSISPyB(EM_Mixin, CommonService):
                 processingCommandLine=cmdline,
                 processingEnvironment=environment,
                 processingPipelineId=processingpipelineid,
-                parentAutoProcProgramId=parent_autoprocprogramid,
+                parentAutoProcProgramId=parent_appid,
                 recordTimeStamp=datetime.now(),
             )
             session.add(new_app)
             session.commit()
             result = new_app.autoProcProgramId
             self.log.info(
-                f"Registered new program '{program}' for processing id '{rpid}' with command line '{cmdline}' and environment '{environment}', pipeline id '{processingpipelineid}' and parent program id '{parent_autoprocprogramid}' with result '{result}'.",
+                f"Registered new program '{program}' for processing id '{rpid}' with command line '{cmdline}' and environment '{environment}', pipeline id '{processingpipelineid}' and parent program id '{parent_appid}' with result '{result}'.",
             )
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:

@@ -224,9 +224,6 @@ class MultiplexParameters(pydantic.BaseModel):
     backoff_multiplier: Dict[str, float] = pydantic.Field(
         default={"default": 2}, alias="backoff-multiplier"
     )
-    # backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
-    # backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    # backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
@@ -1794,9 +1791,9 @@ class DLSTrigger(CommonService):
                     "name": "sample_bar",
                 }
             ],
-            "backoff-delay": 8, # default
-            "backoff-max-try": 10, # default
-            "backoff-multiplier": 2, # default
+            "backoff-delay": {'default': 8}
+            "backoff-max-try": {'default': 10, 'i02-1': 7}
+            "backoff-multiplier": {'default': 2}
         }
         """
         dcid = parameters.dcid
@@ -1879,9 +1876,6 @@ class DLSTrigger(CommonService):
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case
         # we checkpoint with the calculated message delay
-        self.log.debug(parameters.backoff_delay)
-        self.log.debug(parameters.backoff_multiplier)
-        self.log.debug(parameters.backoff_max_try)
         backoff_delay = parameters.backoff_delay.get(
             parameters.beamline, parameters.backoff_delay["default"]
         )

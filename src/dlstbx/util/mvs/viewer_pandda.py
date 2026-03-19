@@ -33,7 +33,7 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles, s
     ccp4 = builder.download(url=event_map).parse(format="map")
     ccp4.volume().representation(
         type="isosurface",
-        relative_isovalue=3,
+        relative_isovalue=1.5,
         show_wireframe=True,
         show_faces=False,
     ).color(color="blue").opacity(opacity=0.25)
@@ -48,12 +48,12 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles, s
 
     snapshot1 = builder.get_snapshot(
         title="Event_map",
-        description=f"## PanDDA2 Results: \n ### {dtag} \n - Ligand score: {score} \n - SMILES: {smiles} \n - Event map at 3σ, blue",
+        description=f"## PanDDA2 Results: \n ### {dtag} \n - Ligand score: {score} \n - SMILES: {smiles} \n - Event map at 1.5σ, blue",
         transition_duration_ms=700,
         linger_duration_ms=4000,
     )
 
-    # SNAPSHOT2
+    # z-map snapshot
     builder = mvs.create_builder()
     structure = builder.download(url=pdb_file).parse(format="pdb").model_structure()
     structure.component(selector="polymer").representation(
@@ -73,7 +73,7 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles, s
     ccp4 = builder.download(url=z_map).parse(format="map")
     ccp4.volume().representation(
         type="isosurface",
-        relative_isovalue=3,
+        relative_isovalue=1.5,
         show_wireframe=True,
         show_faces=False,
     ).color(color="green").opacity(opacity=0.25)
@@ -86,30 +86,30 @@ def gen_html_pandda(pdb_file, event_map, z_map, resname, outdir, dtag, smiles, s
         },
     )
 
-    snapshot2 = builder.get_snapshot(
-        title="Z_map",
-        description=f"## PanDDA2 Results: \n ### {dtag} \n - Ligand score: {score} \n - SMILES: {smiles} \n - Z_map at 3σ, green",
-        transition_duration_ms=700,
-        linger_duration_ms=4000,
-    )
+    # snapshot2 = builder.get_snapshot(
+    #     title="Z_map",
+    #     description=f"## PanDDA2 Results: \n ### {dtag} \n - Ligand score: {score} \n - SMILES: {smiles} \n - Z_map at 1.5σ, green",
+    #     transition_duration_ms=700,
+    #     linger_duration_ms=4000,
+    # )
 
     states = mvs.States(
-        snapshots=[snapshot1, snapshot2],  # [snapshot1, snapshot2]
+        snapshots=[snapshot1],  # [snapshot1, snapshot2]
         metadata=mvs.GlobalMetadata(description="PanDDA2 Results"),
     )
 
     with open(pdb_file) as f:
         pdb_data = f.read()
 
-    # with open(event_map, mode="rb") as f:
-    #     map_data1 = f.read()
+    with open(event_map, mode="rb") as f:
+        map_data1 = f.read()
 
-    with open(z_map, mode="rb") as f:
-        map_data2 = f.read()
+    # with open(z_map, mode="rb") as f:
+    #     map_data2 = f.read()
 
     html = mvs.molstar_html(
         states,
-        data={pdb_file: pdb_data, z_map: map_data2},  # event_map: map_data1,
+        data={pdb_file: pdb_data, event_map: map_data1},  # z_map: map_data2
         ui="stories",
     )
 

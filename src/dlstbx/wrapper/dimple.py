@@ -17,6 +17,7 @@ import procrunner
 import dlstbx.util.symlink
 from dlstbx import schemas
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util.mvs.viewer_anode import gen_html_anode
 from dlstbx.wrapper import Wrapper
 
 
@@ -311,11 +312,9 @@ class DimpleWrapper(Wrapper):
                     )
                 )
         if success:
-            self.log.info("Creating anode html visualisation")
+            self.log.info("Creating anode molviewspec html")
             try:
-                os.system(
-                    f"module load molviewspec; gen_html_anode.py --results_directory {str(self.results_directory)} --peaks 10"
-                )
+                gen_html_anode(str(self.results_directory), cutoff_sigma=4)
             except Exception as e:
                 self.log.info(f"Exception creating anode html visualisation: {e}")
 

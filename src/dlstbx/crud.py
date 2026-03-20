@@ -368,6 +368,22 @@ def get_ssx_events_for_dcid(
     return query.all()
 
 
+def get_app_id_for_scaling_id(
+    session: sqlalchemy.orm.session.Session,
+    scaling_id: int,
+) -> int:
+    query = (
+        session.query(models.AutoProc.autoProcProgramId)
+        .join(
+            models.AutoProcScaling,
+            models.AutoProcScaling.autoProcId == models.AutoProc.autoProcId,
+        )
+        .filter(models.AutoProcScaling.autoProcScalingId == scaling_id)
+    )
+    result = query.first()
+    return result.autoProcProgramId
+
+
 def insert_xray_centring(
     xrc: schemas.XrayCentring,
     session: sqlalchemy.orm.session.Session,

@@ -10,7 +10,6 @@ import gemmi
 import numpy as np
 import yaml
 
-import dlstbx.util.symlink
 from dlstbx.util.mvs.helpers import (
     find_residue_by_name,
     save_cropped_map,
@@ -33,9 +32,10 @@ class PanDDAWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
-        processed_dir = Path(params.get("processed_directory"))
-        analysis_dir = Path(processed_dir / "analysis")
-        pandda_dir = analysis_dir / "pandda2"
+        processing_dir = Path(params.get("processing_directory"))
+        analysis_dir = Path(processing_dir / "analysis")
+        auto_dir = analysis_dir / "auto"
+        pandda_dir = auto_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
         Path(panddas_dir).mkdir(exist_ok=True)
@@ -52,14 +52,6 @@ class PanDDAWrapper(Wrapper):
 
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
-
-        if pipeline_final_params := params.get("pipeline-final", []):
-            final_directory = Path(pipeline_final_params["path"])
-            final_directory.mkdir(parents=True, exist_ok=True)
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    final_directory, params.get("create_symlink")
-                )
 
         self.log.info(f"Processing dtag: {dtag}")
 
@@ -507,7 +499,7 @@ class PanDDAWrapper(Wrapper):
         for f in attachments:
             if f.exists():
                 if f.suffix == ".html":
-                    file_type = "Result"
+                    file_type = "Result"  # 'Graph', 'Debug'
                     importance_rank = 1
                 elif f.suffix == ".ccp4":
                     file_type = "Result"

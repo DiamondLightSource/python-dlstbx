@@ -69,7 +69,7 @@ class PanDDA_PostParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    processed_directory: str
+    processing_directory: str
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
 
 
@@ -379,7 +379,6 @@ class DLSTriggerXChem(CommonService):
 
         processing_dir = xchem_visit_dir / "processing"
         db = processing_dir / "database" / "soakDBDataFile.sqlite"
-        processed_dir = xchem_visit_dir / "processed"
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
 
@@ -697,8 +696,9 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # 3. Create dataset directory structure
-        analysis_dir = processed_dir / "analysis"
-        pandda_dir = analysis_dir / "pandda2"
+        analysis_dir = processing_dir / "analysis"
+        auto_dir = analysis_dir / "auto"
+        pandda_dir = auto_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
@@ -722,7 +722,7 @@ class DLSTriggerXChem(CommonService):
 
         # Create seperate pipedream directory
         if pipedream:
-            pipedream_dir = analysis_dir / "pipedream"
+            pipedream_dir = auto_dir / "pipedream"
             model_dir_pd = pipedream_dir / "model_building"
             dataset_dir_pd = model_dir_pd / dtag
             compound_dir_pd = dataset_dir_pd / "compound"
@@ -739,7 +739,7 @@ class DLSTriggerXChem(CommonService):
 
         recipe_parameters = {
             "dcid": dcid,
-            "processed_directory": str(processed_dir),
+            "processing_directory": str(processing_dir),
             "model_directory": str(model_dir),
             "dtag": dtag,
             "n_datasets": 1,
@@ -821,7 +821,7 @@ class DLSTriggerXChem(CommonService):
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
-        processed_directory = pathlib.Path(parameters.processed_directory)
+        processing_directory = pathlib.Path(parameters.processing_directory)
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
@@ -868,7 +868,7 @@ class DLSTriggerXChem(CommonService):
 
         recipe_parameters = {
             "dcid": dcid,  #
-            "processed_directory": str(processed_directory),
+            "processing_directory": str(processing_directory),
             "scaling_id": scaling_id,
         }
 

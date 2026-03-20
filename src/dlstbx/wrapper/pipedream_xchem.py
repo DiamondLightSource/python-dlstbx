@@ -8,7 +8,6 @@ from pathlib import Path
 
 import portalocker
 
-import dlstbx.util.symlink
 from dlstbx.util.mvs.helpers import save_cropped_map
 from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
 from dlstbx.wrapper import Wrapper
@@ -26,7 +25,7 @@ class PipedreamWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
-        processed_dir = Path(params.get("processed_directory"))
+        processed_dir = Path(params.get("processing_directory"))
         analysis_dir = Path(processed_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
         model_dir = pipedream_dir / "model_building"
@@ -39,14 +38,6 @@ class PipedreamWrapper(Wrapper):
         dimple_pdb = dataset_dir / "dimple.pdb"
         dimple_mtz = dataset_dir / "dimple.mtz"
         upstream_mtz = dataset_dir / f"{dtag}.free.mtz"
-
-        if pipeline_final_params := params.get("pipeline-final", []):
-            final_directory = Path(pipeline_final_params["path"])
-            final_directory.mkdir(parents=True, exist_ok=True)
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    final_directory, params.get("create_symlink")
-                )
 
         self.log.info(f"Processing dtag: {dtag}")
 

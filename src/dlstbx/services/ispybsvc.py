@@ -387,9 +387,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             "fast_dp": 3,
             "xia2.multiplex": 5,
             "xia2 dials": 6,
-            "xia2 dials (multi)": 6,
-            "xia2 3dii": 7,  # xds
+            "xia2 dials (multi)": 15,
+            "xia2 3dii": 7,
+            "xia2 3dii (multi)": 16,
             "autoPROC": 8,
+            "autoPROC+STARANISO": 14,
             "fast_ep": 9,
             "dimple": 10,
             "MrBUMP": 11,

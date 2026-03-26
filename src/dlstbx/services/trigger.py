@@ -216,9 +216,15 @@ class MultiplexParameters(pydantic.BaseModel):
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
-    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    backoff_delay: Dict[str, float] = pydantic.Field(
+        default={"default": 8}, alias="backoff-delay"
+    )
+    backoff_max_try: Dict[str, int] = pydantic.Field(
+        default={"default": 10}, alias="backoff-max-try"
+    )
+    backoff_multiplier: Dict[str, float] = pydantic.Field(
+        default={"default": 2}, alias="backoff-multiplier"
+    )
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
@@ -1795,9 +1801,9 @@ class DLSTrigger(CommonService):
                     "name": "sample_bar",
                 }
             ],
-            "backoff-delay": 8, # default
-            "backoff-max-try": 10, # default
-            "backoff-multiplier": 2, # default
+            "backoff-delay": {'default': 8}
+            "backoff-max-try": {'default': 10, 'i02-1': 7}
+            "backoff-multiplier": {'default': 2}
         }
         """
         dcid = parameters.dcid
@@ -1880,14 +1886,26 @@ class DLSTrigger(CommonService):
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case
         # we checkpoint with the calculated message delay
+        backoff_delay = parameters.backoff_delay.get(
+            parameters.beamline, parameters.backoff_delay["default"]
+        )
+        backoff_multiplier = parameters.backoff_multiplier.get(
+            parameters.beamline, parameters.backoff_multiplier["default"]
+        )
+        backoff_max_try = parameters.backoff_max_try.get(
+            parameters.beamline, parameters.backoff_max_try["default"]
+        )
+
+        self.log.debug(
+            f"Using backoff parameters: delay {backoff_delay}, multiplier {backoff_multiplier}, max_try {backoff_max_try}"
+        )
+
         status = {
             "ntry": 0,
         }
         if isinstance(message, dict):
             status.update(message.get("trigger-status", {}))
-        message_delay = int(
-            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
-        )
+        message_delay = int(backoff_delay * backoff_multiplier ** status["ntry"])
         status["ntry"] += 1
         self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
 
@@ -1944,7 +1962,7 @@ class DLSTrigger(CommonService):
                     row.AutoProcProgram.autoProcProgramId
                     for row in waiting_processing_jobs
                 ]
-                if status["ntry"] >= parameters.backoff_max_try:
+                if status["ntry"] > backoff_max_try:
                     # Give up waiting for this program to finish and trigger
                     # multiplex with remaining related results are available
                     self.log.info(

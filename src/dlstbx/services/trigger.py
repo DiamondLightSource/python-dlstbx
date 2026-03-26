@@ -1952,7 +1952,7 @@ class DLSTrigger(CommonService):
                     row.AutoProcProgram.autoProcProgramId
                     for row in waiting_processing_jobs
                 ]
-                if status["ntry"] >= backoff_max_try:
+                if status["ntry"] > backoff_max_try:
                     # Give up waiting for this program to finish and trigger
                     # multiplex with remaining related results are available
                     self.log.info(

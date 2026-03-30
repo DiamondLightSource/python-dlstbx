@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -24,7 +26,6 @@ class PipedreamWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        db_master = Path(params.get("database_path"))
         processing_dir = Path(params.get("processing_directory"))
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
@@ -151,11 +152,11 @@ class PipedreamWrapper(Wrapper):
         # -------------------------------------------------------
 
         report_dir = out_dir / f"report-{CompoundCode}"
-        buster_report = report_dir / "report.pdf"
-
+        rhofit_dir = out_dir / f"rhofit-{CompoundCode}"
         postrefine_dir = out_dir / f"postrefine-{CompoundCode}"
         refine_mtz = postrefine_dir / "refine.mtz"
         refine_pdb = postrefine_dir / "refine.pdb"
+        buster_report = report_dir / "report.pdf"
 
         pipedream_summary = out_dir / "pipedream_summary.json"
         self.save_dataset_metadata(
@@ -170,18 +171,24 @@ class PipedreamWrapper(Wrapper):
 
         attachments.extend([buster_report, refine_mtz, refine_pdb, pipedream_summary])
 
-        # # Integrate back with XCE via datasource
-        # db_dict = {}
-        # db_dict["RefinementBoundConformation"] = str(refine_pdb)
+        # Integrate back with XCE via datasource
+        db_dict = {}
+        db_master = Path(params.get("database_path"))
+        db_copy = auto_dir / "database" / "soakDBDataFile.sqlite"
+        if not db_copy.exists():
+            Path(db_copy.parents[0]).mkdir(parents=True, exist_ok=True)
+            shutil.copy(db_master, db_copy)
 
-        # db_copy = auto_dir / "database" / "soakDBDataFile.sqlite"
+        rhofit_rscc = self.get_rscc_rhofit(rhofit_dir)
+        if rhofit_rscc > 0.7:
+            db_dict["RefinementBoundConformation"] = str(refine_pdb)
 
-        # try:
-        #     self.sync_new_rows_from_master(db_master, db_copy, 'mainTable')
-        #     self.update_data_source(db_dict, dtag, db_master)
-        #     self.log.info(f"Updated sqlite database for dataset {dtag}")
-        # except Exception as e:
-        #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
+        try:
+            self.sync_new_rows_from_master(db_master, db_copy, "mainTable")
+            self.update_data_source(db_dict, dtag, db_copy)
+            self.log.info(f"Updated sqlite database for dataset {dtag}")
+        except Exception as e:
+            self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         try:
             with open(pipedream_summary, "r") as f:
@@ -399,6 +406,14 @@ class PipedreamWrapper(Wrapper):
                     self.log.warning(
                         f"Could not attach {f.name} to ISPyB", exc_info=True
                     )
+
+    def get_rscc_rhofit(self, rhofit_dir) -> float:
+        RHOFIT_HIT_LOG = "Hit_corr.log"
+        # Actually gets the best RSCC of any fit, not -strictly- the one rhofit chose
+        with open(rhofit_dir / RHOFIT_HIT_LOG, "r") as f:
+            data = f.read()
+        matches = re.findall(r"^[\S]+\s+([\S]+)", data)
+        return max([float(match) for match in matches])
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

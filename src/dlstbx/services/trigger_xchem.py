@@ -57,7 +57,7 @@ class PanDDAParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
+    timeout: float = pydantic.Field(default=120, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=1.1, alias="backoff-multiplier")
@@ -242,7 +242,7 @@ class DLSTriggerXChem(CommonService):
         proposal_number = proposal.proposalNumber
         proposal_string = proposal_code + proposal_number
 
-        # TEMPORARY FILTER
+        # TEMPORARY PROPOSAL FILTER
         allowed_proposals = ["lb42888", "sw44107", "lb36049"]
 
         # 0. Check that this is an XChem expt & locate .SQLite database
@@ -265,7 +265,7 @@ class DLSTriggerXChem(CommonService):
         location = int(query.one()[1])
         container_code = query.one()[2]
 
-        # Get user defined spacegroup
+        # Get the user defined spacegroup
         query = (
             session.query(Crystal.spaceGroup)
             .join(BLSample, BLSample.crystalId == Crystal.crystalId)
@@ -296,7 +296,7 @@ class DLSTriggerXChem(CommonService):
                 # match_yaml = expt_yaml
                 self.log.info(f"Found user yaml for dtag {dtag} at {yaml_file}")
 
-        # account for potentially multiple labxchem visits for a single target
+        # account for potentially multiple labxchem visits for a single target in proposal
         if len(match_dirs) == 1:
             match_dir = match_dirs[0]
         elif len(match_dirs) > 1:
@@ -365,6 +365,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
         else:
             xchem_visit_dir = match_dir
+            processing_dir = xchem_visit_dir / "processing"
             # user_settings = match_yaml["autoprocessing"]
 
         if xchem_visit_dir:
@@ -377,11 +378,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        processing_dir = xchem_visit_dir / "processing"
-        db = processing_dir / "database" / "soakDBDataFile.sqlite"
-
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
-
         program_list = [
             "xia2 dials",
             "xia2 3dii",
@@ -570,7 +567,7 @@ class DLSTriggerXChem(CommonService):
         df = df[["autoProcScalingId", "heuristic"]].copy()
         scaling_ids = df["autoProcScalingId"].tolist()
 
-        # find associated dimple jobs from scaling_ids
+        # find associated dimple jobs from scaling_ids, take most recent batch if reprocessing
         query = (
             (
                 session.query(
@@ -614,12 +611,24 @@ class DLSTriggerXChem(CommonService):
 
         self.log.info(
             f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) & {n_success_dimple} successful dimple jobs, \
-            selecting the best one based on heuristic: I/sigI*completeness * #unique reflections"
+            selecting the best one based on heuristic: I/sigI*completeness * #unique reflections, from most recent processing batch"
         )
 
-        df2["parameterValue"] = pd.to_numeric(df2["parameterValue"]).astype("Int64")
+        # mark a new batch whenever the gap is >= 12 hours
+        df2 = df2.sort_values("processingStartTime").reset_index(drop=True)
+        df2["time_diff"] = df2["processingStartTime"].diff()
+        df2["batch"] = (df2["time_diff"] >= pd.Timedelta(hours=12)).cumsum() + 1
+        recent_batch = df2[df2["batch"] == df2["batch"].max()].copy()
+
+        recent_batch["parameterValue"] = pd.to_numeric(
+            recent_batch["parameterValue"]
+        ).astype("Int64")
         df3 = pd.merge(
-            df2, df, left_on="parameterValue", right_on="autoProcScalingId", how="inner"
+            recent_batch,
+            df,
+            left_on="parameterValue",
+            right_on="autoProcScalingId",
+            how="inner",
         ).sort_values("heuristic", ascending=False)
 
         if df3.empty:
@@ -652,8 +661,10 @@ class DLSTriggerXChem(CommonService):
 
         # 2. Read XChem SQLite database for ligand info
 
+        db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
+
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=10)
+            conn = sqlite3.connect(f"file:{db_master}?mode=ro", uri=True, timeout=10)
             df = pd.read_sql_query(
                 f"SELECT * from mainTable WHERE Puck = '{container_code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
                 conn,
@@ -661,7 +672,7 @@ class DLSTriggerXChem(CommonService):
 
         except Exception as e:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: Exception whilst reading ligand information from {db} for dtag {dtag}, dcid {dcid}: {e}"
+                f"Exiting PanDDA2/Pipedream trigger: Exception whilst reading ligand information from {db_master} for dtag {dtag}, dcid {dcid}: {e}"
             )
             return {"success": True}
 
@@ -671,7 +682,7 @@ class DLSTriggerXChem(CommonService):
 
         if len(df) != 1:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {container_code}, puck position {location} cannot be found in {db}, skipping dcid {dcid}"
+                f"Exiting PanDDA2/Pipedream trigger: Unique row in .sqlite for dtag {dtag}, puck {container_code}, puck position {location} cannot be found in {db_master}, skipping dcid {dcid}"
             )
             return {"success": True}
 
@@ -696,9 +707,9 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # 3. Create dataset directory structure
-        analysis_dir = processing_dir / "analysis"
-        auto_dir = analysis_dir / "auto"
-        pandda_dir = auto_dir / "pandda2"
+        auto_dir = processing_dir / "auto"
+        analysis_dir = auto_dir / "analysis"
+        pandda_dir = analysis_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
@@ -722,7 +733,7 @@ class DLSTriggerXChem(CommonService):
 
         # Create seperate pipedream directory
         if pipedream:
-            pipedream_dir = auto_dir / "pipedream"
+            pipedream_dir = analysis_dir / "pipedream"
             model_dir_pd = pipedream_dir / "model_building"
             dataset_dir_pd = model_dir_pd / dtag
             compound_dir_pd = dataset_dir_pd / "compound"
@@ -736,7 +747,6 @@ class DLSTriggerXChem(CommonService):
                 smi_file.write(CompoundSMILES)
 
         # 4. Job launch logic
-
         recipe_parameters = {
             "dcid": dcid,
             "processing_directory": str(processing_dir),
@@ -745,7 +755,7 @@ class DLSTriggerXChem(CommonService):
             "n_datasets": 1,
             "scaling_id": scaling_id,
             "comparator_threshold": comparator_threshold,
-            "database_path": str(db),
+            "database_path": str(db_master),
             "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
             "smiles": str(CompoundSMILES),
         }
@@ -769,6 +779,7 @@ class DLSTriggerXChem(CommonService):
 
             with open(model_dir / ".batch.json", "w") as f:
                 json.dump(dataset_list, f)
+                # cannot pass as ispyb_parameter
 
             self.log.info(
                 f"{dataset_count} = comparator dataset threshold of {comparator_threshold}, launching PanDDA2 array job"

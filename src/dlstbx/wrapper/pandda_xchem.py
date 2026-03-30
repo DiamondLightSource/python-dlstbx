@@ -33,9 +33,9 @@ class PanDDAWrapper(Wrapper):
 
         # database_path = Path(params.get("database_path"))
         processing_dir = Path(params.get("processing_directory"))
-        analysis_dir = Path(processing_dir / "analysis")
-        auto_dir = analysis_dir / "auto"
-        pandda_dir = auto_dir / "pandda2"
+        auto_dir = processing_dir / "auto"
+        analysis_dir = Path(auto_dir / "analysis")
+        pandda_dir = analysis_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
         Path(panddas_dir).mkdir(exist_ok=True)
@@ -249,6 +249,7 @@ class PanDDAWrapper(Wrapper):
             return False
 
         scores = {}
+        self.log.info(f"Running Ligand Score routine for {build_dir}")
 
         for build_path in builds:
             ligand_score = build_dir / f"{build_path.stem}.txt"
@@ -259,8 +260,6 @@ class PanDDAWrapper(Wrapper):
 
             score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
             python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={build_path} --out_path={ligand_score}"
-
-            self.log.info(f"Running Ligand Score command: {score_command}")
 
             try:
                 os.system(score_command)
@@ -279,9 +278,8 @@ class PanDDAWrapper(Wrapper):
         self.log.info(f"Best ligand score for {dtag} = {score}")
 
         # -------------------------------------------------------
-        # Best build merging
+        # Merge the protein structure with best fitted ligand -> pandda model
 
-        # Merge the protein structure with ligand -> pandda model
         protein_st_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         ligand_st_file = best_build_path
         pandda_model = modelled_dir / f"{dtag}-pandda-model.pdb"

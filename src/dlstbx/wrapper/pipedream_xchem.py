@@ -24,9 +24,10 @@ class PipedreamWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        # database_path = Path(params.get("database_path"))
-        processed_dir = Path(params.get("processing_directory"))
-        analysis_dir = Path(processed_dir / "analysis")
+        db_master = Path(params.get("database_path"))
+        processing_dir = Path(params.get("processing_directory"))
+        auto_dir = processing_dir / "auto"
+        analysis_dir = Path(auto_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
         model_dir = pipedream_dir / "model_building"
         dtag = params.get("dtag")
@@ -168,6 +169,19 @@ class PipedreamWrapper(Wrapper):
         )
 
         attachments.extend([buster_report, refine_mtz, refine_pdb, pipedream_summary])
+
+        # # Integrate back with XCE via datasource
+        # db_dict = {}
+        # db_dict["RefinementBoundConformation"] = str(refine_pdb)
+
+        # db_copy = auto_dir / "database" / "soakDBDataFile.sqlite"
+
+        # try:
+        #     self.sync_new_rows_from_master(db_master, db_copy, 'mainTable')
+        #     self.update_data_source(db_dict, dtag, db_master)
+        #     self.log.info(f"Updated sqlite database for dataset {dtag}")
+        # except Exception as e:
+        #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         try:
             with open(pipedream_summary, "r") as f:
@@ -397,15 +411,18 @@ class PipedreamWrapper(Wrapper):
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)
         conn.commit()
+        conn.close()
 
-    # Integrate back with XCE via datasource
-    # db_dict = {}
-    # db_dict["DimplePANDDAwasRun"] = True
-    # # db_dict["DimplePANDDAreject"] = False
-    # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
+    def sync_new_rows_from_master(self, master_path, copy_path, table_name):
+        conn = sqlite3.connect(copy_path)
+        conn.execute(f"ATTACH DATABASE '{master_path}' AS master")
 
-    # try:
-    #     self.update_data_source(db_dict, dtag, database_path)
-    #     self.log.info(f"Updated sqlite database for dataset {dtag}")
-    # except Exception as e:
-    #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
+        # Insert only rows from master that don't already exist in the copy
+        conn.execute(f"""
+            INSERT OR IGNORE INTO {table_name}
+            SELECT * FROM master.{table_name}
+        """)
+
+        conn.commit()
+        conn.execute("DETACH DATABASE master")
+        conn.close()

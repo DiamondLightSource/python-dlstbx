@@ -556,6 +556,11 @@ class DLSTriggerXChem(CommonService):
 
             if not df_filteredbysg.empty:
                 df = df_filteredbysg
+                n_success_upstream = len(df)
+                self.log.info(
+                    f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) in the user defined spacegroup {user_sg} \
+                    selecting the best one based on I/sigI*completeness * #unique reflections, from the most recent processing batch"
+                )
 
         # rank datasets by I/sigI*completeness*# unique reflections
         df["heuristic"] = (
@@ -605,14 +610,6 @@ class DLSTriggerXChem(CommonService):
                 f"Exiting PanDDA2/Pipedream trigger: No successful dimple jobs for dcid {dcid}, skipping..."
             )
             return {"success": True}
-
-        n_success_upstream = len(df)
-        n_success_dimple = len(df2)
-
-        self.log.info(
-            f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) & {n_success_dimple} successful dimple jobs, \
-            selecting the best one based on heuristic: I/sigI*completeness * #unique reflections, from most recent processing batch"
-        )
 
         # mark a new batch whenever the gap is >= 12 hours
         df2 = df2.sort_values("processingStartTime").reset_index(drop=True)
@@ -749,7 +746,7 @@ class DLSTriggerXChem(CommonService):
         # 4. Job launch logic
         recipe_parameters = {
             "dcid": dcid,
-            "xchem_visit_dir": xchem_visit_dir,
+            "xchem_visit_dir": str(xchem_visit_dir),
             "processing_directory": str(processing_dir),
             "model_directory": str(model_dir),
             "dtag": dtag,

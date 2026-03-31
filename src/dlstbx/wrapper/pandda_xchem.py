@@ -32,6 +32,8 @@ class PanDDAWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
+        xchem_visit_dir = Path(params.get("xchem_visit_dir"))
+        user_yaml = xchem_visit_dir / ".user.yaml"
         processing_dir = Path(params.get("processing_directory"))
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
@@ -119,8 +121,11 @@ class PanDDAWrapper(Wrapper):
         pandda2_log = dataset_pdir / "pandda2.log"
         attachments.extend([pandda2_log, ligand_cif])
 
+        args_string = self.get_pandda_settings(
+            user_yaml
+        )  # user specified pandda parameters
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=4 {args_string}"
 
         try:
             result = subprocess.run(
@@ -490,6 +495,16 @@ class PanDDAWrapper(Wrapper):
                             chain_counts[chain.name] += 1
 
         return min(chain_counts, key=lambda _x: chain_counts[_x])
+
+    def get_pandda_settings(self, yaml_file):
+        with open(yaml_file, "r") as file:
+            expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
+        settings = expt_yaml["autoprocessing"]["pandda"]
+        if settings:
+            args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
+        else:
+            args_string = ""
+        return args_string
 
     def send_attachments_to_ispyb(self, attachments, batch):
         if batch:  # synchweb attachments not supported for array job processing

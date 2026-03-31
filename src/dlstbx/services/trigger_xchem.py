@@ -749,6 +749,7 @@ class DLSTriggerXChem(CommonService):
         # 4. Job launch logic
         recipe_parameters = {
             "dcid": dcid,
+            "xchem_visit_dir": xchem_visit_dir,
             "processing_directory": str(processing_dir),
             "model_directory": str(model_dir),
             "dtag": dtag,

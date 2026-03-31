@@ -10,7 +10,6 @@ import gemmi
 import numpy as np
 import yaml
 
-import dlstbx.util.symlink
 from dlstbx.util.mvs.helpers import (
     find_residue_by_name,
     save_cropped_map,
@@ -33,8 +32,11 @@ class PanDDAWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
-        processed_dir = Path(params.get("processed_directory"))
-        analysis_dir = Path(processed_dir / "analysis")
+        xchem_visit_dir = Path(params.get("xchem_visit_dir"))
+        user_yaml = xchem_visit_dir / ".user.yaml"
+        processing_dir = Path(params.get("processing_directory"))
+        auto_dir = processing_dir / "auto"
+        analysis_dir = Path(auto_dir / "analysis")
         pandda_dir = analysis_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
@@ -52,14 +54,6 @@ class PanDDAWrapper(Wrapper):
 
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
-
-        if pipeline_final_params := params.get("pipeline-final", []):
-            final_directory = Path(pipeline_final_params["path"])
-            final_directory.mkdir(parents=True, exist_ok=True)
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    final_directory, params.get("create_symlink")
-                )
 
         self.log.info(f"Processing dtag: {dtag}")
 
@@ -127,8 +121,11 @@ class PanDDAWrapper(Wrapper):
         pandda2_log = dataset_pdir / "pandda2.log"
         attachments.extend([pandda2_log, ligand_cif])
 
+        args_string = self.get_pandda_settings(
+            user_yaml
+        )  # user specified pandda parameters
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=1"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=4 {args_string}"
 
         try:
             result = subprocess.run(
@@ -257,6 +254,7 @@ class PanDDAWrapper(Wrapper):
             return False
 
         scores = {}
+        self.log.info(f"Running Ligand Score routine for {build_dir}")
 
         for build_path in builds:
             ligand_score = build_dir / f"{build_path.stem}.txt"
@@ -267,8 +265,6 @@ class PanDDAWrapper(Wrapper):
 
             score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
             python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={build_path} --out_path={ligand_score}"
-
-            self.log.info(f"Running Ligand Score command: {score_command}")
 
             try:
                 os.system(score_command)
@@ -287,9 +283,8 @@ class PanDDAWrapper(Wrapper):
         self.log.info(f"Best ligand score for {dtag} = {score}")
 
         # -------------------------------------------------------
-        # Best build merging
+        # Merge the protein structure with best fitted ligand -> pandda model
 
-        # Merge the protein structure with ligand -> pandda model
         protein_st_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         ligand_st_file = best_build_path
         pandda_model = modelled_dir / f"{dtag}-pandda-model.pdb"
@@ -501,13 +496,23 @@ class PanDDAWrapper(Wrapper):
 
         return min(chain_counts, key=lambda _x: chain_counts[_x])
 
+    def get_pandda_settings(self, yaml_file):
+        with open(yaml_file, "r") as file:
+            expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
+        settings = expt_yaml["autoprocessing"]["pandda"]
+        if settings:
+            args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
+        else:
+            args_string = ""
+        return args_string
+
     def send_attachments_to_ispyb(self, attachments, batch):
         if batch:  # synchweb attachments not supported for array job processing
             return
         for f in attachments:
             if f.exists():
                 if f.suffix == ".html":
-                    file_type = "Result"
+                    file_type = "Result"  # 'Graph', 'Debug'
                     importance_rank = 1
                 elif f.suffix == ".ccp4":
                     file_type = "Result"

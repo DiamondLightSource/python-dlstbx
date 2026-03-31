@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import sqlite3
 import subprocess
 from pathlib import Path
 
 import portalocker
 
-import dlstbx.util.symlink
 from dlstbx.util.mvs.helpers import save_cropped_map
 from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
 from dlstbx.wrapper import Wrapper
@@ -25,9 +26,9 @@ class PipedreamWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        # database_path = Path(params.get("database_path"))
-        processed_dir = Path(params.get("processed_directory"))
-        analysis_dir = Path(processed_dir / "analysis")
+        processing_dir = Path(params.get("processing_directory"))
+        auto_dir = processing_dir / "auto"
+        analysis_dir = Path(auto_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
         model_dir = pipedream_dir / "model_building"
         dtag = params.get("dtag")
@@ -39,14 +40,6 @@ class PipedreamWrapper(Wrapper):
         dimple_pdb = dataset_dir / "dimple.pdb"
         dimple_mtz = dataset_dir / "dimple.mtz"
         upstream_mtz = dataset_dir / f"{dtag}.free.mtz"
-
-        if pipeline_final_params := params.get("pipeline-final", []):
-            final_directory = Path(pipeline_final_params["path"])
-            final_directory.mkdir(parents=True, exist_ok=True)
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    final_directory, params.get("create_symlink")
-                )
 
         self.log.info(f"Processing dtag: {dtag}")
 
@@ -159,11 +152,11 @@ class PipedreamWrapper(Wrapper):
         # -------------------------------------------------------
 
         report_dir = out_dir / f"report-{CompoundCode}"
-        buster_report = report_dir / "report.pdf"
-
+        rhofit_dir = out_dir / f"rhofit-{CompoundCode}"
         postrefine_dir = out_dir / f"postrefine-{CompoundCode}"
         refine_mtz = postrefine_dir / "refine.mtz"
         refine_pdb = postrefine_dir / "refine.pdb"
+        buster_report = report_dir / "report.pdf"
 
         pipedream_summary = out_dir / "pipedream_summary.json"
         self.save_dataset_metadata(
@@ -177,6 +170,25 @@ class PipedreamWrapper(Wrapper):
         )
 
         attachments.extend([buster_report, refine_mtz, refine_pdb, pipedream_summary])
+
+        # Integrate back with XCE via datasource
+        db_dict = {}
+        db_master = Path(params.get("database_path"))
+        db_copy = auto_dir / "database" / "soakDBDataFile.sqlite"
+        if not db_copy.exists():
+            Path(db_copy.parents[0]).mkdir(parents=True, exist_ok=True)
+            shutil.copy(db_master, db_copy)
+
+        rhofit_rscc = self.get_rscc_rhofit(rhofit_dir)
+        if rhofit_rscc > 0.7:
+            db_dict["RefinementBoundConformation"] = str(refine_pdb)
+
+        try:
+            self.sync_new_rows_from_master(db_master, db_copy, "mainTable")
+            self.update_data_source(db_dict, dtag, db_copy)
+            self.log.info(f"Updated sqlite database for dataset {dtag}")
+        except Exception as e:
+            self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         try:
             with open(pipedream_summary, "r") as f:
@@ -395,6 +407,14 @@ class PipedreamWrapper(Wrapper):
                         f"Could not attach {f.name} to ISPyB", exc_info=True
                     )
 
+    def get_rscc_rhofit(self, rhofit_dir) -> float:
+        RHOFIT_HIT_LOG = "Hit_corr.log"
+        # Actually gets the best RSCC of any fit, not -strictly- the one rhofit chose
+        with open(rhofit_dir / RHOFIT_HIT_LOG, "r") as f:
+            data = f.read()
+        matches = re.findall(r"^[\S]+\s+([\S]+)", data)
+        return max([float(match) for match in matches])
+
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (
             "UPDATE mainTable SET "
@@ -406,15 +426,18 @@ class PipedreamWrapper(Wrapper):
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)
         conn.commit()
+        conn.close()
 
-    # Integrate back with XCE via datasource
-    # db_dict = {}
-    # db_dict["DimplePANDDAwasRun"] = True
-    # # db_dict["DimplePANDDAreject"] = False
-    # db_dict["DimplePANDDApath"] = str(auto_panddas_dir / "processed_datasets")
+    def sync_new_rows_from_master(self, master_path, copy_path, table_name):
+        conn = sqlite3.connect(copy_path)
+        conn.execute(f"ATTACH DATABASE '{master_path}' AS master")
 
-    # try:
-    #     self.update_data_source(db_dict, dtag, database_path)
-    #     self.log.info(f"Updated sqlite database for dataset {dtag}")
-    # except Exception as e:
-    #     self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
+        # Insert only rows from master that don't already exist in the copy
+        conn.execute(f"""
+            INSERT OR IGNORE INTO {table_name}
+            SELECT * FROM master.{table_name}
+        """)
+
+        conn.commit()
+        conn.execute("DETACH DATABASE master")
+        conn.close()

@@ -16,15 +16,16 @@ class PanDDApostWrapper(Wrapper):
         )
 
         params = self.recwrap.recipe_step["job_parameters"]
-        processed_dir = Path(params.get("processed_directory"))
-        analysis_dir = processed_dir / "analysis"
+        processing_dir = Path(params.get("processing_directory"))
+        auto_dir = processing_dir / "auto"
+        analysis_dir = auto_dir / "analysis"
         pandda_dir = analysis_dir / "pandda2"
         model_dir = pandda_dir / "model_building"
-        auto_panddas_dir = Path(pandda_dir / "panddas")
+        panddas_dir = Path(pandda_dir / "panddas")
 
         # -------------------------------------------------------
         pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={auto_panddas_dir} --use_ligand_data=False --debug=True --local_cpus=1 > {auto_panddas_dir / 'pandda2_postrun.log'}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={panddas_dir} --use_ligand_data=False --debug=True --local_cpus=1 > {panddas_dir / 'pandda2_postrun.log'}"
 
         self.log.info("Running PanDDA2 command: {pandda2_command}")
 
@@ -34,7 +35,7 @@ class PanDDApostWrapper(Wrapper):
                 shell=True,
                 capture_output=True,
                 text=True,
-                cwd=auto_panddas_dir,
+                cwd=panddas_dir,
                 check=True,
                 timeout=params.get("timeout-minutes") * 60,
             )

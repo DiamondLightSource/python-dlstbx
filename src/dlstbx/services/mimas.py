@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 import time
 from pprint import pformat
 from typing import Any
@@ -9,6 +10,8 @@ from workflows.services.common_service import CommonService
 
 from dlstbx import mimas
 from dlstbx.mimas import specification
+from dlstbx.util.pdb import PDBFileOrCode
+from dlstbx.wrapper.helpers import get_file_from_autoprocscaling_info
 
 
 class DLSMimas(CommonService):
@@ -56,11 +59,11 @@ class DLSMimas(CommonService):
         )
 
     def _extract_scenario(self, step):
-        dcid = step.get("dcid")
+        dcid = step("dcid")
         if not dcid or not dcid.isnumeric():
             return f"Invalid Mimas request rejected (DCID = {dcid!r})"
 
-        event = step.get("event")
+        event = step("event")
         if not isinstance(event, str):
             event = repr(event)
         try:
@@ -70,7 +73,7 @@ class DLSMimas(CommonService):
 
         # TODO: push the default recipe determination logic into mimas.core,
         #       and pass dc_class instead.
-        dc_class = step.get("dc_class")
+        dc_class = step("dc_class")
         if isinstance(dc_class, dict):
             # legacy format
             if dc_class["serial_fixed"]:
@@ -87,6 +90,16 @@ class DLSMimas(CommonService):
                 dc_class_mimas = mimas.MimasDCClass.DIAMOND_ANVIL_CELL
             elif dc_class["rotation"]:
                 dc_class_mimas = mimas.MimasDCClass.ROTATION
+            elif dc_class and dc_class["osc"]:
+                dc_class_mimas = mimas.MimasDCClass.OSC
+            elif dc_class and dc_class["sad"]:
+                dc_class_mimas = mimas.MimasDCClass.SAD
+            elif dc_class and dc_class["mad"]:
+                dc_class_mimas = mimas.MimasDCClass.MAD
+            elif dc_class and dc_class["helical"]:
+                dc_class_mimas = mimas.MimasDCClass.HELICAL
+            elif dc_class and dc_class["metal_id"]:
+                dc_class_mimas = mimas.MimasDCClass.METAL_ID
             else:
                 dc_class_mimas = mimas.MimasDCClass.UNDEFINED
         else:
@@ -99,10 +112,10 @@ class DLSMimas(CommonService):
                 dc_class_mimas = mimas.MimasDCClass.UNDEFINED
 
         sweep_list = tuple(
-            mimas.MimasISPyBSweep(*info) for info in (step.get("sweep_list") or [])
+            mimas.MimasISPyBSweep(*info) for info in (step("sweep_list") or [])
         )
 
-        cell = step.get("unit_cell")
+        cell = step("unit_cell")
         if cell:
             try:
                 cell = mimas.MimasISPyBUnitCell(*cell)
@@ -115,7 +128,7 @@ class DLSMimas(CommonService):
         else:
             cell = None
 
-        spacegroup = step.get("space_group")
+        spacegroup = step("space_group")
         if spacegroup:
             spacegroup = mimas.MimasISPyBSpaceGroup(spacegroup)
             self.log.info(spacegroup)
@@ -130,7 +143,7 @@ class DLSMimas(CommonService):
             spacegroup = None
 
         anomalous_scatterer = None
-        diffraction_plan_info = step.get("diffraction_plan_info")
+        diffraction_plan_info = step("diffraction_plan_info")
         if diffraction_plan_info:
             anomalous_scatterer = diffraction_plan_info.get("anomalousScatterer")
             if anomalous_scatterer:
@@ -150,22 +163,87 @@ class DLSMimas(CommonService):
         detectorclass = {
             "eiger": mimas.MimasDetectorClass.EIGER,
             "pilatus": mimas.MimasDetectorClass.PILATUS,
-        }.get(step.get("detectorclass", "").lower())
+        }.get((step("detectorclass") or "").lower())
+
+        # if autoprocscaling_info := step("autoprocscaling_info"):
+        #    pprint(autoprocscaling_info)
+        #    autoprocscaling_id = autoprocscaling_info.get("autoProcScalingId")
+        #    if autoprocscaling_id and not str(autoprocscaling_id).isnumeric():
+        #        return f"Invalid Mimas request rejected (autoprocscaling_id = {autoprocscaling_id!r})"
+        #    attachments = autoprocscaling_info.get("attachments")
+        #    input_mtz = step("mtz")
+        #    for filename in attachments:
+        #        if input_mtz in filename:
+        #            data = pathlib.Path(filename)
+        #            break
+        data = step("mtz")
+        if (
+            isinstance(autoprocscaling_info := step("autoprocscaling_info"), dict)
+            and not pathlib.Path(data).exists()
+        ):
+            autoprocscaling_id = autoprocscaling_info.get("autoProcScalingId")
+            if not str(autoprocscaling_id).isnumeric():
+                return f"Invalid Mimas request rejected (autoprocscaling_id = {autoprocscaling_id!r})"
+            try:
+                data = get_file_from_autoprocscaling_info(autoprocscaling_info, data)
+            except ValueError:
+                # File matching the input pattern not found in an attachments list
+                data = None
+        elif str(step("autoprocscaling_id")).isnumeric():
+            autoprocscaling_id = int(step("autoprocscaling_id"))
+        else:
+            autoprocscaling_id = None
+
+        try:
+            target = step("target").lower()
+            if target == "dimple":
+                target_mimas = mimas.MimasTarget.DIMPLE
+            elif target == "shelxt":
+                target_mimas = mimas.MimasTarget.SHELXT
+            elif target == "mrbump":
+                target_mimas = mimas.MimasTarget.MRBUMP
+            elif target == "fast_ep":
+                target_mimas = mimas.MimasTarget.FAST_EP
+            elif target == "big_ep":
+                target_mimas = mimas.MimasTarget.BIG_EP
+            elif target == "big_ep_launcher":
+                target_mimas = mimas.MimasTarget.BIG_EP_LAUNCHER
+            elif target == "alphafold":
+                target_mimas = mimas.MimasTarget.ALPHAFOLD
+            elif target == "multiplex":
+                target_mimas = mimas.MimasTarget.MULTIPLEX
+            else:
+                return f"Invalid Mimas request rejected (target = {target!r})"
+        except Exception:
+            # Target pipeline for downstream processing not set
+            target_mimas = None
+
+        try:
+            pdb_mimas = [PDBFileOrCode(**pdb) for pdb in step("pdb")]
+        except Exception:
+            pdb_mimas = None
 
         return mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dc_class_mimas,
             event=event,
-            beamline=step.get("beamline"),
-            visit=step.get("visit"),
-            runstatus=step.get("run_status"),
+            beamline=step("beamline"),
+            visit=step("visit"),
+            runstatus=step("run_status"),
             spacegroup=spacegroup,
             unitcell=cell,
             getsweepslistfromsamedcg=sweep_list,
-            preferred_processing=step.get("preferred_processing"),
+            preferred_processing=step("preferred_processing"),
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
             cloudbursting=self.get_cloudbursting_spec(),
+            target=target_mimas,
+            mtz=data,
+            pdb_files_or_codes=pdb_mimas,
+            autoprocscaling_id=autoprocscaling_id,
+            comment=step("comment"),
+            tag=step("tag"),
+            upstream_source=step("upstream_source"),
         )
 
     def on_statistics_cluster(self, header, message):
@@ -299,7 +377,33 @@ class DLSMimas(CommonService):
         """Process an incoming event."""
 
         # Pass incoming event information into Mimas scenario object
-        scenario = self._extract_scenario(rw.recipe_step["parameters"])
+
+        def parameters(parameter, replace_variables=True):
+            if isinstance(message, dict):
+                base_value = message.get(
+                    parameter, rw.recipe_step["parameters"].get(parameter)
+                )
+            else:
+                base_value = rw.recipe_step["parameters"].get(parameter)
+            if (
+                not replace_variables
+                or not base_value
+                or not isinstance(base_value, str)
+                or "$" not in base_value
+            ):
+                return base_value
+            for key in sorted(rw.environment, key=len, reverse=True):
+                if "${" + key + "}" in base_value:
+                    base_value = base_value.replace(
+                        "${" + key + "}", str(rw.environment[key])
+                    )
+                # Replace longest keys first, as the following replacement is
+                # not well-defined when one key is a prefix of another:
+                if "$" + key in base_value:
+                    base_value = base_value.replace("$" + key, str(rw.environment[key]))
+            return base_value
+
+        scenario = self._extract_scenario(parameters)
         if isinstance(scenario, str):
             self.log.error(scenario)
             rw.transport.nack(header)

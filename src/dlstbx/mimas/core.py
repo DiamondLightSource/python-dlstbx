@@ -6,13 +6,17 @@ import zocalo.configuration
 
 from dlstbx import mimas
 from dlstbx.mimas.specification import (
+    AnomalousScattererSpecification,
     BeamlineSpecification,
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
+    VisitSpecification,
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
+INDUSTRIAL_CODES = {"ic", "il", "in", "lb", "sw"}
+
 is_vmxi = BeamlineSpecification("i02-2")
 is_i03 = BeamlineSpecification("i03")
 is_i04_1 = BeamlineSpecification("i04-1")
@@ -34,6 +38,15 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION) | DCClassSpecifi
 )
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 is_characterization = DCClassSpecification(mimas.MimasDCClass.CHARACTERIZATION)
+is_anomalous = AnomalousScattererSpecification()
+is_phasing = (
+    DCClassSpecification(mimas.MimasDCClass.OSC)
+    | DCClassSpecification(mimas.MimasDCClass.SAD)
+    | DCClassSpecification(mimas.MimasDCClass.MAD)
+    | DCClassSpecification(mimas.MimasDCClass.HELICAL)
+    | DCClassSpecification(mimas.MimasDCClass.METAL_ID)
+) & is_anomalous
+is_industrial_visit = VisitSpecification(INDUSTRIAL_CODES)
 
 XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(

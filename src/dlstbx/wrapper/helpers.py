@@ -99,3 +99,18 @@ def fix_acl_mask(subprocess_directory, results_directory, logger):
             logger.info(f"Resetting ALC mask to {msk} in {results_directory}")
         else:
             logger.error(f"Failed to reset ALC mask to {msk} in {results_directory}")
+
+
+def get_file_from_autoprocscaling_info(
+    autoprocscaling_info: dict, input_pattern: str
+) -> Path:
+    attachments = autoprocscaling_info.get("attachments", {})
+    for filename in attachments:
+        if input_pattern in filename:
+            filepath = Path(filename).resolve()
+            if not filepath.is_file():
+                raise ValueError(
+                    "Could not find data file %s to process", input_pattern
+                )
+            return filepath
+    raise ValueError("Input data file matching %s not available", input_pattern)

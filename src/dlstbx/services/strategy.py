@@ -311,7 +311,7 @@ class DLSStrategy(CommonService):
                     "exposuretime": exposure_time,
                     "transmission": transmission * 100,  # ISPyB expects a percentage
                     "oscillationrange": rotation_increment,
-                    "numberOfImages": recipe_step.number_of_images,
+                    "noimages": recipe_step.number_of_images,
                     "resolution": resolution,
                     "ispyb_command": "insert_screening_strategy_sub_wedge",
                     "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",

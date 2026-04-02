@@ -309,7 +309,7 @@ class DLSStrategy(CommonService):
                     "axisend": rotation_start
                     + rotation_increment * recipe_step.number_of_images,
                     "exposuretime": exposure_time,
-                    "transmission": transmission,
+                    "transmission": transmission * 100,  # ISPyB expects a percentage
                     "oscillationrange": rotation_increment,
                     "numberOfImages": recipe_step.number_of_images,
                     "resolution": resolution,

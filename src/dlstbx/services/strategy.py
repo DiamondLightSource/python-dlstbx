@@ -210,7 +210,7 @@ class DLSStrategy(CommonService):
             ),
         )
 
-        recipes = {"OSC.yaml": "OSC", "Ligand binding.yaml": "Ligand"}
+        recipes = {"OSC.yaml": "Native", "Ligand binding.yaml": "Ligand"}
         ispyb_command_list = []
 
         for recipe, recipe_alias in recipes.items():
@@ -300,18 +300,24 @@ class DLSStrategy(CommonService):
                 }
                 ispyb_command_list.append(d)
 
+                # Convert transmission to percentage for ISPyB
+                transmission_pct = transmission * 100
+
+                axis_end = (
+                    rotation_start + rotation_increment * recipe_step.number_of_images
+                )
+
                 # Step 4: Store second screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
                 #         Keep the screeningStrategyWedgeId
                 d = {
                     "subwedgenumber": 1,
                     "rotationaxis": recipe_step.scan_axis,
                     "axisstart": rotation_start,
-                    "axisend": rotation_start
-                    + rotation_increment * recipe_step.number_of_images,
+                    "axisend": axis_end,
                     "exposuretime": exposure_time,
-                    "transmission": transmission,
+                    "transmission": transmission_pct,
                     "oscillationrange": rotation_increment,
-                    "numberOfImages": recipe_step.number_of_images,
+                    "noimages": recipe_step.number_of_images,
                     "resolution": resolution,
                     "ispyb_command": "insert_screening_strategy_sub_wedge",
                     "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",

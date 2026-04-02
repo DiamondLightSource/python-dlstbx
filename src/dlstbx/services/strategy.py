@@ -300,16 +300,22 @@ class DLSStrategy(CommonService):
                 }
                 ispyb_command_list.append(d)
 
+                # Convert transmission to percentage for ISPyB
+                transmission_pct = transmission * 100
+
+                axis_end = (
+                    rotation_start + rotation_increment * recipe_step.number_of_images
+                )
+
                 # Step 4: Store second screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
                 #         Keep the screeningStrategyWedgeId
                 d = {
                     "subwedgenumber": 1,
                     "rotationaxis": recipe_step.scan_axis,
                     "axisstart": rotation_start,
-                    "axisend": rotation_start
-                    + rotation_increment * recipe_step.number_of_images,
+                    "axisend": axis_end,
                     "exposuretime": exposure_time,
-                    "transmission": transmission * 100,  # ISPyB expects a percentage
+                    "transmission": transmission_pct,
                     "oscillationrange": rotation_increment,
                     "noimages": recipe_step.number_of_images,
                     "resolution": resolution,

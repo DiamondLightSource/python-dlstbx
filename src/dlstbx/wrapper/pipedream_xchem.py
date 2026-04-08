@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import sqlite3
 import subprocess
@@ -169,7 +168,12 @@ class PipedreamWrapper(Wrapper):
             dtag,
         )
 
-        attachments.extend([buster_report, refine_mtz, refine_pdb, pipedream_summary])
+        pictures_dir = report_dir / "ligand/pictures"
+        ligand_gifs = list(pictures_dir.glob("*.gif"))
+
+        attachments.extend(
+            [buster_report, refine_mtz, refine_pdb, pipedream_summary, ligand_gifs]
+        )
 
         # Integrate back with XCE via datasource
         db_dict = {}
@@ -369,29 +373,15 @@ class PipedreamWrapper(Wrapper):
     def send_attachments_to_ispyb(self, attachments):
         for f in attachments:
             if f.exists():
-                if f.suffix == ".html":
-                    file_type = "Result"
-                    importance_rank = 1
-                elif f.suffix == ".mtz":
-                    file_type = "Result"
-                    importance_rank = 1
-                elif f.suffix == ".cif":
-                    file_type = "Result"
-                    importance_rank = 1
-                elif f.suffix == ".pdb":
-                    file_type = "Result"
-                    importance_rank = 1
-                elif f.suffix == ".pdf":
-                    file_type = "Result"
-                    importance_rank = 1
-                elif f.suffix == ".out":
+                if f.suffix == ".out":
                     file_type = "Log"
                     importance_rank = 2
                 elif f.suffix == ".log":
                     file_type = "Log"
                     importance_rank = 2
                 else:
-                    continue
+                    file_type = "Result"
+                    importance_rank = 1
                 try:
                     result_dict = {
                         "file_path": str(f.parents[0]),
@@ -407,13 +397,14 @@ class PipedreamWrapper(Wrapper):
                         f"Could not attach {f.name} to ISPyB", exc_info=True
                     )
 
-    def get_rscc_rhofit(self, rhofit_dir) -> float:
+    def get_rscc_rhofit(rhofit_dir) -> float:
         RHOFIT_HIT_LOG = "Hit_corr.log"
         # Actually gets the best RSCC of any fit, not -strictly- the one rhofit chose
         with open(rhofit_dir / RHOFIT_HIT_LOG, "r") as f:
-            data = f.read()
-        matches = re.findall(r"^[\S]+\s+([\S]+)", data)
-        return max([float(match) for match in matches])
+            lines = f.readlines()
+
+        rscc = max(float(line.split()[1]) for line in lines if line.strip())
+        return rscc
 
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (

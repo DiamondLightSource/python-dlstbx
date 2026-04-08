@@ -127,6 +127,8 @@ class PanDDAWrapper(Wrapper):
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=4 {args_string}"
 
+        self.log.info(f"Running PanDDA2 command: {pandda2_command}")
+
         try:
             result = subprocess.run(
                 pandda2_command,
@@ -499,7 +501,7 @@ class PanDDAWrapper(Wrapper):
     def get_pandda_settings(self, yaml_file):
         with open(yaml_file, "r") as file:
             expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
-        settings = expt_yaml["autoprocessing"]["pandda"]
+        settings = expt_yaml.get("autoprocessing", {}).get("pandda", {})
         if settings:
             args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
         else:

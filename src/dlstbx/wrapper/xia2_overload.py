@@ -4,7 +4,8 @@ import json
 import math
 import subprocess
 
-import py
+from pathlib import Path
+import shutil
 
 from dlstbx.wrapper import Wrapper
 
@@ -23,12 +24,10 @@ class Xia2OverloadWrapper(Wrapper):
         }
         ispyb_command_list.append(d)
         transmission = results["transmission"]
-        exposure_time = results["exposure_time"]
 
         d = {
             "ispyb_command": "insert_screening_strategy",
             "transmission": transmission,
-            "exposuretime": exposure_time,
             "screening_output_id": "$ispyb_screening_output_id",
             "store_result": "ispyb_screening_strategy_id",
         }
@@ -50,13 +49,12 @@ class Xia2OverloadWrapper(Wrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = Path(params["working_directory"])
+        results_directory = Path(params["results_directory"])
 
-        target_saturation = float(params["target_saturation"])
+        target_countrate_pct = float(params["target_countrate_pct"])
         oscillation = float(params["oscillation"])
         transmission = float(params["transmission"])
-        exposure_time = float(params["exposure_time"])
 
         file = params["input_file"]
 
@@ -68,28 +66,31 @@ class Xia2OverloadWrapper(Wrapper):
 
         if result.returncode:
             self.log.info(f"xia2.overload failed with return code {result.returncode}")
+            self.log.info(result.stderr)
             self.log.debug(f"Command output:\n{result.stdout}")
             return False
 
-        results_directory.ensure(dir=True)
-        output_file = "overload.json"
-        for file in working_directory.listdir():
-            if file.basename != output_file:
-                continue
+        results_directory.mkdir(parents=True, exist_ok=True)
+        output_file_name = "overload.json"
+        
+        source_file = working_directory / output_file_name
+        destination = results_directory / output_file_name
 
-            destination = results_directory.join(file.basename)
-            self.log.debug(f"Copying {file.strpath} to {destination.strpath}")
-            file.copy(destination)
-            self.record_result_individual_file(
-                {
-                    "file_path": destination.dirname,
-                    "file_name": destination.basename,
-                    "file_type": file.ext,
-                }
-            )
+        if not source_file.exists():
+            return False
+        
+        self.log.debug(f"Copying {str(source_file)} to {str(destination)}")
+        shutil.copy2(source_file, destination)
+        
+        self.record_result_individual_file(
+            {
+                "file_path": str(destination.parent),
+                "file_name": destination.name,
+                "file_type": "result",
+            }
+        )
 
-        overload_file = working_directory.join(output_file)
-        with open(overload_file, "r") as f:
+        with source_file.open("r") as f:
             data = json.load(f)
             counts = data["counts"]
             overload_limit = float(data["overload_limit"])
@@ -104,17 +105,14 @@ class Xia2OverloadWrapper(Wrapper):
         )
 
         saturation = (max_count / overload_limit) * average_to_peak
-        scale_factor = target_saturation / saturation
+        scale_factor = target_countrate_pct / saturation
 
         scaled_transmission = transmission
-        scaled_exposure_time = exposure_time
         if scale_factor < 1:
             scaled_transmission *= scale_factor
-            scaled_exposure_time /= scale_factor
 
         results = {
             "transmission": scaled_transmission,
-            "exposure_time": scaled_exposure_time,
         }
 
         self.send_to_ispyb(results)

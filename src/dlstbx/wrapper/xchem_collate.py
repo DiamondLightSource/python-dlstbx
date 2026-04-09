@@ -6,8 +6,8 @@ from pathlib import Path
 from dlstbx.wrapper import Wrapper
 
 
-class PanDDApostWrapper(Wrapper):
-    _logger_name = "dlstbx.wrap.pandda_post"
+class XChemCollateWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.xchem_collate"
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -48,5 +48,5 @@ class PanDDApostWrapper(Wrapper):
 
         # -------------------------------------------------------
 
-        self.log.info("Auto PanDDA2-post finished successfully")
+        self.log.info("Auto XChemCollate finished successfully")
         return True

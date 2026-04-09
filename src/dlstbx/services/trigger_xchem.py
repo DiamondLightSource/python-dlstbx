@@ -53,24 +53,29 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class PanDDAParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    comparator_threshold: int = pydantic.Field(default=300)
+    comparator_threshold: int = pydantic.Field(default=350)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    timeout: float = pydantic.Field(default=120, alias="timeout-minutes")
-    backoff_delay: float = pydantic.Field(default=45, alias="backoff-delay")
-    backoff_max_try: int = pydantic.Field(default=30, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=1.1, alias="backoff-multiplier")
+    timeout: float = pydantic.Field(default=180, alias="timeout-minutes")
+    backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     pipedream: Optional[bool] = True
+    reprocessing: Optional[bool] = False
 
 
-class PanDDA_PostParameters(pydantic.BaseModel):
+class XChemCollate_Parameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
     processing_directory: str
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
+    backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
 
 
 class DLSTriggerXChem(CommonService):
@@ -230,6 +235,7 @@ class DLSTriggerXChem(CommonService):
         scaling_id = parameters.scaling_id[0]
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
+        reprocessing = parameters.reprocessing
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         # protein_id = getattr(protein_info, "proteinId")
@@ -405,7 +411,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # If other dimple/PanDDA2 job is running, quit, dimple set to trigger even if it fails
+        # If other dimple/PanDDA2 job is running, quit, dimple will trigger PanDDA2 even if it fails
         min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
@@ -429,27 +435,6 @@ class DLSTriggerXChem(CommonService):
         if triggered_processing_job := query.first():
             self.log.info(
                 f"Exiting PanDDA2/Pipedream trigger: another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
-            )
-            return {"success": True}
-
-        # Stop-gap, interval > max checkpoint time
-        min_start_time = datetime.now() - timedelta(minutes=30)
-
-        query = (
-            (
-                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
-                    ProcessingJob,
-                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-                )
-            )
-            .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2"]))
-            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
-        )
-
-        if triggered_processing_job := query.first():
-            self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: another PanDDA2 job was recently launched for dcid {dcid}"
             )
             return {"success": True}
 
@@ -550,7 +535,7 @@ class DLSTriggerXChem(CommonService):
 
         df = pd.read_sql(query.statement, query.session.bind)
 
-        # use datasets processed in user spacegroup if possible
+        # prioritise datasets processed in user-defined spacegroup
         if "user_sg" in locals():
             df_filteredbysg = df[df["spaceGroup"] == user_sg]
 
@@ -558,7 +543,7 @@ class DLSTriggerXChem(CommonService):
                 df = df_filteredbysg
                 n_success_upstream = len(df)
                 self.log.info(
-                    f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) in the user defined spacegroup {user_sg} \
+                    f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) in the user-defined spacegroup {user_sg} \
                     selecting the best one based on I/sigI*completeness * #unique reflections, from the most recent processing batch"
                 )
 
@@ -611,7 +596,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # mark a new batch whenever the gap is >= 12 hours
+        # mark as new batch whenever the gap between jobs is >= 12 hours, consider most recent batch
         df2 = df2.sort_values("processingStartTime").reset_index(drop=True)
         df2["time_diff"] = df2["processingStartTime"].diff()
         df2["batch"] = (df2["time_diff"] >= pd.Timedelta(hours=12)).cumsum() + 1
@@ -712,13 +697,15 @@ class DLSTriggerXChem(CommonService):
         compound_dir = dataset_dir / "compound"
 
         self.log.info(f"Creating directory {dataset_dir}")
-        try:
-            compound_dir.mkdir(parents=True, exist_ok=False)
-        except FileExistsError:
-            self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: {dataset_dir} already exists"
-            )
-            return {"success": True}
+
+        if not reprocessing:
+            try:
+                compound_dir.mkdir(parents=True, exist_ok=False)
+            except FileExistsError:
+                self.log.info(
+                    f"Exiting PanDDA2/Pipedream trigger: {dataset_dir} already exists"
+                )
+                return {"success": True}
 
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
@@ -799,17 +786,17 @@ class DLSTriggerXChem(CommonService):
         return {"success": True}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def trigger_pandda_xchem_post(
+    def trigger_xchem_collate(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
         message: Dict,
-        parameters: PanDDA_PostParameters,
+        parameters: XChemCollate_Parameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,
         **kwargs,
     ):
-        """Trigger a PanDDA post-run job for an XChem fragment screening experiment.
+        """Trigger an XChem Collate job for an XChem fragment screening experiment.
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
         - target: set this to "pandda_xchem_post"
@@ -829,6 +816,7 @@ class DLSTriggerXChem(CommonService):
         """
 
         dcid = parameters.dcid
+        program_id = parameters.program_id
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
 
@@ -837,7 +825,7 @@ class DLSTriggerXChem(CommonService):
         visit_proposal = visit.split("-")[0]
         visit_number = visit.split("-")[1]
 
-        # From proposal and visit get all dcids
+        # get all dcids for the visit
         query = (
             session.query(Proposal, BLSession, DataCollection)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -850,6 +838,7 @@ class DLSTriggerXChem(CommonService):
         df = pd.read_sql(query.statement, query.session.bind)
         dcids = df["dataCollectionId"].tolist()
 
+        # only trigger on the max program_id for the visit
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -858,29 +847,111 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(AutoProcProgram.processingPrograms == "PanDDA2-post")
+            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2", "Pipedream"]))
+            .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+        )
+
+        # Abort triggering collate job if we have subsequent PanDDA2/Pipedream jobs running
+        if triggered_processing_job := query.first():
+            self.log.info(
+                f"Aborting xchem_collate trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+            )
+            return {"success": True}
+
+        # Has processing finished for the current visit? Checkpoint if not
+        min_start_time = datetime.now() - timedelta(hours=12)
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2", "Pipedream"]))
             .filter(
                 or_(
                     AutoProcProgram.processingStatus == None,  # noqa E711
                     AutoProcProgram.processingStartTime == None,  # noqa E711
                 )
             )
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
         )
+
+        # Calculate message delay for backoff when max program id has finished but there remains
+        # some jobs to finish in which case we checkpoint with the calculated message delay
+        status = {
+            "ntry": 0,
+        }
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        message_delay = int(
+            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
+        )
+        status["ntry"] += 1
+        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
+
+        # If there are any running (or yet to start) jobs, then checkpoint with delay
+        waiting_processing_jobs = query.all()
+        if n_waiting_processing_jobs := len(waiting_processing_jobs):
+            self.log.info(
+                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
+            )
+            waiting_appids = [
+                row.AutoProcProgram.autoProcProgramId for row in waiting_processing_jobs
+            ]
+            if status["ntry"] >= parameters.backoff_max_try:
+                # Give up waiting for this program to finish and trigger
+                # collate with remaining results that are available
+                self.log.info(
+                    f"Max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
+                )
+            else:
+                # Send results to myself for next round of processing
+                self.log.debug(f"Waiting for appids={waiting_appids}")
+                rw.checkpoint(
+                    {
+                        "trigger-status": status,
+                    },
+                    delay=message_delay,
+                    transaction=transaction,
+                )
+
+                return {"success": True}
+
+        self.log.debug(
+            f"PanDDA2/Pipedream processing has finished for {visit_proposal}-{visit_number}"
+        )
+
+        # # Stop-gap for any checkpointed messages, redundant? timedelta > max checkpoint interval
+        # min_start_time = datetime.now() - timedelta(minutes=180)
+
+        # query = (
+        #     (
+        #         session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+        #             ProcessingJob,
+        #             ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+        #         )
+        #     )
+        #     .filter(ProcessingJob.dataCollectionId == dcid)
+        #     .filter(AutoProcProgram.processingPrograms.in_(["XChemCollate"]))
+        #     .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+        # )
 
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Aborting PanDDA2_postrun trigger as another postrun job has started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Exiting XChemCollate trigger: another XChemCollate job was recently launched with program id {program_id}"
             )
             return {"success": True}
 
-        self.log.debug("PanDDA2 postrun trigger: Starting")
+        self.log.debug("XChemCollate trigger: Starting")
 
         recipe_parameters = {
-            "dcid": dcid,  #
+            "dcid": dcid,
             "processing_directory": str(processing_directory),
             "scaling_id": scaling_id,
         }
 
-        self.upsert_proc(rw, dcid, "PanDDA2-post", recipe_parameters)
+        self.upsert_proc(rw, dcid, "XChemCollate", recipe_parameters)
 
         return {"success": True}

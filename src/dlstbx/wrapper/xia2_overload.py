@@ -13,7 +13,7 @@ from dlstbx.wrapper import Wrapper
 class Xia2OverloadWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2_overload"
 
-    def send_to_ispyb(self, results):
+    def send_to_ispyb(self, transmission):
         ispyb_command_list = []
 
         d = {
@@ -23,7 +23,6 @@ class Xia2OverloadWrapper(Wrapper):
             "store_result": "ispyb_screening_output_id",
         }
         ispyb_command_list.append(d)
-        transmission = results["transmission"]
 
         d = {
             "ispyb_command": "insert_screening_strategy",
@@ -32,7 +31,7 @@ class Xia2OverloadWrapper(Wrapper):
             "store_result": "ispyb_screening_strategy_id",
         }
         ispyb_command_list.append(d)
-
+        
         d = {
             "ispyb_command": "update_processing_status",
             "program_id": "$ispyb_autoprocprogram_id",
@@ -111,11 +110,7 @@ class Xia2OverloadWrapper(Wrapper):
         if scale_factor < 1:
             scaled_transmission *= scale_factor
 
-        results = {
-            "transmission": scaled_transmission,
-        }
-
-        self.send_to_ispyb(results)
+        self.send_to_ispyb(scaled_transmission)
 
         self.log.info("Done.")
         return True

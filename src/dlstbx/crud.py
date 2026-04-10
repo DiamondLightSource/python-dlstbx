@@ -116,6 +116,14 @@ def get_crystal_for_dcid(
     return query.first()
 
 
+def get_protein(
+    protein_id: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.Protein | None:
+    query = session.query(models.Protein).filter(models.Protein.proteinId == protein_id)
+    return query.first()
+
+
 def get_protein_for_dcid(
     dcid: int, session: sqlalchemy.orm.session.Session
 ) -> models.Protein | None:

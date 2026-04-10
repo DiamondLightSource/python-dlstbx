@@ -12,7 +12,7 @@ import gemmi
 import zocalo.configuration
 
 from dlstbx.mimas.specification import BaseSpecification
-from dlstbx.util.pdb import PDBFileOrCode
+from dlstbx.util.pdb import PDBFileOrCode, ProteinInfo
 
 MimasDCClass = enum.Enum(
     "MimasDCClass",
@@ -86,6 +86,7 @@ class MimasScenario:
     target: Optional[MimasTarget] = None
     mtz: Optional[pathlib.Path] = None
     scaled_unmerged_mtz: Optional[pathlib.Path] = None
+    protein_info: Optional[ProteinInfo] = None
     pdb_files_or_codes: Optional[list[PDBFileOrCode]] = None
     autoprocprogram_id: Optional[int] = None
     autoprocscaling_id: Optional[int] = None

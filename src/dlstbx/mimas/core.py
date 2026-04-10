@@ -11,6 +11,7 @@ from dlstbx.mimas.specification import (
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
+    SequenceSpecification,
     VisitSpecification,
 )
 
@@ -39,6 +40,7 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION) | DCClassSpecifi
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 is_characterization = DCClassSpecification(mimas.MimasDCClass.CHARACTERIZATION)
 is_anomalous = AnomalousScattererSpecification()
+is_sequence = SequenceSpecification()
 is_phasing = (
     DCClassSpecification(mimas.MimasDCClass.OSC)
     | DCClassSpecification(mimas.MimasDCClass.SAD)

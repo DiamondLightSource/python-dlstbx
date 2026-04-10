@@ -201,9 +201,7 @@ class ispybtbx:
         elif template.endswith(".cbf"):
             return "pilatus"
 
-    def dc_info_to_detectorname(
-        self, dc_info, session: sqlalchemy.orm.session.Session
-    ):
+    def dc_info_to_detectorname(self, dc_info, session: sqlalchemy.orm.session.Session):
         ## Get a detector name if it is one of a set of allowed values for fast feedback service.
         det_id = dc_info.get("detectorId")
         if det_id is not None and (det := crud.get_detector(det_id, session)):
@@ -519,6 +517,14 @@ class ispybtbx:
             )
             res = {}
         return res
+
+    def get_protein_info(
+        self, protein_id: int, session: sqlalchemy.orm.session.Session
+    ):
+        if protein := crud.get_protein(protein_id, session):
+            schema = isa.Protein.__marshmallow__(exclude=("externalId",))
+            # XXX case sensitive? proteinid, proteintype
+            return schema.dump(protein)
 
     def get_protein_from_dcid(self, dcid: int, session: sqlalchemy.orm.session.Session):
         if protein := crud.get_protein_for_dcid(dcid, session):
@@ -919,7 +925,11 @@ def ispyb_filter(
 
     message, parameters = i(message, parameters, session)
 
-    if "ispyb_dcid" not in parameters:
+    # Retrieve protein info for tasks with no DCID input e.g. AlphaFold
+    if protein_id := parameters.get("ispyb_protein_id"):
+        parameters["ispyb_protein_info"] = i.get_protein_info(protein_id, session)
+
+    if not parameters.get("ispyb_dcid"):
         return message, parameters
 
     # FIXME put in here logic to check input if set i.e. if dc_id==0 then check

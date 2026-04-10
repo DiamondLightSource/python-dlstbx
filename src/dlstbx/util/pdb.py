@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -8,6 +9,31 @@ import iotbx.pdb
 from scitbx.array_family import flex
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ProteinInfo:
+    proteinId: int
+    proposalId: int
+    hazardGroup: int
+    containmentLevel: int
+    bltimeStamp: datetime.datetime
+    name: str
+    acronym: str
+    description: Optional[str] = None
+    safetyLevel: Optional[str] = None
+    molecularMass: Optional[int] = None
+    proteinType: Optional[str] = None
+    personId: Optional[int] = None
+    sequence: Optional[str] = None
+    isCreatedBySampleSheet: Optional[bool] = False
+    MOD_ID: Optional[str] = None
+    componentTypeId: Optional[int] = None
+    concentrationTypeId: Optional[int] = None
+    global_: Optional[int] = 0
+    density: Optional[float] = None
+    abundance: Optional[float] = None
+    isotropy: Optional[str] = None
 
 
 @dataclass(frozen=True)

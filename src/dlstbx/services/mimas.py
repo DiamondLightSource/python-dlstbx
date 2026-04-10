@@ -10,7 +10,7 @@ from workflows.services.common_service import CommonService
 
 from dlstbx import mimas
 from dlstbx.mimas import specification
-from dlstbx.util.pdb import PDBFileOrCode
+from dlstbx.util.pdb import PDBFileOrCode, ProteinInfo
 from dlstbx.wrapper.helpers import get_file_from_autoprocscaling_info
 
 
@@ -61,7 +61,8 @@ class DLSMimas(CommonService):
     def _extract_scenario(self, step):
         dcid = step("dcid")
         if not dcid or not dcid.isnumeric():
-            return f"Invalid Mimas request rejected (DCID = {dcid!r})"
+            # Job has been triggered without corresponding dcid e.g. AlphaFold
+            dcid = 0
 
         event = step("event")
         if not isinstance(event, str):
@@ -102,7 +103,7 @@ class DLSMimas(CommonService):
                 dc_class_mimas = mimas.MimasDCClass.METAL_ID
             else:
                 dc_class_mimas = mimas.MimasDCClass.UNDEFINED
-        else:
+        elif dc_class:
             try:
                 dc_class_mimas = mimas.MimasDCClass[dc_class.upper()]
             except KeyError:
@@ -110,6 +111,8 @@ class DLSMimas(CommonService):
                     f"Invalid Mimas request (Data collection class = {dc_class!r})"
                 )
                 dc_class_mimas = mimas.MimasDCClass.UNDEFINED
+        else:
+            dc_class_mimas = mimas.MimasDCClass.UNDEFINED
 
         sweep_list = tuple(
             mimas.MimasISPyBSweep(*info) for info in (step("sweep_list") or [])
@@ -223,6 +226,11 @@ class DLSMimas(CommonService):
         except Exception:
             pdb_mimas = None
 
+        if isinstance(protein_info := step("protein_info"), dict):
+            protein_info = ProteinInfo(**protein_info)
+        else:
+            protein_info = None
+
         return mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dc_class_mimas,
@@ -239,6 +247,7 @@ class DLSMimas(CommonService):
             cloudbursting=self.get_cloudbursting_spec(),
             target=target_mimas,
             mtz=data,
+            protein_info=protein_info,
             pdb_files_or_codes=pdb_mimas,
             autoprocscaling_id=autoprocscaling_id,
             comment=step("comment"),
@@ -455,6 +464,7 @@ class DLSMimas(CommonService):
                     "message_index",
                     "number_of_frames",
                     "start_frame_index",
+                    "ispyb_protein_id",
                 }
                 for key in passthrough_params:
                     if key in rw.recipe_step["parameters"]:

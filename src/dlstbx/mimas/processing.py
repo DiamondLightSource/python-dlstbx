@@ -3,9 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 from pprint import pformat, pprint
-from typing import Dict, List, Optional, Tuple
-
-import pydantic
+from typing import List, Tuple
 
 from dlstbx import mimas
 from dlstbx.mimas.core import (
@@ -15,6 +13,7 @@ from dlstbx.mimas.core import (
     is_mx_beamline,
     is_phasing,
     is_rotation,
+    is_sequence,
 )
 from dlstbx.mimas.i19 import is_i19
 from dlstbx.mimas.specification import EventSpecification, TargetSpecification
@@ -29,17 +28,6 @@ is_fast_ep = TargetSpecification(mimas.MimasTarget.FAST_EP)
 is_mrbump = TargetSpecification(mimas.MimasTarget.MRBUMP)
 is_shelxt = TargetSpecification(mimas.MimasTarget.SHELXT)
 is_multiplex = TargetSpecification(mimas.MimasTarget.MULTIPLEX)
-
-
-class DimpleParameters(pydantic.BaseModel):
-    dcid: int = pydantic.Field(gt=0)
-    experiment_type: str
-    scaling_id: int = pydantic.Field(gt=0)
-    mtz: pathlib.Path | Dict[str, pathlib.Path]
-    pdb: list[PDBFileOrCode]
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
-    symlink: str = pydantic.Field(default="")
 
 
 @mimas.match_specification(
@@ -372,13 +360,19 @@ def handle_big_ep_launcher(
 
 
 @mimas.match_specification(
-    is_rotation & ~is_characterization & is_processing & is_alphafold & is_mx_beamline
+    is_processing & is_alphafold & is_sequence & ~is_industrial_visit
 )
 def handle_alphafold(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    raise NotImplementedError()
+    tasks: list[mimas.Invocation] = [
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID,
+            recipe="alphafold",
+        )
+    ]
+    return tasks
 
 
 @mimas.match_specification(

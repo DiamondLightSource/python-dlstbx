@@ -119,6 +119,14 @@ class AnomalousScattererSpecification(ScenarioSpecification):
         return bool(candidate.anomalous_scatterer)
 
 
+@dataclass(frozen=True)
+class SequenceSpecification(ScenarioSpecification):
+    def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
+        if candidate.protein_info:
+            return bool(candidate.protein_info.sequence)
+        return False
+
+
 # class HasSpaceGroupSpecification(ScenarioSpecification):
 #     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
 #         return candidate.spacegroup is not None

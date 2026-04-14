@@ -33,6 +33,21 @@ class Xia2OverloadWrapper(Wrapper):
         ispyb_command_list.append(d)
         
         d = {
+            "ispyb_command": "insert_screening_strategy_wedge",
+            "screening_strategy_id": "$ispyb_screening_strategy_id",
+            "store_result": "ispyb_screening_strategy_wedge_id",
+        }
+        ispyb_command_list.append(d)
+        
+        d = {
+            "ispyb_command": "insert_screening_strategy_sub_wedge",
+            "transmission": transmission,
+            "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id",
+            "store_result": "ispyb_screening_strategy_sub_wedge_id",
+        }
+        ispyb_command_list.append(d)
+        
+        d = {
             "ispyb_command": "update_processing_status",
             "program_id": "$ispyb_autoprocprogram_id",
             "message": "Processing successful",
@@ -106,11 +121,8 @@ class Xia2OverloadWrapper(Wrapper):
         saturation = (max_count / overload_limit) * average_to_peak
         scale_factor = target_countrate_pct / saturation
 
-        scaled_transmission = transmission
-        if scale_factor < 1:
-            scaled_transmission *= scale_factor
-
-        self.send_to_ispyb(scaled_transmission)
+        scaled_transmission = transmission * scale_factor
+        self.send_to_ispyb(min(100, scaled_transmission))
 
         self.log.info("Done.")
         return True

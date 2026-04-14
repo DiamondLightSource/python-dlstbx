@@ -183,6 +183,13 @@ def handle_eiger_screening(
             source="automatic",
             displayname="align_crystal",
         ),
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-xia2-overload",
+            source="automatic",
+            displayname="xia2-overload",
+        ),
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 

@@ -207,13 +207,6 @@ def handle_characterization(
             source="automatic",
             displayname="align_crystal",
         ),
-        mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="strategy-xia2-overload",
-            source="automatic",
-            displayname="xia2-overload",
-        ),
     ]
 
 

@@ -76,6 +76,8 @@ class XChemCollate_Parameters(pydantic.BaseModel):
     backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    pipedream: Optional[bool] = False
+    reprocessing: Optional[bool] = False
 
 
 class DLSTriggerXChem(CommonService):
@@ -743,6 +745,8 @@ class DLSTriggerXChem(CommonService):
             "database_path": str(db_master),
             "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
             "smiles": str(CompoundSMILES),
+            "pipedream": pipedream,
+            "reprocessing": reprocessing,
         }
 
         dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
@@ -819,11 +823,16 @@ class DLSTriggerXChem(CommonService):
         program_id = parameters.program_id
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
+        # reprocessing = parameters.reprocessing
+        pipedream = parameters.pipedream
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
         visit_proposal = visit.split("-")[0]
         visit_number = visit.split("-")[1]
+
+        protein_info = get_protein_for_dcid(parameters.dcid, session)
+        acronym = getattr(protein_info, "acronym")
 
         # get all dcids for the visit
         query = (
@@ -838,7 +847,7 @@ class DLSTriggerXChem(CommonService):
         df = pd.read_sql(query.statement, query.session.bind)
         dcids = df["dataCollectionId"].tolist()
 
-        # only trigger on the max program_id for the visit
+        # trigger on the final PanDDA/Pipedream program_id for the visit
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -851,15 +860,14 @@ class DLSTriggerXChem(CommonService):
             .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
         )
 
-        # Abort triggering collate job if we have subsequent PanDDA2/Pipedream jobs running
         if triggered_processing_job := query.first():
             self.log.info(
                 f"Aborting xchem_collate trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
             )
             return {"success": True}
 
-        # Has processing finished for the current visit? Checkpoint if not
-        min_start_time = datetime.now() - timedelta(hours=12)
+        # has processing finished for the current visit? checkpoint if not
+        min_start_time = datetime.now() - timedelta(hours=8)
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -868,7 +876,11 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2", "Pipedream"]))
+            .filter(
+                AutoProcProgram.processingPrograms.in_(
+                    ["xia2 dials", "PanDDA2", "Pipedream"]
+                )
+            )
             .filter(
                 or_(
                     AutoProcProgram.processingStatus == None,  # noqa E711
@@ -895,7 +907,7 @@ class DLSTriggerXChem(CommonService):
         waiting_processing_jobs = query.all()
         if n_waiting_processing_jobs := len(waiting_processing_jobs):
             self.log.info(
-                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
+                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=} for XChemCollate"
             )
             waiting_appids = [
                 row.AutoProcProgram.autoProcProgramId for row in waiting_processing_jobs
@@ -923,24 +935,29 @@ class DLSTriggerXChem(CommonService):
             f"PanDDA2/Pipedream processing has finished for {visit_proposal}-{visit_number}"
         )
 
-        # # Stop-gap for any checkpointed messages, redundant? timedelta > max checkpoint interval
-        # min_start_time = datetime.now() - timedelta(minutes=180)
+        # Stop-gap
+        min_start_time = datetime.now() - timedelta(minutes=180)
 
-        # query = (
-        #     (
-        #         session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
-        #             ProcessingJob,
-        #             ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-        #         )
-        #     )
-        #     .filter(ProcessingJob.dataCollectionId == dcid)
-        #     .filter(AutoProcProgram.processingPrograms.in_(["XChemCollate"]))
-        #     .filter(AutoProcProgram.recordTimeStamp > min_start_time)
-        # )
+        query = (
+            session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                ProcessingJob,
+                ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+            )
+        ).filter(
+            ProcessingJob.dataCollectionId.in_(dcids)
+            .filter(AutoProcProgram.processingPrograms.in_(["XChemCollate"]))
+            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus == None,  # noqa E711
+                    AutoProcProgram.processingStartTime == None,  # noqa E711
+                )
+            )
+        )
 
         if triggered_processing_job := query.first():
             self.log.info(
-                f"Exiting XChemCollate trigger: another XChemCollate job was recently launched with program id {program_id}"
+                f"Exiting XChemCollate trigger: another XChemCollate job has been launched for {acronym}"
             )
             return {"success": True}
 
@@ -950,8 +967,9 @@ class DLSTriggerXChem(CommonService):
             "dcid": dcid,
             "processing_directory": str(processing_directory),
             "scaling_id": scaling_id,
+            "pipedream": pipedream,
         }
-
+        # upsert on the max dcid?
         self.upsert_proc(rw, dcid, "XChemCollate", recipe_parameters)
 
         return {"success": True}

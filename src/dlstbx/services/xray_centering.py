@@ -254,7 +254,15 @@ class DLSXRayCentering(CommonService):
                 cd.images_seen,
                 gridinfo.image_count,
             )
-            cd.data[message.file_number - 1] = message.n_spots_total
+            try:
+                cd.data[message.file_number - 1] = message.n_spots_total
+            except IndexError:
+                # Cannot analyse images with an inconsistent metadata
+                self.log.exception(
+                    f"Image index {message.file_number} inconsistent with data size {cd.data.shape}"
+                )
+                rw.transport.ack(header)
+                return
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if cd.images_seen == gridinfo.image_count:

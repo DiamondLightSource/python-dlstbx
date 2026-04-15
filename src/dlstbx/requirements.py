@@ -4,6 +4,7 @@
 # command line options are passed through to the conda install process
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import pathlib
@@ -11,7 +12,7 @@ import subprocess
 import sys
 from typing import Optional
 
-import pkg_resources
+from packaging.requirements import Requirement
 
 import dlstbx
 
@@ -81,17 +82,15 @@ def check():
     conda_environment = {
         package["name"]: package["version"] for package in json.loads(conda_list)
     }
-    requirements = [
-        (spec, pkg_resources.Requirement.parse(spec)) for spec in sorted(conda_required)
-    ]
+    requirements = [(spec, Requirement(spec)) for spec in sorted(conda_required)]
 
     # Now we should have an unduplicated set of requirements
     action_list = []
     for original_spec, requirement in requirements:
         # Check if package is installed in development mode
         try:
-            currentversion = pkg_resources.require(requirement.name)[0].version
-        except Exception:
+            currentversion = importlib.metadata.version(requirement.name)
+        except importlib.metadata.PackageNotFoundError:
             pass
         else:
             location = None
@@ -101,13 +100,13 @@ def check():
                     with open(egg_link) as fh:
                         location = fh.readline().strip()
                         break
-            if location and currentversion in requirement:
+            if location and currentversion in requirement.specifier:
                 print(
                     "requires conda package %s, has %s as developer installation"
                     % (requirement, currentversion)
                 )
                 continue
-            elif location and currentversion not in requirement:
+            elif location and currentversion not in requirement.specifier:
                 _notice(
                     "    WARNING: Can not update package {package} automatically.",
                     "",
@@ -125,7 +124,7 @@ def check():
 
         # Check if package is installed with conda
         if requirement.name in conda_environment:
-            if conda_environment[requirement.name] in requirement:
+            if conda_environment[requirement.name] in requirement.specifier:
                 print(
                     "requires conda package %s, has %s"
                     % (requirement, conda_environment[requirement.name])

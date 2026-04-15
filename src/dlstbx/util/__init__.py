@@ -9,6 +9,8 @@ import stat
 import string
 from collections import ChainMap
 
+INDUSTRIAL_CODES = ["ic", "il", "in", "sw"]
+
 
 class ChainMapWithReplacement(ChainMap):
     def __init__(self, *maps, substitutions=None) -> None:

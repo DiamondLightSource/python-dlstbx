@@ -27,6 +27,8 @@ class Dropfile:
 
         study = ET.SubElement(self._xml, "study")
         investigation = ET.SubElement(study, "investigation")
+        investigation.append(ET.Comment("Producer: Zocalo dlstbx.services.archiver"))
+
         ET.SubElement(investigation, "inv_number").text = (
             visit.split("-")[0] if "-" in visit else visit
         )

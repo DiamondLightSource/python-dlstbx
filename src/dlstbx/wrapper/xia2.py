@@ -29,6 +29,7 @@ class Xia2Wrapper(Wrapper):
         Takes job parameter dictionary, returns array."""
 
         command = ["xia2"]
+        spotfinding_params = []
 
         for param, values in params["xia2"].items():
             if param == "images":
@@ -56,9 +57,14 @@ class Xia2Wrapper(Wrapper):
                 "unit_cell": "xia2.settings.unit_cell",
             }
             for param, value in params["ispyb_parameters"].items():
-                command.append(translation.get(param, param) + "=" + value)
+                if param.startswith("spotfinder"):
+                    spotfinding_params.append(f"{param}={value}\n")
+                    if "find_spots.phil_file=spots.phil" not in command:
+                        command.append("find_spots.phil_file=spots.phil")
+                else:
+                    command.append(translation.get(param, param) + "=" + value)
 
-        return command
+        return command, spotfinding_params
 
     def send_results_to_ispyb(
         self,
@@ -135,23 +141,6 @@ class Xia2Wrapper(Wrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
-    def setup(self, working_directory: Path, params: dict):
-        # Create symbolic link
-        if params.get("create_symlink"):
-            dlstbx.util.symlink.create_parent_symlink(
-                working_directory, params["create_symlink"], levels=1
-            )
-
-        if images := params.get("s3echo_upload"):
-            try:
-                image_files = iris.get_image_files(None, images, self.log)
-                self.recwrap.environment.update({"s3echo_upload": image_files})
-            except Exception:
-                self.log.exception("Error uploading image files to S3 Echo")
-                return False
-
-        return True
-
     def run_xia2(self, working_directory: Path, params: dict):
         if s3_urls := self.recwrap.environment.get("s3_urls"):
             # Logger for recording data transfer rates from S3 Echo object store
@@ -170,7 +159,7 @@ class Xia2Wrapper(Wrapper):
                 )
                 return False
 
-        command = self.construct_commandline(
+        command, spotfinding_params = self.construct_commandline(
             working_directory, params, "s3_urls" in self.recwrap.environment
         )
         self.log.info("command: %s", " ".join(command))
@@ -199,6 +188,14 @@ class Xia2Wrapper(Wrapper):
 
         subprocess_directory = working_directory / params["program_name"]
         subprocess_directory.mkdir(parents=True, exist_ok=True)
+
+        # Write out spot finding parameters that are not directly accessible in xia2 to phil file
+
+        if spotfinding_params:
+            with open(subprocess_directory / "spots.phil", "w") as phil:
+                for phil_param in spotfinding_params:
+                    phil.write(phil_param)
+            self.log.info(f"Created spots.phil in {subprocess_directory}")
 
         if "dials.integrate.phil_file" in params["xia2"]:
             dials_integrate_phil_file = subprocess_directory / params["xia2"].get(
@@ -275,6 +272,9 @@ class Xia2Wrapper(Wrapper):
         results_directory = Path(params["results_directory"]) / params["program_name"]
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                working_directory, params["create_symlink"], levels=1
+            )
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory, params["create_symlink"]
             )
@@ -480,14 +480,11 @@ class Xia2Wrapper(Wrapper):
                     )
 
         stage = params.get("stage")
-        assert stage in {None, "setup", "run", "report"}
+        assert stage in {None, "run", "report"}
         pipeline = params["xia2"].get("pipeline")
         params["program_name"] = f"xia2-{pipeline}" if pipeline else "xia2"
 
         success = True
-
-        if stage in {None, "setup"}:
-            success = self.setup(working_directory, params)
 
         if stage in {None, "run"}:
             success = self.run_xia2(working_directory, params)

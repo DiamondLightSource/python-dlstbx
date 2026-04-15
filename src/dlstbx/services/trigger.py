@@ -21,6 +21,7 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcScaling,
     AutoProcScalingHasInt,
+    AutoProcScalingStatistics,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -34,7 +35,8 @@ from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
 from dlstbx.crud import get_protein_for_dcid
-from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util import INDUSTRIAL_CODES, ChainMapWithReplacement
+from dlstbx.util.metal_id_helpers import dcids_from_related_dcids
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
@@ -59,12 +61,31 @@ class DimpleParameters(pydantic.BaseModel):
     symlink: str = pydantic.Field(default="")
 
 
+class DataCollectionInfo(pydantic.BaseModel):
+    numberOfImages: int
+    startImageNumber: int
+    imagePrefix: Optional[str] = None
+    dataCollectionNumber: Optional[int] = None
+    SESSIONID: Optional[int] = None
+    wavelength: float = pydantic.Field(gt=0)
+
+
+class RelatedDCIDs(pydantic.BaseModel):
+    dcids: List[int]
+    sample_id: Optional[int] = pydantic.Field(gt=0, default=None)
+    sample_group_id: Optional[int] = pydantic.Field(gt=0, default=None)
+
+
 class MetalIdParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    dcids: list[int]
+    dcg_dcids: list[int]
+    related_dcids: list[RelatedDCIDs]
+    dc_info: DataCollectionInfo
     proc_prog: str
     experiment_type: str
+    beamline: str
     scaling_id: int = pydantic.Field(gt=0)
+    autoprocprogram_id: int = pydantic.Field(gt=0)
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
@@ -72,6 +93,7 @@ class MetalIdParameters(pydantic.BaseModel):
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    symlink: str = pydantic.Field(default="")
 
 
 class ProteinInfo(pydantic.BaseModel):
@@ -186,12 +208,6 @@ class BestParameters(pydantic.BaseModel):
     comment: Optional[str] = None
 
 
-class RelatedDCIDs(pydantic.BaseModel):
-    dcids: List[int]
-    sample_id: Optional[int] = pydantic.Field(default=None, gt=0)
-    sample_group_id: Optional[int] = pydantic.Field(default=None, gt=0)
-
-
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
@@ -200,13 +216,21 @@ class MultiplexParameters(pydantic.BaseModel):
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
-    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    backoff_delay: Dict[str, float] = pydantic.Field(
+        default={"default": 8}, alias="backoff-delay"
+    )
+    backoff_max_try: Dict[str, int] = pydantic.Field(
+        default={"default": 10}, alias="backoff-max-try"
+    )
+    backoff_multiplier: Dict[str, float] = pydantic.Field(
+        default={"default": 2}, alias="backoff-multiplier"
+    )
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
     use_clustering: Optional[List[str]] = None
+    beamline: str
+    trigger_every_collection: bool
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -228,7 +252,7 @@ class AlphaFoldParameters(pydantic.BaseModel):
 
 class ShelxtParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    ins_file_location: pathlib.Path
+    ins_file_location: Optional[pathlib.Path] = None
     prefix: Optional[str] = None
     automatic: Optional[bool] = False
     scaling_id: int = pydantic.Field(gt=0)
@@ -239,12 +263,31 @@ class LigandFitParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     pdb: pathlib.Path
     mtz: pathlib.Path
-    pipeline: str
     smiles: str
+    pipeline: str
+    beamline: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
     min_cc_keep: float = pydantic.Field(default=0.7)
+
+
+class AlignCrystalParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    comment: Optional[str] = None
+    upstream_pipeline: Literal["xia2-dials", "fast_dp"]
+    experiment_type: str
+    experiment_file: pathlib.Path
+    symlink: str = pydantic.Field(default="")
+
+
+class StrategyParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    beamline: str
+    comment: Optional[str] = None
+    experiment_type: str
+    program_id: int = pydantic.Field(gt=0)
+    wavelength: float = pydantic.Field(gt=0)
 
 
 class DLSTrigger(CommonService):
@@ -521,11 +564,14 @@ class DLSTrigger(CommonService):
         transaction: int,
         **kwargs,
     ):
-        """Trigger a metal job for a given data collection.
+        """Trigger a metal_id job for a given data collection.
 
-        Requires experiment type to be "Metal ID" and for data collections to be in the
-        same data collection group. Metal ID will trigger for every other data collection,
-        assuming that data collections alternate above and below metal absorption edges.
+        Requires experiment type to be "Metal ID" and for data collections to be in
+        the same data collection group, or for data collections to be recorded for
+        the same sample in the same visit and for the image prefix to contain E# where
+        # is an integer. Metal ID will trigger for every other data collection in the
+        group, with the assumption that data collections alternate above and below
+        metal absorption edges.
 
         Trigger also requires a PDB file or code to be associated with the given data
         collection:
@@ -548,8 +594,10 @@ class DLSTrigger(CommonService):
         collection group. i.e. "{$REPLACE:ispyb_dcg_dcids}"
         - proc_prog: The name, as it appears in ISPyB, of the autoprocessing pipeline
         for which the output will be used as the metal_id input mtz file.
-        - experiment_type: the experiment type of the data collection.
-        i.e. "{ispyb_dcg_experiment_type}"
+        - experiment_type: the experiment type of the data collection (i.e.
+         "{ispyb_dcg_experiment_type}").
+        - beamline: The beamline that the data collection was recorded on (i.e.
+        "{ispyb_beamline}").
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
         - scaling_id: autoProcScalingId that the metal_id results should be linked to
@@ -569,8 +617,10 @@ class DLSTrigger(CommonService):
         Example recipe parameters:
         { "target": "metal_id",
             "dcid": 123456,
-            "dcids": [123453, 123454, 123455],
+            "dcg_dcids": [123453, 123454, 123455],
             "experiment_type": "Metal ID",
+            "related_dcids":[{'dcids': [123453, 123454, 123455], 'sample_id': 54321, 'name': 'test_sample'}],
+            "beamline": "i03"
             "proc_prog": "xia2 dials",
             "comment": "Metal_ID triggered by xia2 dials",
             "automatic": true,
@@ -587,9 +637,21 @@ class DLSTrigger(CommonService):
             "backoff-multiplier": 2
         }
         """
-        if parameters.experiment_type != "Metal ID":
+        if parameters.experiment_type not in (
+            "Metal ID",
+            "OSC",
+            "SAD",
+            "MAD",
+            "Helical",
+        ):
             self.log.info(
                 f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        if parameters.experiment_type != "Metal ID" and parameters.beamline != "i23":
+            self.log.info(
+                f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported for beamline {parameters.beamline}"
             )
             return {"success": True}
 
@@ -604,179 +666,218 @@ class DLSTrigger(CommonService):
         pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
-        # Get a list of collections in the data collection group that include and are older than the present dcid
-        dcids = [d for d in parameters.dcids if d <= parameters.dcid]
-
-        # If dcid is not included in the list of dcg_dcids it needs to be added
-        if parameters.dcid not in dcids:
-            dcids.append(parameters.dcid)
-
-        # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
-        if len(dcids) % 2:
-            self.log.info("Skipping metal id trigger: Need even number of dcids")
-            return {"success": True}
-
-        # Get just the most recent two dcids
-        dcids = sorted(dcids)[-2::]
-        self.log.info(f"Metal ID trigger: found dcids {dcids}")
-
         proc_prog = parameters.proc_prog
-
-        # Check that both dcids have finished processing successfully
-        query = (
-            (
-                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
-                    ProcessingJob,
-                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
-                )
-            )
-            .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == proc_prog)
-            .filter(
-                or_(
-                    AutoProcProgram.processingStatus == None,  # noqa E711
-                    AutoProcProgram.processingStartTime == None,  # noqa E711
-                )
-            )
-        )
-        waiting_jobs = query.all()
-        if len(waiting_jobs):
-            waiting_dcids = []
-            for _pj, waiting_dcid in waiting_jobs:
-                self.log.info(
-                    f"Metal ID trigger: Waiting for dcid: {waiting_dcid} to finish"
-                )
-                waiting_dcids.append(waiting_dcid)
-            # Get previous checkpoint history
-            start_time = message.get("start_time", time())
-            run_time = time() - start_time
-            if run_time > parameters.timeout * 60:
-                self.log.warning(
-                    f"Metal ID trigger: timeout exceeded waiting for dcids: {waiting_dcids}. Skipping trigger"
-                )
-                return {"success": True}
-            # Calculate the message delay
-            ntry = message.get("ntry", 0)
-            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
-            self.log.info(
-                f"Metal ID trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
-            )
-            ntry += 1
-            rw.checkpoint(
-                {"start_time": start_time, "ntry": ntry},
-                delay=delay * 60,
-                transaction=transaction,
-            )
-            return {"success": True}
 
         # Dict of file patterns for each of the autoprocessing pipelines
         input_file_patterns = {
             "fast_dp": "fast_dp.mtz",
             "xia2 dials": "_free.mtz",
             "xia2 3dii": "_free.mtz",
+            "xia2.multiplex": "scaled.mtz",
             "autoPROC": "truncate-unique.mtz",
             "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
         }
 
-        if proc_prog not in input_file_patterns.keys():
+        if proc_prog not in input_file_patterns:
             self.log.info(
                 f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
             )
             return {"success": True}
 
-        # Get data collection information for all collections in dcids
-        query = (
-            (
-                session.query(DataCollection, AutoProcProgram, ProcessingJob)
-                .join(
-                    AutoProcIntegration,
-                    AutoProcIntegration.dataCollectionId
-                    == DataCollection.dataCollectionId,
+        # Look for dcids in checkpointed message
+        dcids = message.get("dcids")
+        if not dcids:
+            self.log.info(
+                f"Metal ID trigger: looking for matching data collection for dcid {parameters.dcid}"
+            )
+
+            if parameters.beamline == "i23":
+                dcids = dcids_from_related_dcids(self.log, parameters, session)
+                if not dcids:
+                    return {"success": True}
+            else:
+                # Get a list of collections in the data collection group that include and are older than the present dcid
+                dcids = [
+                    dcid_value
+                    for dcid_value in parameters.dcg_dcids
+                    if dcid_value < parameters.dcid
+                ]
+                # If dcid is not included in the list of dcg_dcids it needs to be added
+                if parameters.dcid not in dcids:
+                    dcids.append(parameters.dcid)
+
+                # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
+                if len(dcids) % 2:
+                    self.log.info(
+                        "Skipping metal id trigger: Need even number of dcids"
+                    )
+                    return {"success": True}
+
+                # Get just the most recent two dcids
+                dcids = sorted(dcids)[-2::]
+
+            self.log.info(f"Metal ID trigger: found dcids {dcids}")
+
+        # Get parameters from previously checkpointed message else find them from database
+        ntry = message.get("ntry", 0)
+        if ntry:
+            processing_environment = message["processing_environment"]
+            mtz_file_1 = pathlib.Path(message["mtz_file_1"])
+            wavelengths = message["wavelengths"]
+        else:
+            query = session.query(DataCollection).filter(
+                DataCollection.dataCollectionId.in_(dcids)
+            )
+            wavelengths = []
+            for dc in query.all():
+                wavelengths.append(dc.wavelength)
+
+            energy_diff = abs(12398.0 / wavelengths[0] - 12398.0 / wavelengths[1])
+            if energy_diff < parameters.energy_min_diff:
+                self.log.info(
+                    f"Skipping metal id trigger - data collections {dcids} have energy difference < {parameters.energy_min_diff} eV"
+                )
+                return {"success": True}
+
+            query = (
+                session.query(
+                    AutoProcProgram.processingEnvironment,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
                 )
                 .join(
-                    AutoProcProgram,
+                    AutoProcProgramAttachment,
                     AutoProcProgram.autoProcProgramId
-                    == AutoProcIntegration.autoProcProgramId,
+                    == AutoProcProgramAttachment.autoProcProgramId,
                 )
-                .join(
+                .filter(
+                    AutoProcProgram.autoProcProgramId == parameters.autoprocprogram_id
+                )
+                .filter(
+                    AutoProcProgramAttachment.fileName.endswith(
+                        input_file_patterns[proc_prog]
+                    )
+                )
+                .one_or_none()
+            )
+
+            if not query:
+                self.log.info(
+                    f"Skipping metal id trigger: No record found for autoProcProgramId {parameters.autoprocprogram_id}"
+                )
+                return {"success": True}
+
+            processing_environment, file_path, file_name = query
+            mtz_file_1 = pathlib.Path(file_path) / file_name
+            self.log.info(
+                f"Retrieved mtz file {mtz_file_1} from current data collection"
+            )
+
+        # Find a matching data processing run for the other dcid. Must match proc_prog and processing_environment
+        matching_jobs = (
+            (
+                session.query(AutoProcProgram).join(
                     ProcessingJob,
                     ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
                 )
-                .join(AutoProcProgram.AutoProcProgramAttachments)
             )
-            .filter(DataCollection.dataCollectionId.in_(dcids))
+            .filter(ProcessingJob.dataCollectionId == dcids[0])
             .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == (proc_prog))
-            .filter(AutoProcProgram.processingStatus == 1)
+            .filter(AutoProcProgram.processingPrograms == proc_prog)
+            .filter(AutoProcProgram.processingEnvironment == processing_environment)
+        ).all()
+        self.log.info(f"matching_jobs: {matching_jobs}")
+
+        if not matching_jobs:
+            self.log.info(
+                f"Skipping metal id trigger: No matching processing job found for autoProcProgramId {parameters.autoprocprogram_id} on dcid {dcids[0]}"
+            )
+            return {"success": True}
+        # Look to see if any matching jobs have finished running - take the first one that has
+        failed_job_counter = 0
+        for matching_job in matching_jobs:
+            if matching_job.processingStatus == 1:
+                self.log.info(
+                    f"Metal ID trigger: Found matching job {matching_job.autoProcProgramId} - using as input to metal_id"
+                )
+                break
+            elif matching_job.processingStatus == 0:
+                failed_job_counter += 1
+        else:
+            # If no matching jobs have finished check if they have all failed. Skip if they have, checkpoint if not
+            if failed_job_counter == len(matching_jobs):
+                self.log.info(
+                    f"Skipping metal id trigger: All matching processing jobs found for autoProcProgramId {parameters.autoprocprogram_id} have failed"
+                )
+                return {"success": True}
+            self.log.info(
+                f"Metal ID trigger: Waiting for processing to finish for autoProcProgramId(s): {[job.autoProcProgramId for job in matching_jobs if job.processingStatus == 0]}"
+            )
+            # Get previous checkpoint history
+            start_time = message.get("start_time", time())
+            run_time = time() - start_time
+            if run_time > parameters.timeout * 60:
+                self.log.warning(
+                    f"Metal ID trigger: timeout exceeded waiting for matching job for dcid '{parameters.dcid}' and autoProcProgramId '{parameters.autoprocprogram_id}' to finish. Skipping trigger"
+                )
+                return {"success": True}
+            # Calculate the message delay
+            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
+            self.log.info(
+                f"Metal ID trigger: Checkpointing for dcid '{parameters.dcid}' autoProcProgramId '{parameters.autoprocprogram_id}' with delay of {delay} minutes"
+            )
+            ntry += 1
+            rw.checkpoint(
+                {
+                    "start_time": start_time,
+                    "ntry": ntry,
+                    "dcids": dcids,
+                    "wavelengths": wavelengths,
+                    "processing_environment": processing_environment,
+                    "mtz_file_1": mtz_file_1.as_posix(),
+                },
+                delay=delay * 60,
+                transaction=transaction,
+            )
+            return {"success": True}
+
+        query = (
+            session.query(AutoProcProgramAttachment)
+            .filter(
+                AutoProcProgramAttachment.autoProcProgramId
+                == matching_job.autoProcProgramId
+            )
             .filter(
                 AutoProcProgramAttachment.fileName.endswith(
                     input_file_patterns[proc_prog]
                 )
             )
-            .options(
-                contains_eager(AutoProcProgram.AutoProcProgramAttachments),
-                joinedload(ProcessingJob.ProcessingJobParameters),
-                Load(DataCollection).load_only(
-                    DataCollection.dataCollectionId,
-                    DataCollection.wavelength,
-                    raiseload=True,
-                ),
-            )
-            .populate_existing()
-        )
+        ).one_or_none()
 
-        if len(query.all()) < 2:
-            self.log.info(
-                f"Metal ID trigger: waiting for {proc_prog} processing to finish for dcids: {dcids}"
-            )
-
-        dcids = []
-        wavelengths = []
-        data_files = []
-        for dc, app, _pj in query.all():
-            attachments = app.AutoProcProgramAttachments
-            if len(attachments) == 0:
-                self.log.error(
-                    f"No file found for appid {app.autoProcProgramId}: Skipping metal_id"
-                )
-                return {"success": True}
-            if len(attachments) > 1:
-                self.log.error(
-                    f"Multiple files found for appid {app.autoProcProgramId}: Skipping metal_id"
-                )
-                return {"success": True}
-            att = attachments[0]
-            data_file = str(pathlib.Path(att.filePath) / att.fileName)
-            data_files.append(data_file)
-            wavelengths.append(dc.wavelength)
-            dcids.append(dc.dataCollectionId)
-            # Get parameters for job image sweep parameters
-            if dc.dataCollectionId == parameters.dcid:
-                start_image = dc.startImageNumber
-                end_image = dc.startImageNumber + dc.numberOfImages - 1
-
-        # Check that the photon energy is different enough between the two data collections
-        energy_diff = abs(12398.0 / wavelengths[0] - 12398.0 / wavelengths[1])
-        if energy_diff < parameters.energy_min_diff:
+        if not query:
             self.log.error(
-                f"Metal id - data collections {dcids} have energy difference < {parameters.energy_min_diff} eV"
+                f"Skipping metal_id trigger: No result file found for appid {matching_job.autoProcProgramId}"
             )
             return {"success": True}
 
-        # Sort based on wavelength
-        combined = list(zip(wavelengths, dcids, data_files))
-        sorted_combined = sorted(combined)
-        wavelengths, dcids, data_files = [list(v) for v in zip(*sorted_combined)]
+        mtz_file_2 = pathlib.Path(query.filePath) / query.fileName
+        self.log.info(f"Retrieved mtz file {mtz_file_2} from matching data collection")
+        # Get parameters from message if checkpointed
+        if any(
+            wavelength < parameters.dc_info.wavelength for wavelength in wavelengths
+        ):
+            mtz_file_above = mtz_file_2
+            mtz_file_below = mtz_file_1
+        else:
+            mtz_file_above = mtz_file_1
+            mtz_file_below = mtz_file_2
 
-        # Get parameters for metal_id recipe
-        mtz_file_below = data_files[1]
-        mtz_file_above = data_files[0]
         metal_id_parameters: dict[str, list[Any]] = {
             "dcids": dcids,
-            "data": [mtz_file_below, mtz_file_above],
+            "data": [mtz_file_below.as_posix(), mtz_file_above.as_posix()],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
+            "symlink": [parameters.symlink] if parameters.symlink else [],
         }
 
         self.log.debug("Metal_id trigger: Starting")
@@ -793,9 +894,10 @@ class DLSTrigger(CommonService):
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = parameters.dcid
-        jisp["start_image"] = start_image
-        jisp["end_image"] = end_image
-
+        jisp["start_image"] = parameters.dc_info.startImageNumber
+        jisp["end_image"] = (
+            parameters.dc_info.startImageNumber + parameters.dc_info.numberOfImages - 1
+        )
         for key, values in metal_id_parameters.items():
             for value in values:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
@@ -855,7 +957,7 @@ class DLSTrigger(CommonService):
             return False
 
         dc, proposal = rows[0]
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(
                 f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
             )
@@ -934,7 +1036,7 @@ class DLSTrigger(CommonService):
                 f"mr_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(
                 f"Skipping mr_predict trigger for {proposal.proposalCode} visit"
             )
@@ -1373,7 +1475,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == parameters.dcid)
         )
         proposal = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
@@ -1477,7 +1579,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
         )
         proposal, blsession = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw", "ic"):
+        if proposal.proposalCode in INDUSTRIAL_CODES:
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
@@ -1539,10 +1641,13 @@ class DLSTrigger(CommonService):
                     pass
 
                 for input_file in ("data", "scaled_unmerged_mtz"):
-                    processing_params = parameter_map.get(app.processingPrograms, {})
+                    processing_params = ChainMapWithReplacement(
+                        parameter_map.get(app.processingPrograms, {}),
+                        substitutions=rw.environment,
+                    )
                     input_filename = getattr(
                         parameters, input_file
-                    ) or processing_params.get(input_file)
+                    ) or processing_params.get(input_file, "")
                     if pathlib.Path(input_filename).is_file():
                         big_ep_params[input_file] = pathlib.Path(input_filename)
                     else:
@@ -1550,12 +1655,7 @@ class DLSTrigger(CommonService):
                         app_file = pathlib.Path(app.filePath) / app.fileName
                         if re.search(str(input_filename), str(app_file)):
                             big_ep_params[input_file] = app_file
-            big_ep_params = BigEPParams(
-                **ChainMapWithReplacement(
-                    big_ep_params,
-                    substitutions=rw.environment,
-                )
-            )
+            big_ep_params = BigEPParams(**big_ep_params)
         else:
             self.log.error("big_ep trigger failed: No scaling_id value specified")
             return False
@@ -1652,17 +1752,22 @@ class DLSTrigger(CommonService):
         will be created, and the resulting list of processingJobIds will be sent to
         the `processing_recipe` queue.
 
-        If clustering algorithm is enabled, skip triggering multiplex if new related dcid
-        values are added into all defined sample groups to run multiplex only once when
-        all samples in one of the groups have been collected. When running multiplex
-        only include results from datasets collected prior to the current one in all
-        sample groups.
+        If clustering algorithm is enabled, further commandline options are added.
+
+        There are two ways to trigger multiplex controlled by trigger_every_collection.
+        Multiplex will either be triggered after every dials collection (useful for
+        beamlines that use multiplex for mid-experiment feedback), or if there are
+        no subsequent datasets still processing (vmxi). The latter equates to
+        "once per sample group" if the experiment is rapidly collecting with no
+        significant delays.
 
         Recipe parameters:
         - target: set this to "multiplex"
+        - beamline: the beamline as a string
         - dcid: the dataCollectionId for the given data collection
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
+        - trigger_every_collection: decide triggering behaviour of multiplex
         - ispyb_parameters: a dictionary of ispyb_reprocessing_parameters set in the
             parent xia2-dials processing job
         - related_dcids: a list of groups of related data collection ids. Each item in
@@ -1696,14 +1801,15 @@ class DLSTrigger(CommonService):
                     "name": "sample_bar",
                 }
             ],
-            "backoff-delay": 8, # default
-            "backoff-max-try": 10, # default
-            "backoff-multiplier": 2, # default
+            "backoff-delay": {'default': 8}
+            "backoff-max-try": {'default': 10, 'i02-1': 7}
+            "backoff-multiplier": {'default': 2}
         }
         """
         dcid = parameters.dcid
         program_id = parameters.program_id
         parameters.recipe = "postprocessing-xia2-multiplex"
+        output_clusters = False
 
         # Take related dcids from recipe in preference or checkpointed message
         if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
@@ -1719,65 +1825,87 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+
+        # Turn on multiplex clustering
+
+        if (
+            parameters.use_clustering
+            and parameters.beamline in parameters.use_clustering
+        ):
+            output_clusters = True
+
+        # For beamlines where multiplex is triggered alongside xia2-dials need extra checks
         # Check if we have any new data collections added to any sample group
         # to decide if we need to processed triggering multiplex.
         # Run multiplex only once when processing for all samples in the group have been collected.
-        if parameters.use_clustering and parameters.program_id:
+
+        if parameters.trigger_every_collection:
+            self.log.info("Triggering xia2.multiplex after every data collection.")
+
+        else:
+            self.log.info("Checking for subsequent dcids that are still processing.")
+
             # Get currnent list of data collections for all samples in the sample groups
             _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
                 {}, {"ispyb_dcid": dcid}, session
             )
             ispyb_related_dcids = ispyb_info.get("ispyb_related_dcids", [])
-            beamline = ispyb_info.get("ispyb_beamline", "")
-            visit = ispyb_info.get("ispyb_visit", "")
-            if beamline in parameters.use_clustering or any(
-                el in visit for el in parameters.use_clustering
-            ):
-                parameters.recipe = "postprocessing-xia2-multiplex-clustering"
-                # If we have a sample group that doesn't have any new data collections,
-                # proceed with triggering multiplex for all sample groups
-                if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
-                    added_dcids = []
-                    for el in ispyb_related_dcids:
-                        added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
-                    # Check if there are xia2 dials jobs that were triggered on any new
-                    # data collections after current multiplex job was triggered
-                    min_start_time = datetime.now() - timedelta(hours=12)
-                    query = (
-                        (
-                            session.query(
-                                AutoProcProgram, ProcessingJob.dataCollectionId
-                            ).join(
-                                ProcessingJob,
-                                ProcessingJob.processingJobId
-                                == AutoProcProgram.processingJobId,
-                            )
+            # If we have a sample group that doesn't have any new data collections,
+            # proceed with triggering multiplex for all sample groups
+            if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
+                added_dcids = []
+                for el in ispyb_related_dcids:
+                    added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
+                # Check if there are xia2 dials jobs that were triggered on any new
+                # data collections after current multiplex job was triggered
+                min_start_time = datetime.now() - timedelta(hours=12)
+                query = (
+                    (
+                        session.query(
+                            AutoProcProgram, ProcessingJob.dataCollectionId
+                        ).join(
+                            ProcessingJob,
+                            ProcessingJob.processingJobId
+                            == AutoProcProgram.processingJobId,
                         )
-                        .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
-                        .filter(ProcessingJob.automatic == True)  # noqa E712
-                        .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
-                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
                     )
-                    # Abort triggering multiplex if we have xia2 dials running on any subsequent
-                    # data collection in all sample groups
-                    if triggered_processing_job := query.first():
-                        self.log.info(
-                            f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
-                        )
-                        return {"success": True}
+                    .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
+                    .filter(ProcessingJob.automatic == True)  # noqa E712
+                    .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                    .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                    .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                )
+                # Abort triggering multiplex if we have xia2 dials running on any subsequent
+                # data collection in all sample groups
+                if triggered_processing_job := query.first():
+                    self.log.info(
+                        f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+                    )
+                    return {"success": True}
 
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case
         # we checkpoint with the calculated message delay
+        backoff_delay = parameters.backoff_delay.get(
+            parameters.beamline, parameters.backoff_delay["default"]
+        )
+        backoff_multiplier = parameters.backoff_multiplier.get(
+            parameters.beamline, parameters.backoff_multiplier["default"]
+        )
+        backoff_max_try = parameters.backoff_max_try.get(
+            parameters.beamline, parameters.backoff_max_try["default"]
+        )
+
+        self.log.debug(
+            f"Using backoff parameters: delay {backoff_delay}, multiplier {backoff_multiplier}, max_try {backoff_max_try}"
+        )
+
         status = {
             "ntry": 0,
         }
         if isinstance(message, dict):
             status.update(message.get("trigger-status", {}))
-        message_delay = int(
-            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
-        )
+        message_delay = int(backoff_delay * backoff_multiplier ** status["ntry"])
         status["ntry"] += 1
         self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
 
@@ -1834,7 +1962,7 @@ class DLSTrigger(CommonService):
                     row.AutoProcProgram.autoProcProgramId
                     for row in waiting_processing_jobs
                 ]
-                if status["ntry"] >= parameters.backoff_max_try:
+                if status["ntry"] > backoff_max_try:
                     # Give up waiting for this program to finish and trigger
                     # multiplex with remaining related results are available
                     self.log.info(
@@ -1981,7 +2109,7 @@ class DLSTrigger(CommonService):
             self.log.debug(set_dcids)
             self.log.debug(multiplex_job_dcids)
             # Check if upstream dials job has succeeded when we run multiplex per data collection
-            if ("clustering" not in parameters.recipe) and (dcid not in set_dcids):
+            if (not output_clusters) and (dcid not in set_dcids):
                 self.log.info(
                     f"Skipping xia2.multiplex trigger: upstream dials job failed for dcid={dcid} group={group}"
                 )
@@ -2052,7 +2180,7 @@ class DLSTrigger(CommonService):
                         ("absorption_level", "high"),
                     ]
                 )
-            if "clustering" in parameters.recipe:
+            if output_clusters:
                 job_parameters.extend(
                     [
                         ("clustering.method", "coordinate"),
@@ -2460,6 +2588,46 @@ class DLSTrigger(CommonService):
         """Trigger a shelxt job for a given data collection."""
 
         dcid = parameters.dcid
+        if not parameters.ins_file_location:
+            query = (
+                session.query(
+                    AutoProcScaling.autoProcScalingId,
+                    AutoProcProgramAttachment.filePath,
+                    AutoProcProgramAttachment.fileName,
+                )
+                .join(
+                    AutoProcScalingHasInt,
+                    AutoProcScalingHasInt.autoProcScalingId
+                    == AutoProcScaling.autoProcScalingId,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.autoProcIntegrationId
+                    == AutoProcScalingHasInt.autoProcIntegrationId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(
+                    AutoProcProgramAttachment,
+                    AutoProcProgramAttachment.autoProcProgramId
+                    == AutoProcProgram.autoProcProgramId,
+                )
+                .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+                .filter(AutoProcProgramAttachment.fileName == "shelxt.ins")
+                .distinct()
+            )
+            ins_file_attachment = query.one()
+            if ins_file_attachment:
+                parameters.ins_file_location = ins_file_attachment.filePath
+            else:
+                self.log.error(
+                    "Skipping shelxt trigger: shelxt.ins input data file not found for ScalingId %s",
+                    parameters.scaling_id,
+                )
+                return {"success": True}
 
         shelx_parameters: dict[str, list[Any]] = {
             "ins_file_location": [os.fspath(parameters.ins_file_location)],
@@ -2533,11 +2701,12 @@ class DLSTrigger(CommonService):
         { "target": "ligand_fit",
             "dcid": 123456,
             "pdb": "/path/to/pdb",
-            "mtz": "/path/to/mtz"
-            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
+            "mtz": "/path/to/mtz",
+            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12",
+            "beamline: i02-2,
             "pipeline": "phenix_pipeline",
             "automatic": true,
-            "comment": "Ligand_fit triggered by xia2 dials",
+            "comment": "Ligand_fit triggered by xia2 multiplex",
             "scaling_id": [123456],
             "min_cc_keep": 0.7,
             "timeout-minutes": 115
@@ -2552,17 +2721,16 @@ class DLSTrigger(CommonService):
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
 
-        protein_id = getattr(protein_info, "proteinId", None)
         proposal_id = getattr(protein_info, "proposalId", None)
         acronym = getattr(protein_info, "acronym", "Protein")
 
-        if protein_id and proposal_id:
-            query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
-            proposal = query.first()
+        query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
+        proposal = query.first()
 
+        if proposal_id:
             if proposal.proposalCode not in {"mx", "cm", "nt"}:
                 self.log.debug(
-                    f"Not triggering ligand fit pipeline for protein_id={protein_id} with proposal_code={proposal.proposalCode} due to licensing"
+                    f"Not triggering ligand fit pipeline for dcid {parameters.dcid} with proposal_code={proposal.proposalCode} due to Phenix licensing."
                 )
                 return {"success": True}
 
@@ -2591,11 +2759,20 @@ class DLSTrigger(CommonService):
             .one()
         )
 
-        if query.processingPrograms != "xia2.multiplex":
-            self.log.info(
-                "Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex."
-            )
-            return {"success": True}
+        allowed_upstream_programs = ["xia2 dials", "xia2.multiplex"]
+
+        if parameters.beamline != "i02-2":
+            if query.processingPrograms not in allowed_upstream_programs:
+                self.log.info(
+                    f"Skipping ligand_fit trigger: Upstream processing program is not in {allowed_upstream_programs} for beamline {parameters.beamline}."
+                )
+                return {"success": True}
+        elif parameters.beamline == "i02-2":
+            if query.processingPrograms != "xia2.multiplex":
+                self.log.info(
+                    f"Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex for beamline {parameters.beamline}."
+                )
+                return {"success": True}
 
         self.log.debug("Ligand_fit trigger: Starting")
 
@@ -2606,6 +2783,7 @@ class DLSTrigger(CommonService):
             "smiles": parameters.smiles,
             "pipeline": parameters.pipeline,
             "acronym": acronym,
+            "scaling_id": scaling_id,
         }
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -2634,5 +2812,132 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_align_crystal(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: AlignCrystalParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type != "Characterization":
+            self.log.info(
+                f"Skipping align_crystal trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        downstream_pipeline = {"fast_dp": "xoalign", "xia2-dials": "align-crystal"}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = downstream_pipeline[parameters.upstream_pipeline]
+        jp["recipe"] = (
+            f"postprocessing-{downstream_pipeline[parameters.upstream_pipeline]}"
+        )
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"align_crystal trigger: generated JobID {jobid}")
+
+        align_crystal_parameters = {
+            "experiment_file": parameters.experiment_file.as_posix(),
+            "symlink": parameters.symlink,
+        }
+
+        for key, value in align_crystal_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Align_crystal trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Align_crystal trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_strategy(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: StrategyParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type != "Characterization":
+            self.log.info(
+                f"Skipping strategy trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        if parameters.beamline not in ["i03", "i04", "i04-1"]:
+            self.log.info(
+                f"Skipping strategy trigger: beamline {parameters.beamline} not supported"
+            )
+            return {"success": True}
+
+        # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
+        resolution = (
+            session.query(AutoProcScalingStatistics.resolutionLimitHigh)
+            .join(
+                AutoProcScaling,
+                AutoProcScaling.autoProcScalingId
+                == AutoProcScalingStatistics.autoProcScalingId,
+            )
+            .join(AutoProc, AutoProc.autoProcId == AutoProcScaling.autoProcId)
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            )
+            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
+            .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
+            .scalar()
+        )
+
+        if not resolution:
+            self.log.info(
+                f"Skipping strategy trigger: no resolution estimate found for dcid={parameters.dcid} auto_proc_program_id={parameters.program_id}"
+            )
+            return {"success": True}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "udc-strategy"
+        jp["recipe"] = "postprocessing-udc-strategy"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"Strategy trigger: generated JobID {jobid}")
+
+        strategy_parameters = {
+            "beamline": parameters.beamline,
+            "resolution": resolution,
+            "wavelength": parameters.wavelength,
+        }
+
+        for key, value in strategy_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Strategy trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Strategy trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

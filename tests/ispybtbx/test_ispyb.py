@@ -362,6 +362,16 @@ def test_filter_function(db_session):
     param = {"ispyb_dcid": ds["i19_screening"]}
     msg, param = ispyb_filter(msg, param, db_session)
 
+def test_get_detectorname(db_session):
+    test_data = {
+        "i03" : {"dcid" : 19714078, "expected" : "Eiger16M"},
+        "i24" : {"dcid" : 16030696, "expected" : "Eiger9MCdTe"}
+    }
+    for d in test_data.values():
+        message = {}
+        parameters = {"ispyb_dcid": d["dcid"]}
+        message, parameters = ispyb_filter(message, parameters, db_session)
+        assert parameters["ispyb_detectorname"] == d["expected"]
 
 def test_filter_function_with_load_config_file_timeout(monkeypatch, db_session):
     def mock_load_config_file(*args, **kwargs):

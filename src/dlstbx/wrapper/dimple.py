@@ -17,6 +17,7 @@ import procrunner
 import dlstbx.util.symlink
 from dlstbx import schemas
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util.mvs.viewer_anode import gen_html_anode
 from dlstbx.wrapper import Wrapper
 
 
@@ -140,10 +141,23 @@ class DimpleWrapper(Wrapper):
                     blob.view2 = f"anom-blob{n}v2.png"
                     blob.view3 = f"anom-blob{n}v3.png"
             anode_result_files = {
-                self.results_directory / "anode.pha": schemas.AttachmentFileType.RESULT,
-                self.results_directory
-                / "anode_fa.res": schemas.AttachmentFileType.RESULT,
-                anode_log: schemas.AttachmentFileType.LOG,
+                self.results_directory / "anode.pha": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
+                self.results_directory / "anode_fa.res": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
+                anode_log: (schemas.AttachmentFileType.LOG, 2),
+                self.results_directory / "anode.map": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
+                self.results_directory / "anode.html": (
+                    schemas.AttachmentFileType.RESULT,
+                    2,
+                ),
             }
             attachments.extend(
                 [
@@ -152,8 +166,9 @@ class DimpleWrapper(Wrapper):
                         file_path=f.parent,
                         file_name=f.name,
                         timestamp=dateutil.parser.parse(end_time),
+                        importance_rank=importance_rank,
                     )
-                    for f, ftype in anode_result_files.items()
+                    for f, (ftype, importance_rank) in anode_result_files.items()
                     if f.is_file()
                 ]
             )
@@ -297,6 +312,12 @@ class DimpleWrapper(Wrapper):
                     )
                 )
         if success:
+            self.log.info("Creating anode molviewspec html")
+            try:
+                gen_html_anode(str(self.results_directory), cutoff_sigma=4)
+            except Exception as e:
+                self.log.info(f"Exception creating anode html visualisation: {e}")
+
             self.log.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
 

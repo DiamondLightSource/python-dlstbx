@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import importlib.metadata
 import logging
 
-import pkg_resources
 import zocalo.configuration
 
 import dlstbx.health_checks as hc
@@ -15,7 +15,8 @@ logger = logging.getLogger("dlstbx.cli.run_health_checks")
 
 def run():
     check_functions = {
-        e.name: e.load for e in pkg_resources.iter_entry_points("zocalo.health_checks")
+        e.name: e.load
+        for e in importlib.metadata.entry_points(group="zocalo.health_checks")
     }
 
     parser = argparse.ArgumentParser(

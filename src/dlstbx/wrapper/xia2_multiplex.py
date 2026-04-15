@@ -259,12 +259,14 @@ class Xia2MultiplexWrapper(Wrapper):
             ".refl": None,
             ".mtz": None,
             ".html": "log",
+            ".sca": None,
         }
         keep = {
             "scaled.mtz": "result",
             "scaled_unmerged.mtz": "result",
             "scaled.expt": "result",
             "scaled.refl": "result",
+            "scaled.sca": "result",
             "merging-stats.json": "graph",
             "xia2.multiplex.json": "result",
         }

@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import argparse
 import faulthandler
+import importlib.metadata
 import json
 import logging
 import signal
 import sys
 
-import pkg_resources
 import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
@@ -63,7 +63,7 @@ def run():
     zc.activate()
 
     known_wrappers = {
-        e.name: e.load for e in pkg_resources.iter_entry_points("zocalo.wrappers")
+        e.name: e.load for e in importlib.metadata.entry_points(group="zocalo.wrappers")
     }
 
     # Set up parser

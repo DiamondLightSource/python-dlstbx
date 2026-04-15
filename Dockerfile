@@ -1,4 +1,4 @@
-FROM harbor.diamond.ac.uk/dockerhub-cache/dials/dials:latest
+FROM dials/dials:latest
 
 RUN yum install bzip2 libXxf86vm rrdtool git -y
 RUN pip install patchelf
@@ -13,7 +13,6 @@ RUN source /dials/dials \
 RUN source /dials/dials \
   && sed -i'' 's|libtbx.conda|/dials/conda_base/condabin/conda|' "/dials/modules/dlstbx/src/dlstbx/requirements.py" \
   && libtbx.python /dials/modules/dlstbx/contrib/candygram.py  dials dials_data dials_research dlstbx dxtbx fast_dp screen19 sphinx xia2 zocalo \
-  && python3 /dials/modules/dlstbx/src/dlstbx/requirements.py python-relion -y \
-  && pip3 install git+https://github.com/DiamondLightSource/python-workflows@diag_emptyheader
+  && conda install -y --file=/dials/modules/dlstbx/requirements.conda.txt 
 
 CMD ["dials.version"]

@@ -44,6 +44,19 @@ XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(key="ice_rings.filter", value="true"),
 )
 
+XIA2_DIALS_VMXM_SPOTFINDING_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
+    mimas.MimasISPyBParameter(key="spotfinder.filter.max_separation", value="8"),
+    mimas.MimasISPyBParameter(
+        key="spotfinder.threshold.dispersion.kernel_size", value="6,6"
+    ),
+    mimas.MimasISPyBParameter(
+        key="spotfinder.threshold.dispersion.sigma_background", value="3"
+    ),
+    mimas.MimasISPyBParameter(
+        key="spotfinder.threshold.dispersion.sigma_strong", value="1"
+    ),
+)
+
 
 def xia2_dials_absorption_params(
     scenario: mimas.MimasScenario,
@@ -163,12 +176,14 @@ def handle_eiger_screening(
     **kwargs,
 ) -> List[mimas.Invocation]:
     return [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in (
-            "strategy-align-crystal",
-            "strategy-mosflm",
-            "strategy-edna-eiger",
-        )
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-align-crystal",
+            source="automatic",
+            displayname="align_crystal",
+        ),
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 
 
@@ -177,10 +192,15 @@ def handle_characterization(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    tasks: List[mimas.Invocation] = [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-align-crystal")
+    return [
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-align-crystal",
+            source="automatic",
+            displayname="align_crystal",
+        ),
     ]
-    return tasks
 
 
 @mimas.match_specification(
@@ -191,11 +211,14 @@ def handle_pilatus_screening(
     **kwargs,
 ) -> List[mimas.Invocation]:
     return [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in (
-            "strategy-mosflm",
-            "strategy-edna",
-        )
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-align-crystal",
+            source="automatic",
+            displayname="align_crystal",
+        ),
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 
 
@@ -288,6 +311,8 @@ def handle_rotation_end(
         xia2_dials_beamline_extra_params = (
             *XIA2_DIALS_COPPER_RINGS_PARAMS,
             mimas.MimasISPyBParameter(key="failover", value="true"),
+            mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
+            *XIA2_DIALS_VMXM_SPOTFINDING_PARAMS,
         )
 
     triggervars_pref: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
@@ -305,17 +330,20 @@ def handle_rotation_end(
     ppl_autostart: dict[str, bool] = {}
     ppl_suffix: dict[str, str] = {}
     ppl_triggervars: dict[str, Tuple[mimas.MimasISPyBTriggerVariable, ...]] = {}
+    is_dcclass_characterization = (
+        scenario.dcclass is mimas.MimasDCClass.CHARACTERIZATION
+    )
     for ppl, recipe in (
         ("xia2/DIALS", "autoprocessing-xia2-dials"),
-        ("xia2/XDS", "autoprocessing-xia2-3dii"),
+        ("xia2/3dii", "autoprocessing-xia2-3dii"),
         ("autoPROC", "autoprocessing-autoPROC"),
         ("mxia2/DIALS", "autoprocessing-multi-xia2-dials"),
-        ("mxia2/XDS", "autoprocessing-multi-xia2-3dii"),
+        ("mxia2/3dii", "autoprocessing-multi-xia2-3dii"),
     ):
         ppl_autostart[ppl] = False
         ppl_suffix[ppl] = suffix_pref
         ppl_triggervars[ppl] = triggervars_pref
-        if scenario.preferred_processing == ppl:
+        if scenario.preferred_processing == ppl or is_dcclass_characterization:
             ppl_autostart[ppl] = True
         elif any(r in recipe for r in cloud_recipes):
             ppl_suffix[ppl] = suffix
@@ -344,8 +372,8 @@ def handle_rotation_end(
                 # xia2-3dii
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
-                    autostart=ppl_autostart["xia2/XDS"],
-                    recipe=f"autoprocessing-xia2-3dii{ppl_suffix['xia2/XDS']}",
+                    autostart=ppl_autostart["xia2/3dii"],
+                    recipe=f"autoprocessing-xia2-3dii{ppl_suffix['xia2/3dii']}",
                     source="automatic",
                     displayname="xia2 3dii",
                     parameters=(
@@ -354,7 +382,7 @@ def handle_rotation_end(
                         ),
                         *params,
                     ),
-                    triggervariables=ppl_triggervars["xia2/XDS"],
+                    triggervariables=ppl_triggervars["xia2/3dii"],
                 ),
                 # autoPROC
                 mimas.MimasISPyBJobInvocation(
@@ -393,7 +421,7 @@ def handle_rotation_end(
                     mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,  # no priority processing for multi-xia2
-                        recipe=f"autoprocessing-multi-xia2-3dii{ppl_suffix['mxia2/XDS']}",
+                        recipe=f"autoprocessing-multi-xia2-3dii{ppl_suffix['mxia2/3dii']}",
                         source="automatic",
                         displayname="xia2 3dii (multi)",
                         parameters=(
@@ -403,7 +431,7 @@ def handle_rotation_end(
                             *params,
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=ppl_triggervars["mxia2/XDS"],
+                        triggervariables=ppl_triggervars["mxia2/3dii"],
                     ),
                 ]
             )

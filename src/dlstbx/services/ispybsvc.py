@@ -4,6 +4,7 @@ import json
 import os.path
 import pathlib
 import time
+from datetime import datetime
 from typing import List
 
 import ispyb.sqlalchemy
@@ -323,11 +324,21 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
             return False
 
-    def do_register_processing(self, parameters, **kwargs):
+    def do_register_processing(
+        self, parameters, session: sqlalchemy.orm.Session, **kwargs
+    ):
         program = parameters("program")
         cmdline = parameters("cmdline")
-        environment = parameters("environment") or ""
+        environment = parameters("environment") or {}
         upstream_source = parameters("upstream_source") or ""
+        scaling_id = parameters("scaling_id") or environment.get("scaling_id")
+        if isinstance(scaling_id, list):
+            scaling_id = scaling_id[0]
+        parent_appid = (
+            crud.get_app_id_for_scaling_id(session, int(scaling_id))
+            if scaling_id
+            else None
+        )
         processingpipelineid = self.get_pipeline_id(program, upstream_source)
         if isinstance(environment, dict):
             environment = ", ".join(
@@ -339,21 +350,20 @@ class DLSISPyB(EM_Mixin, CommonService):
             self.log.error("Invalid processing id '%s'", rpid)
             return False
         try:
-            result = self.ispyb.mx_processing.upsert_program_ex(
-                job_id=rpid,
-                name=program,
-                command=cmdline,
-                environment=environment,
-                pipeline_id=processingpipelineid,
+            new_app = ispyb.sqlalchemy.AutoProcProgram(
+                processingJobId=rpid,
+                processingPrograms=program,
+                processingCommandLine=cmdline,
+                processingEnvironment=environment,
+                processingPipelineId=processingpipelineid,
+                parentAutoProcProgramId=parent_appid,
+                recordTimeStamp=datetime.now(),
             )
+            session.add(new_app)
+            session.commit()
+            result = new_app.autoProcProgramId
             self.log.info(
-                "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' and pipeline id '%s' with result '%s'.",
-                program,
-                rpid,
-                cmdline,
-                environment,
-                processingpipelineid,
-                result,
+                f"Registered new program '{program}' for processing id '{rpid}' with command line '{cmdline}' and environment '{environment}', pipeline id '{processingpipelineid}' and parent program id '{parent_appid}' with result '{result}'.",
             )
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
@@ -377,9 +387,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             "fast_dp": 3,
             "xia2.multiplex": 5,
             "xia2 dials": 6,
-            "xia2 dials (multi)": 6,
-            "xia2 3dii": 7,  # xds
+            "xia2 dials (multi)": 15,
+            "xia2 3dii": 7,
+            "xia2 3dii (multi)": 16,
             "autoPROC": 8,
+            "autoPROC+STARANISO": 14,
             "fast_ep": 9,
             "dimple": 10,
             "MrBUMP": 11,
@@ -539,7 +551,7 @@ class DLSISPyB(EM_Mixin, CommonService):
 
     def do_insert_screening(self, parameters, **kwargs):
         """Write entry to the Screening table."""
-        # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments']
+        # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments', 'autoprocprogramid']
         screening_params = self.ispyb.mx_screening.get_screening_params()
         for k in screening_params.keys():
             screening_params[k] = parameters(k)

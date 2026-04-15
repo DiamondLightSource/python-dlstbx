@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import errno
+import importlib.metadata
 import logging
 import os
 import re
@@ -8,7 +9,6 @@ import time
 from typing import Any, Callable, Dict, NamedTuple, Protocol
 
 import PIL.Image
-import pkg_resources
 import procrunner
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -53,7 +53,9 @@ class DLSImages(CommonService):
         self.log.info("Image service starting")
         self.image_functions: dict[str, Callable] = {
             e.name: e.load()
-            for e in pkg_resources.iter_entry_points("zocalo.services.images.plugins")
+            for e in importlib.metadata.entry_points(
+                group="zocalo.services.images.plugins"
+            )
         }
         workflows.recipe.wrap_subscribe(
             self._transport,

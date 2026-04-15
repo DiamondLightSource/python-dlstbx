@@ -3,11 +3,11 @@ from __future__ import annotations
 import dataclasses
 import enum
 import functools
+import importlib.metadata
 import numbers
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import gemmi
-import pkg_resources
 import zocalo.configuration
 
 from dlstbx.mimas.specification import BaseSpecification
@@ -411,7 +411,7 @@ def match_specification(specification: BaseSpecification):
 def _get_handlers() -> dict[str, Callable]:
     return {
         e.name: e.load()
-        for e in pkg_resources.iter_entry_points("zocalo.mimas.handlers")
+        for e in importlib.metadata.entry_points(group="zocalo.mimas.handlers")
     }
 
 

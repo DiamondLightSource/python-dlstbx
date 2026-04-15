@@ -127,9 +127,8 @@ def test_eiger_screening(get_zocalo_commands):
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
-        f"zocalo.go -r strategy-align-crystal {dcid}",
-        f"zocalo.go -r strategy-edna-eiger {dcid}",
         f"zocalo.go -r strategy-mosflm {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=strategy-align-crystal --display='align_crystal' --trigger",
     }
     return
 
@@ -173,8 +172,8 @@ def test_cbf_screening(get_zocalo_commands):
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
-        f"zocalo.go -r strategy-edna {dcid}",
         f"zocalo.go -r strategy-mosflm {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=strategy-align-crystal --display='align_crystal' --trigger",
     }
 
 
@@ -412,7 +411,12 @@ def test_vmxm_rotation(get_zocalo_commands):
         "--add-param=ice_rings.unit_cell:3.615,3.615,3.615,90,90,90 "
         "--add-param=ice_rings.space_group:fm-3m --add-param=ice_rings.width:0.01 "
         "--add-param=ice_rings.filter:true "
-        "--add-param=failover:true --add-param=absorption_level:medium --display='xia2 dials' --trigger",
+        "--add-param=failover:true --add-param=remove_blanks:true "
+        "--add-param=spotfinder.filter.max_separation:8 "
+        "--add-param=spotfinder.threshold.dispersion.kernel_size:6,6 "
+        "--add-param=spotfinder.threshold.dispersion.sigma_background:3 "
+        "--add-param=spotfinder.threshold.dispersion.sigma_strong:1 "
+        "--add-param=absorption_level:medium --display='xia2 dials' --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",

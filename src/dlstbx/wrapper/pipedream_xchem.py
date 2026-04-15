@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
-import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -151,7 +149,6 @@ class PipedreamWrapper(Wrapper):
         # -------------------------------------------------------
 
         report_dir = out_dir / f"report-{CompoundCode}"
-        rhofit_dir = out_dir / f"rhofit-{CompoundCode}"
         postrefine_dir = out_dir / f"postrefine-{CompoundCode}"
         refine_mtz = postrefine_dir / "refine.mtz"
         refine_pdb = postrefine_dir / "refine.pdb"
@@ -174,25 +171,6 @@ class PipedreamWrapper(Wrapper):
         attachments.extend(
             [buster_report, refine_mtz, refine_pdb, pipedream_summary, ligand_gifs]
         )
-
-        # Integrate back with XCE via datasource
-        db_dict = {}
-        db_master = Path(params.get("database_path"))
-        db_copy = auto_dir / "database" / "soakDBDataFile.sqlite"
-        if not db_copy.exists():
-            Path(db_copy.parents[0]).mkdir(parents=True, exist_ok=True)
-            shutil.copy(db_master, db_copy)
-
-        rhofit_rscc = self.get_rscc_rhofit(rhofit_dir)
-        if rhofit_rscc > 0.7:
-            db_dict["RefinementBoundConformation"] = str(refine_pdb)
-
-        try:
-            self.sync_new_rows_from_master(db_master, db_copy, "mainTable")
-            self.update_data_source(db_dict, dtag, db_copy)
-            self.log.info(f"Updated sqlite database for dataset {dtag}")
-        except Exception as e:
-            self.log.info(f"Could not update sqlite database for dataset {dtag}: {e}")
 
         try:
             with open(pipedream_summary, "r") as f:
@@ -397,7 +375,7 @@ class PipedreamWrapper(Wrapper):
                         f"Could not attach {f.name} to ISPyB", exc_info=True
                     )
 
-    def get_rscc_rhofit(rhofit_dir) -> float:
+    def get_rscc_rhofit(self, rhofit_dir) -> float:
         RHOFIT_HIT_LOG = "Hit_corr.log"
         # Actually gets the best RSCC of any fit, not -strictly- the one rhofit chose
         with open(rhofit_dir / RHOFIT_HIT_LOG, "r") as f:
@@ -405,30 +383,3 @@ class PipedreamWrapper(Wrapper):
 
         rscc = max(float(line.split()[1]) for line in lines if line.strip())
         return rscc
-
-    def update_data_source(self, db_dict, dtag, database_path):
-        sql = (
-            "UPDATE mainTable SET "
-            + ", ".join([f"{k} = :{k}" for k in db_dict])
-            + f" WHERE CrystalName = '{dtag}'"
-        )
-        conn = sqlite3.connect(database_path)
-        # conn.execute("PRAGMA journal_mode=WAL;")
-        cursor = conn.cursor()
-        cursor.execute(sql, db_dict)
-        conn.commit()
-        conn.close()
-
-    def sync_new_rows_from_master(self, master_path, copy_path, table_name):
-        conn = sqlite3.connect(copy_path)
-        conn.execute(f"ATTACH DATABASE '{master_path}' AS master")
-
-        # Insert only rows from master that don't already exist in the copy
-        conn.execute(f"""
-            INSERT OR IGNORE INTO {table_name}
-            SELECT * FROM master.{table_name}
-        """)
-
-        conn.commit()
-        conn.execute("DETACH DATABASE master")
-        conn.close()

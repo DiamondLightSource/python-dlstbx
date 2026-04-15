@@ -803,19 +803,18 @@ class DLSTriggerXChem(CommonService):
         """Trigger an XChem Collate job for an XChem fragment screening experiment.
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
-        - target: set this to "pandda_xchem_post"
+        - target: set this to "xchem_collate"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - comment: a comment to be stored in the ProcessingJob.comment field
         - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
         processing PanDDA jobs
         - automatic: boolean value passed to ProcessingJob.automatic field
         Example recipe parameters:
-        { "target": "pandda_xchem_post",
+        { "target": "xchem_collate",
             "dcid": 123456,
             "scaling_id": [123456],
             "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
             "automatic": true,
-            "comment": "PanDDA2 post-run",
         }
         """
 
@@ -939,12 +938,12 @@ class DLSTriggerXChem(CommonService):
         min_start_time = datetime.now() - timedelta(minutes=180)
 
         query = (
-            session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+            session.query(AutoProcProgram, ProcessingJob.dataCollectionId)
+            .join(
                 ProcessingJob,
                 ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
             )
-        ).filter(
-            ProcessingJob.dataCollectionId.in_(dcids)
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(AutoProcProgram.processingPrograms.in_(["XChemCollate"]))
             .filter(AutoProcProgram.recordTimeStamp > min_start_time)
             .filter(
@@ -970,6 +969,6 @@ class DLSTriggerXChem(CommonService):
             "pipedream": pipedream,
         }
         # upsert on the max dcid?
-        self.upsert_proc(rw, dcid, "XChemCollate", recipe_parameters)
+        self.upsert_proc(rw, dcid, "XChem-Collate", recipe_parameters)
 
         return {"success": True}

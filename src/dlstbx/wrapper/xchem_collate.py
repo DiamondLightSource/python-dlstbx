@@ -35,7 +35,7 @@ class XChemCollateWrapper(Wrapper):
         self.log.info(f"Running XChemCollate command: {pandda2_command}")
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 pandda2_command,
                 shell=True,
                 capture_output=True,
@@ -88,9 +88,11 @@ class XChemCollateWrapper(Wrapper):
             if db_dict:
                 try:
                     self.update_data_source(db_dict, dtag, db_copy)
-                    print(f"Updated sqlite database for dataset {dtag}")
+                    self.log.debug(f"Updated sqlite database for dataset {dtag}")
                 except Exception as e:
-                    print(f"Could not update sqlite database for dataset {dtag}: {e}")
+                    self.log.debug(
+                        f"Could not update sqlite database for dataset {dtag}: {e}"
+                    )
 
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
@@ -101,7 +103,7 @@ class XChemCollateWrapper(Wrapper):
             self.log.info(f"Running XChemCollate command: {pipedream_command}")
 
             try:
-                result = subprocess.run(
+                subprocess.run(
                     pipedream_command,
                     shell=True,
                     capture_output=True,

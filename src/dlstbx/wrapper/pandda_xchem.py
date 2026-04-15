@@ -125,7 +125,9 @@ class PanDDAWrapper(Wrapper):
             user_yaml
         )  # user specified pandda parameters
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=4 {args_string}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=True --local_cpus=4 {args_string}"
+
+        self.log.info(f"Running PanDDA2 command: {pandda2_command}")
 
         try:
             result = subprocess.run(
@@ -187,12 +189,12 @@ class PanDDAWrapper(Wrapper):
 
         event_idx = best_key
         # bdc = best_entry["BDC"]
-        coord = best_entry["Centroid"]
+        event_score = best_entry["Score"]
+        event_coord = best_entry["Centroid"]
 
         restricted_build_dmap = dataset_pdir / "build.ccp4"
         z_map = dataset_pdir / f"{dtag}-z_map.native.ccp4"
-        event_map = list(dataset_pdir.glob(f"{dtag}-event_{event_idx}*"))[0]
-        # event_map = dataset_dir / f'{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4' #round BDC to 2dp?
+        event_map = next(dataset_pdir.glob(f"{dtag}-event_{event_idx}_1-BDC_*"), None)
         pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
         restricted_pdb_file = dataset_pdir / "build.pdb"
@@ -200,7 +202,7 @@ class PanDDAWrapper(Wrapper):
         # Rhofit can be confused by hunting non-binding site density. This can be avoided
         # by truncating the map to near the binding site
         dmap = self.read_pandda_map(event_map)
-        dmap = self.mask_map(dmap, coord)
+        dmap = self.mask_map(dmap, event_coord)
         self.save_xmap(dmap, restricted_build_dmap)
 
         # Rhofit masks the protein before building. If the original protein
@@ -210,7 +212,7 @@ class PanDDAWrapper(Wrapper):
         self.log.debug("Removing nearby atoms to make room for autobuilding")
         self.remove_nearby_atoms(
             pdb_file,
-            coord,
+            event_coord,
             10.0,
             restricted_pdb_file,
         )
@@ -221,7 +223,7 @@ class PanDDAWrapper(Wrapper):
         rhofit_log = dataset_pdir / "rhofit.log"
         attachments.extend([event_map, z_map, rhofit_log])
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"  # dmap_cut=2.0
+        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"
 
         self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
@@ -245,18 +247,26 @@ class PanDDAWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Ligand scoring
-        # Iterate over rhofit builds and score each one
+        build_scores = {}
         build_dir = out_dir / "rhofit"
-        builds = list(build_dir.glob("Hit*.pdb"))
+        rhofit_builds = list(build_dir.glob("Hit*.pdb"))
 
-        if not builds:
-            self.log.info(f"No rhofit builds for {dtag}, can't continue")
+        # Include any PanDDA2 internal autobuilds
+        pandda2_build = (
+            next(dataset_pdir.glob(f"*_event_{best_key}_best_autobuild.pdb")),
+            None,
+        )
+        if pandda2_build:
+            build_scores[pandda2_build] = event_score
+
+        if not rhofit_builds or pandda2_build:
+            self.log.info(f"No autobuilds for {dtag}, can't continue")
             return False
 
-        scores = {}
         self.log.info(f"Running Ligand Score routine for {build_dir}")
 
-        for build_path in builds:
+        # Iterate over rhofit builds and score each one
+        for build_path in rhofit_builds:
             ligand_score = build_dir / f"{build_path.stem}.txt"
 
             st = gemmi.read_structure(str(build_path))
@@ -275,12 +285,12 @@ class PanDDAWrapper(Wrapper):
                 self.log.error(e.stderr)
 
             with open(ligand_score, "r") as file:
-                scores[build_path] = float(file.read().strip())
+                build_scores[build_path] = float(file.read().strip())
 
-        best_build_path = max(scores, key=lambda _x: scores[_x])
-        score = scores[best_build_path]
+        best_build_path = max(build_scores, key=lambda _x: build_scores[_x])
+        best_score = build_scores[best_build_path]
 
-        self.log.info(f"Best ligand score for {dtag} = {score}")
+        self.log.info(f"Best ligand score for {dtag} = {best_score}")
 
         # -------------------------------------------------------
         # Merge the protein structure with best fitted ligand -> pandda model
@@ -318,7 +328,7 @@ class PanDDAWrapper(Wrapper):
                 outdir=dataset_pdir,
                 dtag=dtag,
                 smiles=smiles,
-                score=score,
+                score=best_score,
             )
             attachments.extend([mvs_html])
         except Exception as e:
@@ -499,7 +509,7 @@ class PanDDAWrapper(Wrapper):
     def get_pandda_settings(self, yaml_file):
         with open(yaml_file, "r") as file:
             expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
-        settings = expt_yaml["autoprocessing"]["pandda"]
+        settings = expt_yaml.get("autoprocessing", {}).get("pandda", {})
         if settings:
             args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
         else:

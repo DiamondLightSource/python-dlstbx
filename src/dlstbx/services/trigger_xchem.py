@@ -963,12 +963,12 @@ class DLSTriggerXChem(CommonService):
         self.log.debug("XChemCollate trigger: Starting")
 
         recipe_parameters = {
-            "dcid": dcid,
+            "dcid": max(dcids),
             "processing_directory": str(processing_directory),
             "scaling_id": scaling_id,
             "pipedream": pipedream,
         }
-        # upsert on the max dcid?
-        self.upsert_proc(rw, dcid, "XChem-Collate", recipe_parameters)
+        # Upsert on max dcid
+        self.upsert_proc(rw, max(dcids), "XChem-Collate", recipe_parameters)
 
         return {"success": True}

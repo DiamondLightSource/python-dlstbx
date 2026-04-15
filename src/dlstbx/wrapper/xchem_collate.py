@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import sqlite3
 import subprocess
+from itertools import groupby
 from pathlib import Path
 
 from dlstbx.wrapper import Wrapper
@@ -51,48 +52,14 @@ class XChemCollateWrapper(Wrapper):
             self.log.error(e.stderr)
 
         # -------------------------------------------------------
-        # Re-integrate into XChem environment
+        # Perform model selection & re-integrate into XChem environment
 
-        db_dict = {}
-        db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
-        db_copy = processing_dir / "auto/database" / "autosoakDBDataFile.sqlite"
-
-        # use a copy of the main database
-        if not db_copy.exists():
-            Path(db_copy.parents[0]).mkdir(parents=True, exist_ok=True)
-            shutil.copy(db_master, db_copy)
-
-        # update copy with any new rows
-        self.sync_new_rows_from_master(db_master, db_copy, "mainTable")
-
-        # perform model selection
-        for dir in model_dir.iterdir():
-            dtag = dir.name
-            pipedream_model = self.find_pipedream_model(
-                pipedream_dir, dtag, rscc_thresh=0.7
+        try:
+            self.update_xchem_database(
+                processing_dir, model_dir, pipedream_dir, panddas_dir
             )
-            pandda_model = self.find_pandda_model(panddas_dir, dtag)
-
-            if pipedream_model:  # if pipedream model of sufficient quality, take it
-                db_dict["RefinementBoundConformation"] = str(pipedream_model)
-                db_dict["RefinementOutcome"] = "3 - In Refinement"
-                self.log.info(f"Selected Pipedream model for {dtag}")
-            elif pandda_model:
-                db_dict["RefinementBoundConformation"] = str(pandda_model)
-                db_dict["RefinementOutcome"] = "2 - PANDDA model"
-                self.log.info(f"Selected PanDDA2 model for {dtag}")
-            else:
-                db_dict["RefinementOutcome"] = "7 - Analysed & Rejected"
-                self.log.info(f"No model selected for {dtag}")
-
-            if db_dict:
-                try:
-                    self.update_data_source(db_dict, dtag, db_copy)
-                    self.log.debug(f"Updated sqlite database for dataset {dtag}")
-                except Exception as e:
-                    self.log.debug(
-                        f"Could not update sqlite database for dataset {dtag}: {e}"
-                    )
+        except Exception as e:
+            self.log.error(f"Exception updating database for {processing_dir}: {e}")
 
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
@@ -156,13 +123,89 @@ class XChemCollateWrapper(Wrapper):
         model_path = pandda_model if pandda_model.exists() else None
         return model_path
 
+    def update_xchem_database(
+        self, processing_dir, model_dir, pipedream_dir, panddas_dir
+    ):
+        db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
+        db_copy = processing_dir / "auto/database" / "autosoakDBDataFile.sqlite"
+
+        if not db_copy.exists():
+            Path(db_copy.parents[0]).mkdir(parents=True, exist_ok=True)
+            shutil.copy(db_master, db_copy)
+
+        self.sync_new_rows_from_master(db_master, db_copy, "mainTable")
+
+        # Build list of update dicts for batch update
+        db_dicts = []
+        for dir in model_dir.iterdir():
+            dtag = dir.name
+            pipedream_model = self.find_pipedream_model(
+                pipedream_dir, dtag, rscc_thresh=0.7
+            )
+            pandda_model = self.find_pandda_model(panddas_dir, dtag)
+
+            if pipedream_model:
+                self.log.info(f"Selected Pipedream model for {dtag}")
+                db_dicts.append(
+                    {
+                        "CrystalName": dtag,
+                        "RefinementBoundConformation": str(pipedream_model),
+                        "RefinementOutcome": "3 - In Refinement",
+                    }
+                )
+            elif pandda_model:
+                self.log.info(f"Selected PanDDA2 model for {dtag}")
+                db_dicts.append(
+                    {
+                        "CrystalName": dtag,
+                        "RefinementBoundConformation": str(pandda_model),
+                        "RefinementOutcome": "2 - PANDDA model",
+                    }
+                )
+            else:
+                self.log.info(f"No model selected for {dtag}")
+                db_dicts.append(
+                    {
+                        "CrystalName": dtag,
+                        "RefinementOutcome": "7 - Analysed & Rejected",
+                    }
+                )
+
+        try:
+            self.update_data_source_bulk(db_dicts, db_copy)
+            self.log.debug(f"Bulk updated {db_copy} for {len(db_dicts)} datasets")
+        except Exception as e:
+            self.log.debug(f"Could not bulk update {db_copy}: {e}")
+
+    def update_data_source_bulk(db_dicts, database_path):
+        # Group dicts that share the same columns together
+        keyed = sorted(db_dicts, key=lambda d: tuple(sorted(d)))
+
+        conn = sqlite3.connect(database_path, timeout=30)
+        try:
+            cursor = conn.cursor()
+            for keys, group in groupby(keyed, key=lambda d: tuple(sorted(d))):
+                columns = [k for k in keys if k != "CrystalName"]
+                sql = (
+                    "UPDATE mainTable SET "
+                    + ", ".join([f"{col} = :{col}" for col in columns])
+                    + " WHERE CrystalName = :CrystalName"
+                )
+                cursor.executemany(sql, list(group))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def update_data_source(self, db_dict, dtag, database_path):
         sql = (
             "UPDATE mainTable SET "
             + ", ".join([f"{k} = :{k}" for k in db_dict])
             + f" WHERE CrystalName = '{dtag}'"
         )
-        conn = sqlite3.connect(database_path)
+        conn = sqlite3.connect(database_path, timeout=60)
         # conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         cursor.execute(sql, db_dict)

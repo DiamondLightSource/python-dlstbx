@@ -259,7 +259,7 @@ class PanDDAWrapper(Wrapper):
         if pandda2_build:
             build_scores[pandda2_build] = event_score
 
-        if not rhofit_builds or pandda2_build:
+        if not rhofit_builds and not pandda2_build:
             self.log.info(f"No autobuilds for {dtag}, can't continue")
             return False
 

@@ -117,7 +117,14 @@ def handle_eiger_start_i03_gridscan(
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="per-image-analysis-gridscan-i03-gpu"
+            DCID=scenario.DCID,
+            recipe="per-image-analysis-gridscan-i03-gpu",
+            triggervariables=(
+                mimas.MimasPassthroughVariable(key="filename"),
+                mimas.MimasPassthroughVariable(key="message_index"),
+                mimas.MimasPassthroughVariable(key="number_of_frames"),
+                mimas.MimasPassthroughVariable(key="start_frame_index"),
+            ),
         )
     ]
 

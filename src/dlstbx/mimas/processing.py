@@ -3,9 +3,12 @@ from __future__ import annotations
 import os
 import pathlib
 from pprint import pformat, pprint
-from typing import List, Tuple
+from typing import Callable, List, Tuple
+
+import zocalo.configuration
 
 from dlstbx import mimas
+from dlstbx.health_checks import zocalo
 from dlstbx.mimas.core import (
     is_anomalous,
     is_characterization,
@@ -28,6 +31,16 @@ is_fast_ep = TargetSpecification(mimas.MimasTarget.FAST_EP)
 is_mrbump = TargetSpecification(mimas.MimasTarget.MRBUMP)
 is_shelxt = TargetSpecification(mimas.MimasTarget.SHELXT)
 is_multiplex = TargetSpecification(mimas.MimasTarget.MULTIPLEX)
+
+bigep_path_ext = {
+    "autoPROC": "autoPROC/ap-run",
+    "autoPROC+STARANISO": "autoPROC-STARANISO/ap-run",
+    "xia2 3dii": "xia2/3dii-run",
+    "xia2 dials": "xia2/dials-run",
+    "xia2 3dii (multi)": "multi-xia2/3dii",
+    "xia2 dials (multi)": "multi-xia2/dials",
+    "xia2.multiplex": "xia2.multiplex",
+}
 
 
 @mimas.match_specification(
@@ -142,6 +155,8 @@ def handle_shelxt(
 )
 def handle_mrbump(
     scenario: mimas.MimasScenario,
+    zc: zocalo.configuration.Configuration,
+    params: Callable,
     **kwargs,
 ) -> List[mimas.Invocation]:
     tasks: list[mimas.Invocation] = []
@@ -275,25 +290,17 @@ def handle_fast_ep(
 )
 def handle_big_ep(
     scenario: mimas.MimasScenario,
+    params,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    bigep_path_ext = {
-        "autoPROC": "autoPROC/ap-run",
-        "autoPROC+STARANISO": "autoPROC-STARANISO/ap-run",
-        "xia2 3dii": "xia2/3dii-run",
-        "xia2 dials": "xia2/dials-run",
-        "xia2 3dii (multi)": "multi-xia2/3dii",
-        "xia2 dials (multi)": "multi-xia2/dials",
-        "xia2.multiplex": "xia2.multiplex",
-    }
-    path_ext = bigep_path_ext.get(str(scenario.tag))
+    path_ext = params("path_ext")
     if path_ext and scenario.spacegroup:
         path_ext += "-" + str(scenario.spacegroup)
     triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = (
         mimas.MimasISPyBTriggerVariable(
             "ispyb_autoprocscalingid", str(scenario.autoprocscaling_id)
         ),
-        mimas.MimasISPyBTriggerVariable("path_ext", str(path_ext)),
+        mimas.MimasISPyBTriggerVariable("path_ext", path_ext),
     )
     recipe_name = "postprocessing-big-ep"
     print(f"scenario cloudburting: {pformat(scenario.cloudbursting)}")
@@ -336,7 +343,7 @@ def handle_big_ep(
                     key="scaling_id", value=str(scenario.autoprocscaling_id)
                 ),
                 mimas.MimasISPyBParameter(
-                    key="upstream_source", value=str(scenario.upstream_source)
+                    key="upstream_source", value=str(params("upstream_source"))
                 ),
             ),
             triggervariables=triggervars,
@@ -354,9 +361,78 @@ def handle_big_ep(
 )
 def handle_big_ep_launcher(
     scenario: mimas.MimasScenario,
+    params,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    raise NotImplementedError()
+    tasks: list[mimas.Invocation] = []
+
+    path_ext = params("path_ext")
+    if path_ext and scenario.spacegroup:
+        path_ext += "-" + str(scenario.spacegroup)
+    triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = (
+        mimas.MimasISPyBTriggerVariable(
+            "ispyb_autoprocscalingid", str(scenario.autoprocscaling_id)
+        ),
+    )
+    recipe_name = "postprocessing-big-ep-launcher"
+    print(f"scenario cloudburting: {pformat(scenario.cloudbursting)}")
+    if scenario.cloudbursting:
+        for el in scenario.cloudbursting:
+            print(f"scenario element: {pformat(el)}")
+            if el["cloud_spec"].is_satisfied_by(scenario) and any(
+                r in recipe_name for r in el["recipes"]
+            ):
+                recipe_name += "-cloud"
+                triggervars += (
+                    mimas.MimasISPyBTriggerVariable("statistic-cluster", "iris"),
+                )
+                break
+
+    if not scenario.mtz:
+        return tasks
+
+    tasks.append(
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=False,
+            recipe=recipe_name,
+            source="automatic",
+            comment=str(scenario.comment),
+            displayname=params("pipeline"),
+            parameters=(
+                mimas.MimasISPyBParameter(
+                    key="data", value=str(scenario.mtz.resolve())
+                ),
+                mimas.MimasISPyBParameter(
+                    key="pipeline",
+                    value=str(params("pipeline")),
+                ),
+                mimas.MimasISPyBParameter(
+                    key="program_id", value=str(scenario.autoprocprogram_id)
+                ),
+                mimas.MimasISPyBParameter(
+                    key="scaling_id", value=str(scenario.autoprocscaling_id)
+                ),
+                mimas.MimasISPyBParameter(
+                    key="upstream_source", value=str(scenario.upstream_source)
+                ),
+                mimas.MimasISPyBParameter(
+                    key="shelxc_path",
+                    value=str(params("shelxc_path")),
+                ),
+                mimas.MimasISPyBParameter(
+                    key="fast_ep_path",
+                    value=str(params("fast_ep_path")),
+                ),
+                mimas.MimasISPyBParameter(
+                    key="path_ext",
+                    value=str(str(params("path_ext"))),
+                ),
+            ),
+            triggervariables=triggervars,
+        )
+    )
+    return tasks
 
 
 @mimas.match_specification(
@@ -370,6 +446,7 @@ def handle_alphafold(
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
             recipe="alphafold",
+            triggervariables=(mimas.MimasPassthroughVariable(key="ispyb_protein_id"),),
         )
     ]
     return tasks

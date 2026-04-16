@@ -108,6 +108,11 @@ class MimasISPyBTriggerVariable:
 
 
 @dataclasses.dataclass(frozen=True)
+class MimasPassthroughVariable:
+    key: str
+
+
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBJobInvocation:
     DCID: int
     autostart: bool
@@ -124,6 +129,7 @@ class MimasISPyBJobInvocation:
 class MimasRecipeInvocation:
     DCID: int
     recipe: str
+    triggervariables: Tuple[MimasPassthroughVariable, ...] = ()
 
 
 @functools.singledispatch
@@ -193,6 +199,22 @@ def _(mimasobject: MimasRecipeInvocation, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has non-string recipe")
     if not mimasobject.recipe:
         raise ValueError(f"{mimasobject!r} has empty recipe string")
+    if type(mimasobject.triggervariables) not in (list, tuple):
+        raise ValueError(
+            f"{mimasobject!r} triggervariables must be a tuple, not {type(mimasobject.triggervariables)}"
+        )
+    for tv in mimasobject.triggervariables:
+        validate(tv, expectedtype=MimasPassthroughVariable)
+
+
+@validate.register(MimasPassthroughVariable)  # type: ignore
+def _(mimasobject: MimasPassthroughVariable, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if type(mimasobject.key) is not str:  # noqa: E721
+        raise ValueError(f"{mimasobject!r} has non-string key")
+    if not mimasobject.key:
+        raise ValueError(f"{mimasobject!r} has an empty key")
 
 
 @validate.register(MimasISPyBJobInvocation)  # type: ignore
@@ -414,9 +436,10 @@ def match_specification(specification: BaseSpecification):
         def inner_wrapper(
             scenario: MimasScenario,
             zc: zocalo.configuration.Configuration,
+            params: Callable,
         ) -> List[Invocation]:
             if specification.is_satisfied_by(scenario):
-                return handler(scenario, zc=zc)
+                return handler(scenario, zc=zc, params=params)
             return []
 
         return inner_wrapper
@@ -433,9 +456,9 @@ def _get_handlers() -> dict[str, Callable]:
 
 
 def handle_scenario(
-    scenario: MimasScenario, zc: zocalo.configuration.Configuration
+    scenario: MimasScenario, zc: zocalo.configuration.Configuration, params: Callable
 ) -> List[Invocation]:
     tasks: List[Invocation] = []
     for handler in _get_handlers().values():
-        tasks.extend(handler(scenario, zc=zc))
+        tasks.extend(handler(scenario=scenario, zc=zc, params=params))
     return tasks

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pathlib
 import time
 from pprint import pformat
-from typing import Any
+from typing import Any, Optional
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -179,23 +179,32 @@ class DLSMimas(CommonService):
         #        if input_mtz in filename:
         #            data = pathlib.Path(filename)
         #            break
-        data = step("mtz")
-        if (
-            isinstance(autoprocscaling_info := step("autoprocscaling_info"), dict)
-            and not pathlib.Path(data).exists()
-        ):
+        autoprocscaling_id = None
+        autoprocprogram_id = None
+        if isinstance(autoprocscaling_info := step("autoprocscaling_info"), dict):
             autoprocscaling_id = autoprocscaling_info.get("autoProcScalingId")
-            if not str(autoprocscaling_id).isnumeric():
-                return f"Invalid Mimas request rejected (autoprocscaling_id = {autoprocscaling_id!r})"
-            try:
-                data = get_file_from_autoprocscaling_info(autoprocscaling_info, data)
-            except ValueError:
-                # File matching the input pattern not found in an attachments list
-                data = None
-        elif str(step("autoprocscaling_id")).isnumeric():
+            autoprocprogram_id = autoprocscaling_info.get("autoProcProgramId")
+        if str(step("autoprocscaling_id")).isnumeric():
             autoprocscaling_id = int(step("autoprocscaling_id"))
-        else:
-            autoprocscaling_id = None
+        if str(step("autoprocprogram_id")).isnumeric():
+            autoprocprogram_id = int(step("autoprocprogram_id"))
+
+        def _resolve_path(key):
+            if value := step(key):
+                path = pathlib.Path(value)
+                if not path.exists():
+                    try:
+                        return get_file_from_autoprocscaling_info(
+                            autoprocscaling_info, str(path)
+                        )
+                    except ValueError:
+                        # File matching the input pattern not found in an attachments list
+                        return None
+                return path
+            return None
+
+        data = _resolve_path("mtz")
+        scaled_unmerged_mtz = _resolve_path("scaled_unmerged_mtz")
 
         try:
             target = step("target").lower()
@@ -247,8 +256,10 @@ class DLSMimas(CommonService):
             cloudbursting=self.get_cloudbursting_spec(),
             target=target_mimas,
             mtz=data,
+            scaled_unmerged_mtz=scaled_unmerged_mtz,
             protein_info=protein_info,
             pdb_files_or_codes=pdb_mimas,
+            autoprocprogram_id=autoprocprogram_id,
             autoprocscaling_id=autoprocscaling_id,
             comment=step("comment"),
             tag=step("tag"),
@@ -387,7 +398,7 @@ class DLSMimas(CommonService):
 
         # Pass incoming event information into Mimas scenario object
 
-        def parameters(parameter, replace_variables=True):
+        def parameters(parameter: str, replace_variables: Optional[bool] = True) -> Any:
             if isinstance(message, dict):
                 base_value = message.get(
                     parameter, rw.recipe_step["parameters"].get(parameter)
@@ -430,7 +441,9 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = mimas.handle_scenario(scenario, self.config)
+        things_to_do = mimas.handle_scenario(
+            scenario=scenario, zc=self.config, params=parameters
+        )
 
         for ttd in things_to_do:
             try:
@@ -457,19 +470,10 @@ class DLSMimas(CommonService):
                 return
 
             if isinstance(ttd, mimas.MimasRecipeInvocation):
-                # Pass through specific parameters from the mimas invocation
-                # This is somewhat a fudge for I03 GPU until we work out a better way
-                passthrough_params = {
-                    "filename",
-                    "message_index",
-                    "number_of_frames",
-                    "start_frame_index",
-                    "ispyb_protein_id",
-                }
-                for key in passthrough_params:
-                    if key in rw.recipe_step["parameters"]:
-                        ttd_zocalo["parameters"][key] = rw.recipe_step["parameters"][
-                            key
+                for tv in ttd.triggervariables:
+                    if tv.key in rw.recipe_step["parameters"]:
+                        ttd_zocalo["parameters"][tv.key] = rw.recipe_step["parameters"][
+                            tv.key
                         ]
 
                 rw.send(ttd_zocalo, transaction=txn)

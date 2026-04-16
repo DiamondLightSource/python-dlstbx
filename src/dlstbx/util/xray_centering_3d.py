@@ -96,10 +96,10 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
-    # mask out grid scans to reduce impact of noisy pixels / edge effects (only if some data above threshold)
-    for data_idx in range(2):
-        if data[data_idx].max() > threshold_absolute:
-            data[data_idx][data[data_idx] < threshold_absolute] = 0
+    # Apply absolute threshold for multipin samples to screen out noise.
+    if multipin_sample_ids:
+        data[0][data[0] < threshold_absolute] = 0
+        data[1][data[1] < threshold_absolute] = 0
 
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)
@@ -108,11 +108,18 @@ def gridscan3d(
 
     # Count corner-corner contacts as a continuous region
     structure = np.ones((3, 3, 3))
-    # Find all continuos regions
-    labels, n_regions = scipy.ndimage.label(reconstructed_3d, structure=structure)
-    logger.info(f"Found {n_regions} distinct regions")
+    if multipin_sample_ids:
+        # Find all continuous regions
+        labels, n_regions = scipy.ndimage.label(reconstructed_3d, structure=structure)
+        logger.info(f"Found {n_regions} distinct regions")
+
+    else:
+        # For single sample pins, we can just take the whole thing as one region and apply the relative threshold to find the centres.
+        labels = np.ones_like(reconstructed_3d, dtype=int)
+        n_regions = 1
 
     results: list[GridScan3DResult] = []
+
     for label in range(1, n_regions + 1):
         labelled_data = (labels == label) * reconstructed_3d
         # Apply relative threshold to filter out edge effects and to separate out multiple centres in a single region.

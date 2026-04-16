@@ -33,7 +33,9 @@ class DLSBridge(CommonService):
     def receive_msg(self, header, message, args):
         send_to = args
         if send_to:
-            self.log.info("Shuttling message to rabbitmq queue %s", send_to)
+            self.log.info(
+                f"Shuttling message to rabbitmq queue {send_to}\nMessage content: {message}\nHeaders: {header}"
+            )
             try:
                 self.pika_transport.send(
                     send_to,

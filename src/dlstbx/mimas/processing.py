@@ -457,6 +457,81 @@ def handle_alphafold(
 )
 def handle_multiplex(
     scenario: mimas.MimasScenario,
+    params: Callable,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    raise NotImplementedError()
+    tasks: list[mimas.Invocation] = []
+
+    if not scenario.related_dcids:
+        return tasks
+
+    recipe_name = "postprocessing-xia2-multiplex"
+    output_clusters = scenario.beamline in (params("use_clustering") or [])
+
+    for group in scenario.related_dcids:
+        parameters: list[mimas.MimasISPyBParameter] = []
+
+        if group.sample_id:
+            parameters.append(
+                mimas.MimasISPyBParameter(key="sample_id", value=str(group.sample_id))
+            )
+        elif group.sample_group_id:
+            parameters.append(
+                mimas.MimasISPyBParameter(
+                    key="sample_group_id", value=str(group.sample_group_id)
+                )
+            )
+
+        if scenario.spacegroup:
+            parameters.append(
+                mimas.MimasISPyBParameter(
+                    key="spacegroup", value=scenario.spacegroup.string
+                )
+            )
+
+        if scenario.anomalous_scatterer:
+            parameters.extend(
+                [
+                    mimas.MimasISPyBParameter(key="anomalous", value="true"),
+                    mimas.MimasISPyBParameter(key="absorption_level", value="high"),
+                ]
+            )
+
+        if output_clusters:
+            parameters.extend(
+                [
+                    mimas.MimasISPyBParameter(
+                        key="clustering.method", value="coordinate"
+                    ),
+                    mimas.MimasISPyBParameter(
+                        key="clustering.output_clusters", value="true"
+                    ),
+                ]
+            )
+
+        # Include current DCID plus group DCIDs collected before it
+        group_dcids = {d for d in group.dcids if d < scenario.DCID}
+        group_dcids.add(scenario.DCID)
+        group_sweeps = tuple(
+            sweep
+            for sweep in scenario.getsweepslistfromsamedcg
+            if sweep.DCID in group_dcids
+        )
+
+        if len(group_sweeps) <= 1:
+            continue
+
+        tasks.append(
+            mimas.MimasISPyBJobInvocation(
+                DCID=scenario.DCID,
+                autostart=False,
+                recipe=recipe_name,
+                source="automatic",
+                comment=str(scenario.comment),
+                displayname="xia2.multiplex",
+                parameters=tuple(parameters),
+                sweeps=group_sweeps,
+            )
+        )
+
+    return tasks

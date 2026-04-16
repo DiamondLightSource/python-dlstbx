@@ -240,6 +240,17 @@ class DLSMimas(CommonService):
         else:
             protein_info = None
 
+        related_dcids = None
+        if raw_related := step("related_dcids"):
+            related_dcids = tuple(
+                mimas.MimasRelatedDCIDs(
+                    dcids=tuple(el["dcids"]),
+                    sample_id=el.get("sample_id"),
+                    sample_group_id=el.get("sample_group_id"),
+                )
+                for el in raw_related
+            )
+
         return mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dc_class_mimas,
@@ -264,6 +275,7 @@ class DLSMimas(CommonService):
             comment=step("comment"),
             tag=step("tag"),
             upstream_source=step("upstream_source"),
+            related_dcids=related_dcids,
         )
 
     def on_statistics_cluster(self, header, message):
@@ -477,6 +489,13 @@ class DLSMimas(CommonService):
                         ]
 
                 rw.send(ttd_zocalo, transaction=txn)
+            elif isinstance(
+                ttd, mimas.MimasISPyBJobInvocation
+            ) and ttd.recipe.startswith("postprocessing-xia2-multiplex"):
+                for key in ("related_dcids", "trigger_every_collection"):
+                    if key in rw.recipe_step["parameters"]:
+                        ttd_zocalo[key] = rw.recipe_step["parameters"][key]
+                rw.send_to("mimas.multiplex", ttd_zocalo, transaction=txn)
             else:
                 rw.send_to("ispyb", ttd_zocalo, transaction=txn)
 

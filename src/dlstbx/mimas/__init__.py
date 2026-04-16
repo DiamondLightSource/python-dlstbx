@@ -69,6 +69,13 @@ class MimasISPyBSweep:
 
 
 @dataclasses.dataclass(frozen=True)
+class MimasRelatedDCIDs:
+    dcids: Tuple[int, ...]
+    sample_id: Optional[int] = None
+    sample_group_id: Optional[int] = None
+
+
+@dataclasses.dataclass(frozen=True)
 class MimasScenario:
     DCID: int
     dcclass: MimasDCClass
@@ -93,6 +100,7 @@ class MimasScenario:
     comment: Optional[str] = None
     tag: Optional[str] = None
     upstream_source: Optional[str] = None
+    related_dcids: Optional[Tuple[MimasRelatedDCIDs, ...]] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -169,6 +177,33 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(
             mimasobject.anomalous_scatterer, expectedtype=MimasISPyBAnomalousScatterer
         )
+    if mimasobject.related_dcids is not None:
+        if type(mimasobject.related_dcids) not in (list, tuple):
+            raise ValueError(
+                f"{mimasobject!r} related_dcids must be a tuple, not {type(mimasobject.related_dcids)}"
+            )
+        for group in mimasobject.related_dcids:
+            validate(group, expectedtype=MimasRelatedDCIDs)
+
+
+@validate.register(MimasRelatedDCIDs)  # type: ignore
+def _(mimasobject: MimasRelatedDCIDs, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if type(mimasobject.dcids) not in (list, tuple):
+        raise ValueError(
+            f"{mimasobject!r} dcids must be a tuple, not {type(mimasobject.dcids)}"
+        )
+    for dcid in mimasobject.dcids:
+        if type(dcid) is not int:  # noqa: E721
+            raise ValueError(f"{mimasobject!r} has non-integer dcid {dcid!r}")
+    if mimasobject.sample_id is not None and type(mimasobject.sample_id) is not int:  # noqa: E721
+        raise ValueError(f"{mimasobject!r} has non-integer sample_id")
+    if (
+        mimasobject.sample_group_id is not None
+        and type(mimasobject.sample_group_id) is not int
+    ):  # noqa: E721
+        raise ValueError(f"{mimasobject!r} has non-integer sample_group_id")
 
 
 @validate.register(MimasDCClass)  # type: ignore

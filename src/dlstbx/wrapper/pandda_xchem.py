@@ -42,7 +42,9 @@ class PanDDAWrapper(Wrapper):
         panddas_dir = Path(pandda_dir / "panddas")
         Path(panddas_dir).mkdir(exist_ok=True)
 
+        reprocessing = params.get("reprocessing")
         n_datasets = int(params.get("n_datasets"))
+
         if n_datasets > 1:  # array job case
             batch = True
             with open(model_dir / ".batch.json", "r") as f:
@@ -121,9 +123,11 @@ class PanDDAWrapper(Wrapper):
         pandda2_log = dataset_pdir / "pandda2.log"
         attachments.extend([pandda2_log, ligand_cif])
 
-        args_string = self.get_pandda_settings(
-            user_yaml
-        )  # user specified pandda parameters
+        if reprocessing and dataset_pdir.exists():
+            shutil.rmtree(dataset_pdir)
+
+        # add any user specified pandda parameters
+        args_string = self.get_pandda_settings(user_yaml)
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=True --local_cpus=4 {args_string}"
 
@@ -207,9 +211,6 @@ class PanDDAWrapper(Wrapper):
 
         # Rhofit masks the protein before building. If the original protein
         # model clips the event then this results in autobuilding becoming impossible.
-        # To address this residues within a 10A neighbourhood of the binding event
-        # are removed.
-        self.log.debug("Removing nearby atoms to make room for autobuilding")
         self.remove_nearby_atoms(
             pdb_file,
             event_coord,
@@ -252,9 +253,8 @@ class PanDDAWrapper(Wrapper):
         rhofit_builds = list(build_dir.glob("Hit*.pdb"))
 
         # Include any PanDDA2 internal autobuilds
-        pandda2_build = (
-            next(dataset_pdir.glob(f"*_event_{best_key}_best_autobuild.pdb")),
-            None,
+        pandda2_build = next(
+            dataset_pdir.glob(f"*_event_{best_key}_best_autobuild.pdb"), None
         )
         if pandda2_build:
             build_scores[pandda2_build] = event_score
@@ -290,7 +290,7 @@ class PanDDAWrapper(Wrapper):
         best_build_path = max(build_scores, key=lambda _x: build_scores[_x])
         best_score = build_scores[best_build_path]
 
-        self.log.info(f"Best ligand score for {dtag} = {best_score}")
+        self.log.info(f"Best ligand score for {dtag} = {best_score}: {best_build_path}")
 
         # -------------------------------------------------------
         # Merge the protein structure with best fitted ligand -> pandda model
@@ -313,7 +313,7 @@ class PanDDAWrapper(Wrapper):
         try:
             self.remove_waters_from_ligand(pandda_model)
         except Exception as e:
-            self.log.error(f"{dtag}: {e}")
+            self.log.error(f"Exception removing waters from {pandda_model}: {e}")
 
         # -------------------------------------------------------
         # Output
@@ -339,14 +339,14 @@ class PanDDAWrapper(Wrapper):
         except Exception as e:
             self.log.debug(f"Exception generating mvs html: {e}")
 
-        # data = [
-        #     ["SMILES code", "Fitted_ligand?", "Hit?"],
-        #     [f"{smiles}", "True", "True"],
-        # ]
-        # json_results = dataset_pdir / "pandda2_results.json"
-        # with open(json_results, "w") as f:
-        #     json.dump(data, f)
-        # attachments.extend([json_results])
+        data = [
+            ["SMILES code", "Best autobuild", "Ligand score"],
+            [f"{smiles}", f"{best_build_path}", f"{best_score}"],
+        ]
+        json_results = dataset_pdir / "pandda2_results.json"
+        with open(json_results, "w") as f:
+            json.dump(data, f)
+        attachments.extend([json_results])
 
         self.log.info(f"Attachments list: {attachments}")
         self.send_attachments_to_ispyb(attachments, batch)

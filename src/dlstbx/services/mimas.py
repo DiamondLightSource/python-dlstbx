@@ -489,13 +489,6 @@ class DLSMimas(CommonService):
                         ]
 
                 rw.send(ttd_zocalo, transaction=txn)
-            elif isinstance(
-                ttd, mimas.MimasISPyBJobInvocation
-            ) and ttd.recipe.startswith("postprocessing-xia2-multiplex"):
-                for key in ("related_dcids", "trigger_every_collection"):
-                    if key in rw.recipe_step["parameters"]:
-                        ttd_zocalo[key] = rw.recipe_step["parameters"][key]
-                rw.send_to("mimas.multiplex", ttd_zocalo, transaction=txn)
             else:
                 rw.send_to("ispyb", ttd_zocalo, transaction=txn)
 

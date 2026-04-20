@@ -15,6 +15,7 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     DataCollection,
     ProcessingJob,
+    ProcessingJobParameter,
 )
 from sqlalchemy import or_
 from workflows.services.common_service import CommonService
@@ -157,11 +158,29 @@ class DLSMimasBacklog(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
+        dcid = rw.recipe_step["parameters"].get("dcid")
+        if not dcid or not dcid.isnumeric():
+            # Job has been triggered without corresponding dcid e.g. AlphaFold
+            dcid = 0
+        else:
+            dcid = int(dcid)
+        trigger_every_collection = rw.recipe_step["parameters"].get(
+            "trigger_every_collection"
+        )
+        related_dcids = rw.recipe_step["parameters"].get("related_dcids", [])
+        self.log.info(
+            f"[multiplex] received: dcid={dcid} "
+            f"trigger_every_collection={trigger_every_collection} "
+            f"related_dcid_groups={len(related_dcids)}"
+        )
+        self.log.debug(f"[multiplex] full message: {message}")
+        self.log.debug(
+            f"[multiplex] recipe_step parameters: {rw.recipe_step['parameters']}"
+        )
+
         # Abort if a newer xia2-dials job has been triggered on a subsequent DCID
         # in any sample group, meaning a fresher multiplex will be triggered later.
-        if not message.get("trigger_every_collection"):
-            dcid = message.get("DCID")
-            related_dcids = message.get("related_dcids", [])
+        if not trigger_every_collection:
             if (
                 dcid
                 and related_dcids
@@ -172,6 +191,10 @@ class DLSMimasBacklog(CommonService):
                 added_dcids = [
                     d for el in related_dcids for d in el.get("dcids", []) if d > dcid
                 ]
+                self.log.debug(
+                    f"[multiplex] supersession check: dcid={dcid} "
+                    f"added_dcids={added_dcids}"
+                )
                 if added_dcids:
                     min_start_time = datetime.now() - timedelta(hours=12)
                     with self._ispyb_sessionmaker() as session:
@@ -192,13 +215,29 @@ class DLSMimasBacklog(CommonService):
                         )
                     if triggered_job:
                         self.log.info(
-                            f"Aborting multiplex trigger for dcid={dcid} as xia2-dials "
-                            f"has been triggered for dcid={triggered_job.dataCollectionId}"
+                            f"[multiplex] NOT sending to ISPyB — superseded: dcid={dcid} "
+                            f"newer xia2-dials triggered for dcid={triggered_job.dataCollectionId}"
                         )
                         rw.transport.transaction_commit(txn)
                         return
+                    self.log.debug(
+                        f"[multiplex] supersession check passed: no newer xia2-dials "
+                        f"found for added_dcids={added_dcids}"
+                    )
+            else:
+                self.log.debug(
+                    f"[multiplex] supersession check skipped: "
+                    f"dcid={dcid} related_dcid_groups={len(related_dcids)} "
+                    f"all_groups_have_newer="
+                    f"{bool(related_dcids and all(max(el.get('dcids', [0]), default=0) > dcid for el in related_dcids))}"
+                )
+        else:
+            self.log.debug(
+                "[multiplex] supersession check skipped: trigger_every_collection=True"
+            )
 
-        dcids = [sweep["DCID"] for sweep in message.get("sweeps", [])]
+        dcids = [d for el in related_dcids for d in el.get("dcids", [])]
+        self.log.info(f"[multiplex] sweep dcids={dcids}")
 
         status = message.get("trigger-status", {"ntry": 0})
         message_delay = int(
@@ -228,10 +267,16 @@ class DLSMimasBacklog(CommonService):
                     )
                     .all()
                 )
+            self.log.debug(
+                f"[multiplex] xia2-dials job status for dcids={dcids}: "
+                f"{[(j.processingStatus, j.processingStartTime) for j in waiting_jobs]}"
+            )
 
             if waiting_jobs:
                 self.log.info(
-                    f"Waiting on {len(waiting_jobs)} xia2 dials job(s) for dcids={dcids}"
+                    f"[multiplex] NOT sending to ISPyB — waiting: "
+                    f"{len(waiting_jobs)} xia2-dials job(s) still pending for dcids={dcids} "
+                    f"(attempt {status['ntry']}/{self._backoff_max_try}, retry in {message_delay}s)"
                 )
                 message["trigger-status"] = status
                 rw.checkpoint(message, delay=message_delay, transaction=txn)
@@ -240,7 +285,7 @@ class DLSMimasBacklog(CommonService):
         else:
             if status["ntry"] > self._backoff_max_try:
                 self.log.info(
-                    f"Max retries exceeded for dcids={dcids}, forwarding to ISPyB"
+                    f"[multiplex] max retries exceeded for dcids={dcids}, forwarding to ISPyB"
                 )
 
         # Look up .expt/.refl attachment files for each sweep from xia2-dials
@@ -290,20 +335,50 @@ class DLSMimasBacklog(CommonService):
                 sweep_attachments.setdefault(sweep_dcid, []).append(
                     str(pathlib.Path(file_path) / file_name)
                 )
+            self.log.debug(
+                f"[multiplex] attachment lookup: found files for "
+                f"{len(sweep_attachments)}/{len(dcids)} sweep(s): {sweep_attachments}"
+            )
 
-            for sweep_dcid in dcids:
-                files = sweep_attachments.get(sweep_dcid, [])
-                if len(files) == 2:
-                    message["parameters"].append(
-                        {"key": "data", "value": ";".join(files)}
-                    )
-                elif files:
-                    self.log.warning(
-                        f"Expected 2 attachment files for DCID {sweep_dcid}, "
-                        f"found {len(files)}: {files}"
-                    )
+            processing_job_id = message["parameters"].get("ispyb_process")
+            self.log.debug(
+                f"[multiplex] writing data params to ISPyB job {processing_job_id}"
+            )
+            if processing_job_id:
+                with self._ispyb_sessionmaker() as session:
+                    for sweep_dcid in dcids:
+                        files = sweep_attachments.get(sweep_dcid, [])
+                        if len(files) == 2:
+                            session.add(
+                                ProcessingJobParameter(
+                                    processingJobId=processing_job_id,
+                                    parameterKey="data",
+                                    parameterValue=";".join(files),
+                                )
+                            )
+                            self.log.debug(
+                                f"[multiplex] added data parameter for dcid={sweep_dcid}: {files}"
+                            )
+                        elif files:
+                            self.log.warning(
+                                f"[multiplex] expected 2 attachment files for DCID {sweep_dcid}, "
+                                f"found {len(files)}: {files}"
+                            )
+                        else:
+                            self.log.warning(
+                                f"[multiplex] no attachment files found for DCID {sweep_dcid}"
+                            )
+                    session.commit()
+            else:
+                self.log.warning(
+                    "[multiplex] no processing_job_id in message, "
+                    "cannot write data params to ISPyB"
+                )
 
-        # All jobs done (or max retries exceeded) — forward to ISPyB
+        # All jobs done (or max retries exceeded) — forward to processing_recipe
+        self.log.info(
+            f"[multiplex] sending to processing_recipe: dcid={dcid} sweep_dcids={dcids}"
+        )
         message.pop("trigger-status", None)
-        rw.send_to("ispyb", message, transaction=txn)
+        rw.send(message, transaction=txn)
         rw.transport.transaction_commit(txn)

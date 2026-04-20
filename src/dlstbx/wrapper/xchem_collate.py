@@ -64,7 +64,7 @@ class XChemCollateWrapper(Wrapper):
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
         if pipedream:
-            pipedream_command = f"source /dls/science/groups/i04-1/software/XChem/xchempaths.sh; micromamba init; micromamba activate xchem; \
+            pipedream_command = f"source /dls/science/groups/i04-1/software/XChem/xchempaths.sh; micromamba-init; micromamba activate xchem; \
             python /dls/science/groups/i04-1/software/pipedream_xchem/collate_pipedream_results.py --input {pipedream_dir / 'Pipedream_output.json'} --no-browser --no-plots -v"
 
             self.log.info(f"Running XChemCollate command: {pipedream_command}")
@@ -177,7 +177,7 @@ class XChemCollateWrapper(Wrapper):
         except Exception as e:
             self.log.debug(f"Could not bulk update {db_copy}: {e}")
 
-    def update_data_source_bulk(db_dicts, database_path):
+    def update_data_source_bulk(self, db_dicts, database_path):
         # Group dicts that share the same columns together
         keyed = sorted(db_dicts, key=lambda d: tuple(sorted(d)))
 

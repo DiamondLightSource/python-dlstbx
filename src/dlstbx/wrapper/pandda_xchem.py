@@ -310,6 +310,11 @@ class PanDDAWrapper(Wrapper):
 
         protein_st.write_pdb(str(pandda_model))
 
+        try:
+            self.remove_waters_from_ligand(pandda_model)
+        except Exception as e:
+            self.log.error(f"{dtag}: {e}")
+
         # -------------------------------------------------------
         # Output
 
@@ -453,6 +458,53 @@ class PanDDAWrapper(Wrapper):
                     if add_res:
                         new_st[j][k].add_residue(res)
         new_st.write_pdb(str(pandda_model))
+
+    def remove_waters_from_ligand(self, pandda_model):
+        st = gemmi.read_structure(str(pandda_model))
+        st.setup_entities()
+
+        LIGAND_RES_NAME = "LIG"
+
+        # Collect ligand atoms with their VdW radii
+        ligand_atoms = []  # list of (pos, vdw_radius)
+        for chain in st[0]:
+            for res in chain:
+                if res.name == LIGAND_RES_NAME:
+                    for atom in res:
+                        vdw = atom.element.vdw_r
+                        ligand_atoms.append((atom.pos, vdw))
+
+        max_vdw = max(r for _, r in ligand_atoms)
+        search_radius = max_vdw  # + O_VDW=1.5
+
+        ns = gemmi.NeighborSearch(st[0], st.cell, search_radius).populate()
+
+        # Find waters where any atom overlaps within VdW radii
+        waters_to_remove = set()
+        for lig_pos, lig_vdw in ligand_atoms:
+            for mark in ns.find_atoms(lig_pos, "\0", radius=search_radius):
+                cra = mark.to_cra(st[0])
+                if cra.residue.entity_type != gemmi.EntityType.Water:
+                    continue
+                wat_vdw = cra.atom.element.vdw_r
+                cutoff = lig_vdw + wat_vdw
+                dist = lig_pos.dist(mark.pos)
+                if dist < cutoff:
+                    waters_to_remove.add((cra.chain.name, cra.residue.seqid))
+
+        # Remove waters
+        for chain in st[0]:
+            to_delete = [
+                i
+                for i, res in enumerate(chain)
+                if res.entity_type == gemmi.EntityType.Water
+                and (chain.name, res.seqid) in waters_to_remove
+            ]
+            for i in reversed(to_delete):  # reversed so indices stay valid
+                del chain[i]
+
+        st.write_pdb(str(pandda_model.parents[0] / pandda_model.name))
+        self.log.info(f"Removed {len(waters_to_remove)} waters in {pandda_model.name}")
 
     def get_contact_chain(self, protein_st, ligand_st):
         """A simple estimation of the contact chain based on which chain has the most atoms

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 import json
 import pathlib
 import shutil
@@ -22,27 +21,37 @@ def lookup(merging_stats, item, shell):
     return merging_stats["overall"][item]
 
 
-class Xia2MultiplexWrapper(Wrapper):
-    _logger_name = "dlstbx.wrap.xia2.multiplex"
-    name = "xia2.multiplex"
+class Xia2MultiplexFilteringWrapper(Wrapper):
+    """
+    Wrapper for xia2.multiplex_filtering. Largely based off wrapper for xia2.multiplex.
+
+    xia2.multiplex_filtering takes existing multiplex results and performs some
+    additional filtering to improve data reduction quality.
+
+    """
+
+    _logger_name = "dlstbx.wrap.xia2.multiplex_filtering"
+    name = "xia2.multiplex_filtering"
 
     def send_results_to_ispyb(
         self, z, xtriage_results=None, cluster_num=None, attachments=[]
     ):
         ispyb_command_list = []
 
-        # Step 0: For clusters, register new AutoProcProgram record
+        # Place holder code for future iterations where may run filtering jobs on clusters
+
         if cluster_num is not None:
             register_autoproc_prog = {
                 "ispyb_command": "register_processing",
-                "program": "xia2.multiplex",
-                "cmdline": "xia2.multiplex (ap-zoc)",
+                "program": "xia2.multiplex_filtering",
+                "cmdline": "xia2.multiplex_filtering (ap-zoc)",
                 "environment": {"cluster": cluster_num},
                 "store_result": "ispyb_autoprocprogram_id",
             }
             ispyb_command_list.append(register_autoproc_prog)
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
+
         register_autoproc = {
             "ispyb_command": "write_autoproc",
             "autoproc_id": None,
@@ -59,6 +68,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Step 2: Store scaling results, linked to the AutoProcID
         #         Keep the AutoProcScalingID
+
         insert_scaling = z["scaling_statistics"]
         insert_scaling.update(
             {
@@ -70,7 +80,8 @@ class Xia2MultiplexWrapper(Wrapper):
         ispyb_command_list.append(insert_scaling)
 
         # Step 3: Store integration result, linked to the ScalingID
-        # Use pre-registered integration id for 'All data' dataset
+        # Use pre-registered integration id for 'Filtered' dataset
+
         if cluster_num is not None:
             integration_id = None
         else:
@@ -86,12 +97,11 @@ class Xia2MultiplexWrapper(Wrapper):
             "cell_alpha": z["unit_cell"][3],
             "cell_beta": z["unit_cell"][4],
             "cell_gamma": z["unit_cell"][5],
-            #'refined_xbeam': z['refined_beam'][0],
-            #'refined_ybeam': z['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
 
         # Step 4: Upload attachments
+
         if attachments:
             for attachment in attachments:
                 upload_attachment = {
@@ -104,7 +114,8 @@ class Xia2MultiplexWrapper(Wrapper):
                 }
                 ispyb_command_list.append(upload_attachment)
 
-        # Step 5: Register successful processing for cluster jobs
+        # Step 5: Register successful processing for cluster jobs (placeholder code)
+
         if cluster_num is not None:
             update_autoproc_prog = {
                 "ispyb_command": "update_processing_status",
@@ -121,7 +132,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         message["text"]
                         == "The merging statistics indicate that the data may be assigned to the wrong space group."
                     ):
-                        # this is not a useful warning
+                        # this is not a useful warning for multi-crystal
                         continue
                     ispyb_command_list.append(
                         {
@@ -135,28 +146,19 @@ class Xia2MultiplexWrapper(Wrapper):
                         }
                     )
 
-        self.log.debug("Sending %s", str(ispyb_command_list))
+        self.log.debug(f"Sending {ispyb_command_list}")
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
     def construct_commandline(self, params):
-        """Construct xia2.multiplex command line.
-        Takes job parameter dictionary, returns array."""
+        command = ["xia2.multiplex_filtering"]
 
-        command = ["xia2.multiplex"]
-        data_files = itertools.chain.from_iterable(
-            files.split(";") for files in params["data"]
-        )
-        for f in data_files:
-            command.append(f)
+        # xia2.multiplex_filtering uses previous multiplex job files
+        #   so no specific data files to be input, just add ispyb_parameters to cmdline
 
         if params.get("ispyb_parameters"):
             ignore = {"sample_id", "sample_group_id"}
-            for param in params["ispyb_parameters"]:
-                if "group_dcid" in param:
-                    ignore.add(param)
             translation = {
                 "d_min": "resolution.d_min",
-                "spacegroup": "symmetry.space_group",
             }
             for param, value in params["ispyb_parameters"].items():
                 if param not in ignore:
@@ -169,35 +171,22 @@ class Xia2MultiplexWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        # Adjust all paths if a spacegroup is set in ISPyB
-        if params.get("ispyb_parameters"):
-            if (
-                params["ispyb_parameters"].get("spacegroup")
-                and "/" not in params["ispyb_parameters"]["spacegroup"][0]
-                and "create_symlink" in params
-            ):
-                params["create_symlink"] += (
-                    "-" + params["ispyb_parameters"]["spacegroup"][0]
-                )
-            if data := params["ispyb_parameters"].pop("data"):
-                params["data"] = data
-
-        assert len(params.get("data", [])) > 1
-
         command = self.construct_commandline(params)
 
         working_directory = pathlib.Path(params["working_directory"])
         results_directory = pathlib.Path(params["results_directory"])
 
         # Create working directory with symbolic link
+
         working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 working_directory, params["create_symlink"]
             )
 
-        # run xia2.multiplex in working directory
-        self.log.info("command: %s", " ".join(command))
+        # run xia2.multiplex_filtering in working directory
+
+        self.log.info(f"command: {' '.join(command)}")
         try:
             start_time = time.perf_counter()
             result = subprocess.run(
@@ -207,30 +196,31 @@ class Xia2MultiplexWrapper(Wrapper):
                 cwd=working_directory,
             )
             runtime = time.perf_counter() - start_time
-            self.log.info(f"xia2.multiplex took {runtime} seconds")
+            self.log.info(f"xia2.multiplex_filtering took {runtime} seconds")
             self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             success = False
-            self.log.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
+            self.log.warning(
+                f"xia2.multiplex_filtering timed out: {te.timeout}\n {te.cmd}"
+            )
             self.log.debug(te.stdout)
             self.log.debug(te.stderr)
             self._timeout_counter.inc()
         else:
             if success := not result.returncode:
-                self.log.info("xia2.multiplex successful")
+                self.log.info("xia2.multiplex_filtering successful")
             else:
                 self.log.info(
-                    f"xia2.multiplex failed with exitcode {result.returncode}"
+                    f"xia2.multiplex_filtering failed with exitcode {result.returncode}"
                 )
                 self.log.debug(result.stdout)
                 self.log.debug(result.stderr)
         self.log.info(f"working_directory: {working_directory}")
 
-        scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
-        multiplex_json = working_directory / "xia2.multiplex.json"
+        filtered_unmerged_mtz = working_directory / "filtered_unmerged.mtz"
+        multiplex_filtering_json = working_directory / "xia2.multiplex_filtering.json"
 
-        # Placeholder logic to keep existing functionality - TODO - review if this is needed still
-        if not (scaled_unmerged_mtz.is_file() and multiplex_json.is_file()):
+        if not (filtered_unmerged_mtz.is_file() and multiplex_filtering_json.is_file()):
             success = False
 
         # Create results directory
@@ -247,6 +237,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     final_directory, params["create_symlink"]
                 )
 
+            # Maybe move this function elsewhere
             def is_final_result(final_file: pathlib.Path) -> bool:
                 return any(
                     fnmatch(str(final_file.name), patt)
@@ -257,7 +248,6 @@ class Xia2MultiplexWrapper(Wrapper):
             ".png": None,
             ".log": "log",
             ".json": None,
-            ".pickle": None,
             ".expt": None,
             ".refl": None,
             ".mtz": None,
@@ -265,52 +255,60 @@ class Xia2MultiplexWrapper(Wrapper):
             ".sca": None,
         }
         keep = {
-            "scaled.mtz": "result",
-            "scaled_unmerged.mtz": "result",
-            "scaled.expt": "result",
-            "scaled.refl": "result",
-            "scaled.sca": "result",
+            "filtered.mtz": "result",
+            "filtered_unmerged.mtz": "result",
+            "filtered.expt": "result",
+            "filtered.refl": "result",
+            "filtered.sca": "result",
             "merging-stats.json": "graph",
-            "xia2.multiplex.json": "result",
+            "xia2.multiplex_filtering.json": "result",
         }
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
+
         primary_log_files = [
-            working_directory / "xia2.multiplex.html",
-            working_directory / "xia2.multiplex.log",
+            working_directory / "xia2.multiplex_filtering.html",
+            working_directory / "xia2.multiplex_filtering.log",
         ]
 
         allfiles = []
 
         if success:
-            with multiplex_json.open("r") as fh:
+            with multiplex_filtering_json.open("r") as fh:
                 d = json.load(fh)
 
+            # Retain place holder logic from multiplex wrapper for future iterations with clusters
+            #   Note that 'all data' corresponds to the parent multiplex job
+            #   It is also added to the multiplex_filtering_json so the html has user-friendly comparisons
+            #   However, as it is just a copy of the results from multiplex, it is ignored here
+
             for dataset_name, dataset in d["datasets"].items():
-                if dataset_name == "All data":
+                if dataset_name == "Filtered":
                     base_dir = working_directory
-                    dimple_symlink = "dimple-xia2.multiplex"
+                    dimple_symlink = "dimple-xia2.multiplex_filtering"
                     cluster_prefix = ""
                     cluster_num = None
                 elif "coordinate cluster" in dataset_name:
-                    cluster_num = dataset_name.split(" ")[-1]
-                    cluster_prefix = f"coordinate_cluster_{cluster_num}_"
-                    base_dir = working_directory / f"coordinate_cluster_{cluster_num}"
-                    dimple_symlink = (
-                        f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
+                    self.log.warning("Not currently applying filtering to clusters")
+                    continue
+                elif dataset_name == "All data":
+                    self.log.warning(
+                        'Results for "All Data" already in parent xia2.multiplex run.'
                     )
+                    continue
                 else:
                     self.log.warning(
                         f"Ignoring unrecognised dataset pattern {dataset_name}"
                     )
                     continue
 
-                scaled_unmerged_mtz = base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
-                i_obs = iotbx.merging_statistics.select_data(
-                    scaled_unmerged_mtz.as_posix(), data_labels=None
+                filtered_unmerged_mtz = (
+                    base_dir / f"{cluster_prefix}filtered_unmerged.mtz"
                 )
-
+                i_obs = iotbx.merging_statistics.select_data(
+                    filtered_unmerged_mtz.as_posix(), data_labels=None
+                )
                 merging_stats = dataset["merging_stats"]
                 merging_stats_anom = dataset["merging_stats_anom"]
                 with (base_dir / f"{cluster_prefix}merging-stats.json").open("w") as fh:
@@ -322,7 +320,6 @@ class Xia2MultiplexWrapper(Wrapper):
                     "unit_cell": list(i_obs.unit_cell().parameters()),
                     "scaling_statistics": {},
                 }
-
                 for shell in ("overall", "innerShell", "outerShell"):
                     ispyb_d["scaling_statistics"][shell] = {
                         "cc_half": lookup(merging_stats, "cc_one_half", shell),
@@ -351,14 +348,13 @@ class Xia2MultiplexWrapper(Wrapper):
                             merging_stats_anom, "r_meas", shell
                         ),
                     }
-
                 xtriage_results = dataset.get("xtriage")
                 attachments = []
 
                 for filename in set(primary_log_files + list(base_dir.iterdir())):
                     filetype = None
                     if not filename.is_file():
-                        continue  # primary log files may not actually exist
+                        continue
                     filetype = keep_ext.get(filename.suffix)
                     for file_pattern in keep:
                         if filename.name.endswith(file_pattern):
@@ -379,7 +375,6 @@ class Xia2MultiplexWrapper(Wrapper):
                         self.log.debug(f"Copying {filename} to {destination}")
                         shutil.copy(filename, destination)
                         allfiles.append(destination.as_posix())
-
                     if pipeline_final_params and is_final_result(destination):
                         destination = final_directory / destination.name
                         if destination not in allfiles:
@@ -387,7 +382,6 @@ class Xia2MultiplexWrapper(Wrapper):
                             shutil.copy(filename, destination)
                             allfiles.append(destination.as_posix())
 
-                    # Files uploaded separately for each cluster
                     if filetype:
                         attachments.append(
                             {
@@ -398,37 +392,38 @@ class Xia2MultiplexWrapper(Wrapper):
                                     1
                                     if destination.name.endswith(
                                         (
-                                            "scaled.mtz",
-                                            "xia2.multiplex.html",
-                                            "xia2.multiplex.log",
+                                            "filtered.mtz",
+                                            "xia2.multiplex_filtering.html",
+                                            "xia2.multiplex_filtering.log",
                                         )
                                     )
                                     else 2
                                 ),
                             }
                         )
+
                 # Add parameters to the environment to be picked up downstream by trigger function
+
                 self.recwrap.environment.update(
                     {
-                        "scaled_mtz": (
-                            results_directory / f"{cluster_prefix}scaled.mtz"
+                        "filtered_mtz": (
+                            results_directory / f"{cluster_prefix}filtered.mtz"
                         ).as_posix()
                     }
                 )
                 self.recwrap.environment.update(
                     {
-                        "scaled_unmerged_mtz": (
-                            results_directory / f"{cluster_prefix}scaled_unmerged.mtz"
+                        "filtered_unmerged_mtz": (
+                            results_directory / f"{cluster_prefix}filtered_unmerged.mtz"
                         ).as_posix()
                     }
                 )
                 self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
 
-                self.recwrap.environment.update({"cluster_number": cluster_num})
-
                 # Send results to ispyb and trigger downstream recipe steps for this dataset
+
                 self.log.info(
-                    f"Triggering downstream recipe steps for dataset: '{dataset_name}'"
+                    f"Triggering downstream recipe steps for dataset: '{dataset_name}"
                 )
                 self.send_results_to_ispyb(
                     ispyb_d,
@@ -436,9 +431,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_num=cluster_num,
                     attachments=attachments,
                 )
-
             self._success_counter.inc()
         else:
             self._failure_counter.inc()
-
         return success

@@ -74,6 +74,7 @@ class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0, default=None)
     sample_group_id: Optional[int] = pydantic.Field(gt=0, default=None)
+    name: Optional[str] = None
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -231,6 +232,32 @@ class MultiplexParameters(pydantic.BaseModel):
     use_clustering: Optional[List[str]] = None
     beamline: str
     trigger_every_collection: bool
+
+
+class MultiplexFilteringParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    multiplex_job: pathlib.Path
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    recipe: Optional[str] = None
+    beamline: str
+    multiplex_id: Optional[int] = pydantic.Field(default=0, gt=0)
+    cluster_num: Optional[str] = None
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    multiplex_parameters: dict
+    filtering_group_size: Dict[str, int] = pydantic.Field(
+        default={"default": 50}, alias="filtering-group-size"
+    )
+
+    @pydantic.field_validator("multiplex_parameters", mode="before")
+    @classmethod
+    def convert_multiplex_parameters(cls, v):
+        if isinstance(v, ChainMapWithReplacement):
+            return dict(v)
+        return v
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -2168,6 +2195,12 @@ class DLSTrigger(CommonService):
                 job_parameters.append(("sample_id", str(group.sample_id)))
             else:
                 job_parameters.append(("sample_group_id", str(group.sample_group_id)))
+
+            # Pass these to xia2.multiplex_filtering to avoid making all the same queries as above all over again
+
+            for idx, dcid in enumerate(dcids):
+                job_parameters.append((f"group_dcid_{idx}", str(dcid)))
+
             if parameters.spacegroup:
                 job_parameters.append(("spacegroup", parameters.spacegroup))
             if (
@@ -2205,6 +2238,351 @@ class DLSTrigger(CommonService):
             self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobids}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_multiplex_filtering(
+        self,
+        rw: RecipeWrapper,
+        *,
+        parameters: MultiplexFilteringParameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,
+        message: Dict,
+        **kwargs,
+    ):
+        """Trigger a xia2.multiplex_filtering job for a given data collection.
+        This is triggered from a completed xia2.multiplex job and makes use of this
+        existing file structure. The filtering algorithms identify if there are any groups
+        of images which do not correlate with the rest of the data. The size of these
+        image groups can be varied.
+
+        Currently, running filtering on clusters is not supported, so it is first verified
+        whether or not the triggered job corresponds to a cluster.
+
+        A check is then run that the given multiplex directory exists, the job has finished
+        running, and that all the necessary files have finished copying. If they have not, a
+        delay is used like in xia2.multiplex.
+
+            delay = backoff-delay * backoff-multiplier ** ntry
+
+        If any xia2.multiplex jobs are still running (or files copying) after backoff-max-try
+        iterations, then xia2.multiplex_filtering will not run.
+
+        The filtering parameters are then set (note future iterations will likey vary these) and
+        new ProcessingJob, ProcessingJobImageSweep and ProcessingJobParameter entries
+        will be created, and the resulting list of processingJobIds will be sent to
+        the `processing_recipe` queue.
+
+        Note that initially this will only be triggered for VMXm. This filtering is done here
+        in the trigger service as future plans will roll out generally to all multiplex jobs.
+
+        Recipe parameters:
+        - target: set this to "multiplex_filtering"
+        - beamline: the beamline as a string
+        - dcid: the dataCollectionId for the given data collection
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - multiplex_job: location of the parent multiplex job ({ispyb_working_directory}/xia2.multiplex)
+        - multiplex_id:processingJobId of the parent multiplex job
+        - cluster_num: if the triggering multiplex job was a cluster, list the number
+        - multiplex_parameters: ispyb_processing_parameters for the parent multiplex job
+        - backoff-delay: base delay (in seconds) for exponential backoff in the event
+            that one or more xia2-dials processing job is still running or yet to start
+        - backoff-max-try: the number of times that a message re-sent before giving up
+        - backoff-multiplier: the multiplier for exponential backoff
+
+        Example recipe parameters:
+        {
+            "target": "multiplex_filtering",
+            "dcid": "21152574",
+            "recipe": "postprocessing-multiplex-filtering",
+            "comment": "Extra filtering using xia2.multiplex triggered by automatic xia2.multiplex",
+            "automatic": true,
+            "beamline": "i02-2",
+            "multiplex_job": "/dls/mx/data/nt37104/nt37104-202/tmp/zocalo/VMXi-AB7814/well_62/images/image_291258/b8a346a9-c5cb-4eb5-8208-6115eb283910/xia2.multiplex",
+            "multiplex_id": "37941124",
+            "cluster_num": "$cluster_number",
+            "multiplex_parameters": {
+            "data": [
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291252/c8ac49b8-741f-439d-94d7-3ab6f81b0c35/xia2-dials/DataFiles/nt37104v202_ximage291252_SAD_SWEEP1.refl;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291252/c8ac49b8-741f-439d-94d7-3ab6f81b0c35/xia2-dials/DataFiles/nt37104v202_ximage291252_SAD_SWEEP1.expt",
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291253/cb1886c8-d3af-4412-ae9c-102859bab79c/xia2-dials/DataFiles/nt37104v202_ximage291253_SAD_SWEEP1.refl;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291253/cb1886c8-d3af-4412-ae9c-102859bab79c/xia2-dials/DataFiles/nt37104v202_ximage291253_SAD_SWEEP1.expt",
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291254/4e44c987-5067-40d7-999e-4f89c70c7dc1/xia2-dials/DataFiles/nt37104v202_ximage291254_SAD_SWEEP1.expt;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291254/4e44c987-5067-40d7-999e-4f89c70c7dc1/xia2-dials/DataFiles/nt37104v202_ximage291254_SAD_SWEEP1.refl",
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291255/1755523f-69c8-486b-8252-c2e961760488/xia2-dials/DataFiles/nt37104v202_ximage291255_SAD_SWEEP1.expt;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291255/1755523f-69c8-486b-8252-c2e961760488/xia2-dials/DataFiles/nt37104v202_ximage291255_SAD_SWEEP1.refl",
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291256/0dba9917-4b69-454c-970c-6fde3cc956bf/xia2-dials/DataFiles/nt37104v202_ximage291256_SAD_SWEEP1.expt;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291256/0dba9917-4b69-454c-970c-6fde3cc956bf/xia2-dials/DataFiles/nt37104v202_ximage291256_SAD_SWEEP1.refl",
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291257/2d732791-5c61-4b39-beb3-347506c4534b/xia2-dials/DataFiles/nt37104v202_ximage291257_SAD_SWEEP1.refl;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291257/2d732791-5c61-4b39-beb3-347506c4534b/xia2-dials/DataFiles/nt37104v202_ximage291257_SAD_SWEEP1.expt",
+                "/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291258/4630060b-e3fd-4b6f-b28e-0a86f560a221/xia2-dials/DataFiles/nt37104v202_ximage291258_SAD_SWEEP1.expt;/dls/mx/data/nt37104/nt37104-202/processed/VMXi-AB7814/well_62/images/image_291258/4630060b-e3fd-4b6f-b28e-0a86f560a221/xia2-dials/DataFiles/nt37104v202_ximage291258_SAD_SWEEP1.refl"
+            ],
+            "sample_id": [
+                "7087938"
+            ],
+            "group_dcid_0": [
+                "21152550"
+            ],
+            "group_dcid_1": [
+                "21152556"
+            ],
+            "group_dcid_2": [
+                "21152559"
+            ],
+            "group_dcid_3": [
+                "21152562"
+            ],
+            "group_dcid_4": [
+                "21152565"
+            ],
+            "group_dcid_5": [
+                "21152568"
+            ],
+            "group_dcid_6": [
+                "21152574"
+            ],
+            "clustering.method": [
+                "coordinate"
+            ],
+            "clustering.output_clusters": [
+                "true"
+            ]
+            },
+            "filtering_group_size": {
+                "default": 50,
+                "i02-1": 10
+            },
+            "backoff-delay": "8",
+            "backoff-max-try": "10",
+            "backoff-multiplier": "2"
+        }
+        """
+
+        # For now, just trigger for VMXm
+        if parameters.beamline != "i02-1":
+            self.log.info(
+                f"xia2.multiplex_filtering currently not triggered for beamline {parameters.beamline}."
+            )
+            return {"success": True}
+
+        # even though could be multiple different multiplex jobs for a given DCID, only have one here
+        # Think this is because the multiplex filtering is triggered off the individual multiplex jobs
+
+        if parameters.cluster_num != "None":
+            is_cluster = True
+        else:
+            is_cluster = False
+
+        if is_cluster:
+            self.log.info(
+                f"Incoming multiplex is cluster {parameters.cluster_num}. Filtering not currently supported for clusters."
+            )
+            return {"success": True}
+        else:
+            multiplex_dir = parameters.multiplex_job
+            if not multiplex_dir.is_dir():
+                self.log.error(
+                    f"Given multiplex directory {multiplex_dir} does not exist. Aborting job."
+                )
+                return {"success": True}
+            else:
+                self.log.info(f"Previous multiplex job at {multiplex_dir}")
+
+            # Add in delay in case not finished
+            status = {
+                "ntry": 0,
+            }
+            if isinstance(message, dict):
+                status.update(message.get("trigger-status", {}))
+            message_delay = int(
+                parameters.backoff_delay
+                * parameters.backoff_multiplier ** status["ntry"]
+            )
+            status["ntry"] += 1
+            self.log.debug(
+                f"dcid={parameters.dcid}\nmessage_delay={message_delay}\n{status}"
+            )
+
+            min_start_time = datetime.now() - timedelta(hours=24)
+            query = (
+                (
+                    session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
+                )
+                .filter(ProcessingJob.dataCollectionId == parameters.dcid)
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(ProcessingJob.recordTimestamp > min_start_time)  # noqa E711
+                .filter(
+                    AutoProcProgram.processingJobId == parameters.multiplex_id
+                )  # check only parent multiplex
+                .filter(
+                    or_(
+                        AutoProcProgram.processingStatus == None,  # noqa E711
+                        AutoProcProgram.processingStartTime == None,  # noqa E711
+                    )
+                )
+            )
+
+            # If there are any running (or yet to start) jobs, then checkpoint with delay
+            waiting_processing_jobs = query.all()
+
+            # Check if finished copying files over
+
+            needed_files = [
+                multiplex_dir / "models.expt",
+                multiplex_dir / "observations.refl",
+                multiplex_dir / "scaled.mtz",
+                multiplex_dir / "xia2-multiplex-working.phil",
+                multiplex_dir / "xia2.multiplex.json",
+            ]
+
+            for mplx_file in needed_files:
+                if not mplx_file.is_file():
+                    waiting_processing_jobs.append(parameters.multiplex_id)
+                    self.log.info(
+                        f"Files still copying - {mplx_file} not yet present in {multiplex_dir}."
+                    )
+                    break
+
+            if len(waiting_processing_jobs) > 0:
+                self.log.info(
+                    f"Waiting on xia2.multiplex {parameters.multiplex_job} from processing job id {parameters.multiplex_id} to finish processing (dcid {parameters.dcid})"
+                )
+                if status["ntry"] > parameters.backoff_max_try:
+                    # Give up waiting for this program to finish and trigger
+                    # multiplex with remaining related results are available
+                    self.log.info(
+                        f"max-try exceeded, giving up waiting for related processings for dcid {parameters.dcid}\n"
+                    )
+                else:
+                    # Send results to myself for next round of processing
+                    rw.checkpoint(
+                        {
+                            "trigger-status": status,
+                        },
+                        delay=message_delay,
+                        transaction=transaction,
+                    )
+
+                return {"success": True}
+
+            dc = (
+                session.query(DataCollection)
+                .filter(DataCollection.dataCollectionId == parameters.dcid)
+                .one()
+            )
+
+            # define params -> use image_mode because dataset mode is essentially equivalent to clustering
+
+            job_parameters: list[tuple[str, str]] = []
+
+            job_parameters.extend([("input", str(multiplex_dir))])
+
+            if (
+                parameters.diffraction_plan_info
+                and parameters.diffraction_plan_info.anomalousScatterer
+            ):
+                job_parameters.extend(
+                    [
+                        ("anomalous", "true"),
+                        ("absorption_level", "high"),
+                    ]
+                )
+
+            group_size = parameters.filtering_group_size.get(
+                parameters.beamline, parameters.filtering_group_size["default"]
+            )
+
+            job_parameters.extend(
+                [
+                    ("filtering.method", "deltacchalf"),
+                    ("deltacchalf.stdcutoff", "3"),
+                    ("deltacchalf.mode", "image_group"),
+                    ("deltacchalf.group_size", str(group_size)),
+                ]
+            )
+
+            # compile all dcids actually used in previous multiplex job
+            # saves re-doing all the ispyb queries that multiplex does
+            # these are necessary as much filtering is done
+            # eg related dcids stored in the data base can be mix of grid scans and rotation which shoudl not be merged
+
+            dcids = []
+
+            for i in parameters.multiplex_parameters:
+                if "group_dcid" in i:
+                    dcids.append(parameters.multiplex_parameters[i][0])
+
+            # Need either sample_id or sample_group_id in the parameters so that synchweb will display the group name (ie xia2.multiplex_filtering (C7d2_))
+
+            if "sample_id" in parameters.multiplex_parameters:
+                sample_id = parameters.multiplex_parameters["sample_id"][0]
+                job_parameters.append(("sample_id", sample_id))
+                self.log.debug(f"Has sample_id {sample_id}")
+            else:
+                sample_group_id = parameters.multiplex_parameters["sample_group_id"][0]
+                job_parameters.append(("sample_group_id", sample_group_id))
+                self.log.debug(f"Has sample_group_id {sample_group_id}")
+
+            # put parameters into ispyb data base
+
+            jp = self.ispyb.mx_processing.get_job_params()
+            jp["automatic"] = parameters.automatic
+            jp["comments"] = parameters.comment
+            jp["datacollectionid"] = parameters.dcid
+            jp["display_name"] = "xia2.multiplex_filtering"
+            jp["recipe"] = "postprocessing-xia2-multiplex-filtering"
+            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+            self.log.debug(f"xia2.multiplex_filtering trigger: generated JobID {jobid}")
+
+            # Need to add all related dcids to jisp so that synchweb has a label for how many datasets are involved (ie 7x xia2.multiplex_filtering)
+
+            query = (
+                session.query(DataCollection)
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .options(
+                    Load(DataCollection).load_only(
+                        DataCollection.dataCollectionId,
+                        DataCollection.wavelength,
+                        DataCollection.startImageNumber,
+                        DataCollection.numberOfImages,
+                        raiseload=True,
+                    )
+                )
+            )
+
+            for dc in query.all():
+                jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+                jisp["datacollectionid"] = dc.dataCollectionId
+                jisp["start_image"] = dc.startImageNumber
+                jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
+                jisp["job_id"] = jobid
+                jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                    list(jisp.values())
+                )
+                self.log.debug(
+                    f"xia2.multiplex_filtering trigger: generated JobImageSweepID {jispid}"
+                )
+
+            for k, v in job_parameters:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = k
+                jpp["parameter_value"] = v
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(
+                    f"xia2.multiplex_filtering trigger generated JobParameterID {jppid} with {k}={v}"
+                )
+            # send final message
+
+            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+            rw.transport.send("processing_recipe", message)
+
+            self.log.info(
+                f"xia2.multiplex_filtering trigger: Processing job {jobid} triggered"
+            )
+
+            return {"success": True, "return_value": jobid}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_xia2_ssx_reduce(

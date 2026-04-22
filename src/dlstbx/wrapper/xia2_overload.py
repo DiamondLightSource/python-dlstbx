@@ -13,52 +13,6 @@ from dlstbx.wrapper import Wrapper
 class Xia2OverloadWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2_overload"
 
-    def send_to_ispyb(self, transmission):
-        ispyb_command_list = []
-
-        d = {
-            "program": "xia2.overload",
-            "ispyb_command": "insert_screening_output",
-            "screening_id": "$ispyb_screening_id",
-            "store_result": "ispyb_screening_output_id",
-        }
-        ispyb_command_list.append(d)
-
-        d = {
-            "ispyb_command": "insert_screening_strategy",
-            "transmission": transmission,
-            "screening_output_id": "$ispyb_screening_output_id",
-            "store_result": "ispyb_screening_strategy_id",
-        }
-        ispyb_command_list.append(d)
-        
-        d = {
-            "ispyb_command": "insert_screening_strategy_wedge",
-            "screening_strategy_id": "$ispyb_screening_strategy_id",
-            "store_result": "ispyb_screening_strategy_wedge_id",
-        }
-        ispyb_command_list.append(d)
-        
-        d = {
-            "ispyb_command": "insert_screening_strategy_sub_wedge",
-            "transmission": transmission,
-            "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id",
-            "store_result": "ispyb_screening_strategy_sub_wedge_id",
-        }
-        ispyb_command_list.append(d)
-        
-        d = {
-            "ispyb_command": "update_processing_status",
-            "program_id": "$ispyb_autoprocprogram_id",
-            "message": "Processing successful",
-            "status": "success",
-        }
-        ispyb_command_list.append(d)
-
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
-        self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
-
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -121,9 +75,9 @@ class Xia2OverloadWrapper(Wrapper):
         saturation = (max_count / overload_limit) * average_to_peak
         scale_factor = target_countrate_pct / saturation
 
-        scaled_transmission = transmission * scale_factor
-        self.send_to_ispyb(min(100, scaled_transmission))
+        scaled_transmission = min(1, ( transmission * scale_factor ) / 100)
 
+        self.recwrap.send_to("strategy", {"parameters": {"scaled_transmission": scaled_transmission}})
         self.log.info("Done.")
         return True
 

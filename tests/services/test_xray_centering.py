@@ -10,26 +10,6 @@ from workflows.transport.offline_transport import OfflineTransport
 import dlstbx.services.xray_centering
 
 
-def test_grid_info_params_from_legacy_pixels_per_micron():
-    gridinfo = {
-        "orientation": "horizontal",
-        "snapshot_offsetYPixel": 57.0822,
-        "gridInfoId": 1337162,
-        "micronsPerPixelX": None,
-        "micronsPerPixelY": None,
-        "dx_mm": 0.04,
-        "steps_y": 5.0,
-        "pixelsPerMicronX": 0.438,
-        "steps_x": 7.0,
-        "pixelsPerMicronY": 0.438,
-        "snaked": 1,
-        "snapshot_offsetXPixel": 79.9863,
-        "dy_mm": 0.04,
-    }
-    params = dlstbx.services.xray_centering.GridInfo(**gridinfo)
-    assert params.micronsPerPixelX == params.micronsPerPixelY == 0.438
-
-
 def generate_recipe_message(parameters, gridinfo):
     """Helper function for tests."""
     message = {

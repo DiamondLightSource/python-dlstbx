@@ -132,6 +132,12 @@ class DLSArchiver(CommonService):
             group = list(group)
             yield group[0][1], group[-1][1]
 
+    def visit_is_archivable(
+        self, visit: str, forbidden_visit_codes: tuple[str, ...]
+    ) -> bool:
+        """Check if the visit code of a visit is in the list of forbidden visit codes."""
+        return not visit.startswith(forbidden_visit_codes)
+
     def archive_dcid(self, rw, header, message):
         """Archive collected datafiles connected to a data collection."""
 
@@ -141,6 +147,15 @@ class DLSArchiver(CommonService):
 
         # Extract parameters from the recipe
         params = rw.recipe_step["parameters"]
+
+        forbidden_visit_codes = tuple(params.get("forbidden-visit-codes", ()))
+        if not self.visit_is_archivable(params["visit"], forbidden_visit_codes):
+            self.log.info(
+                f"Skipping archiving of {params['pattern']} because it is from a forbidden visit"
+            )
+            self._transport.transaction_commit(txn)
+            return
+
         self.log.info("Attempting to archive %s", params["pattern"])
 
         settings = params.copy()
@@ -264,6 +279,7 @@ class DLSArchiver(CommonService):
 
         # Extract parameters
         params = rw.recipe_step["parameters"]
+
         if isinstance(message, dict):
             multipart = message.get("archive-multipart", 1)
             filelist = message.get("filelist", params.get("filelist", []))
@@ -287,24 +303,21 @@ class DLSArchiver(CommonService):
         )
         file_range_limit = int(params.get("limit-files", 0))
 
-        filepaths = filelist[0].split("/")
-        beamline = "unknown"
-        visit_id = "unknown"
-        try:
-            if filepaths[1:3] == ["dls", "mx"]:
-                beamline = "i02-2"  # VMXi currently only beamline with new visit path structure
-            else:
-                beamline = filepaths[2]
-            visit_id = filepaths[5]
-        except IndexError:
-            pass
-        visit_id = params.get("visit", visit_id)
-        beamline = params.get("beamline", beamline)
-
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
+        visit_id = params["visit"]
+        beamline = params["beamline"]
+        forbidden_visit_codes = tuple(params.get("forbidden-visit-codes", ()))
+        if not self.visit_is_archivable(visit_id, forbidden_visit_codes):
+            self.log.info(
+                f"Skipping archiving of {filelist} because it is from a forbidden visit"
+            )
+            self._transport.transaction_commit(txn)
+            return
+
+        filepaths = filelist[0].split("/")
         # Archive files
         df = Dropfile(visit_id.upper(), beamline, "/".join(filepaths[6:-1]) or "topdir")
 

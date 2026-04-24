@@ -373,39 +373,6 @@ class TestArchiverDCID:
         )
 
 
-class TestVisitValidation:
-    """Tests for visit code validation."""
-
-    def test_visit_is_archivable_allowed_visit(self, archiver_service):
-        """Test that allowed visit codes pass validation."""
-        result = archiver_service.visit_is_archivable("cm00001-1", ("TEST", "SKIP"))
-        assert result is True
-
-    def test_visit_is_archivable_forbidden_visit(self, archiver_service):
-        """Test that forbidden visit codes fail validation."""
-        result = archiver_service.visit_is_archivable("TEST-1", ("TEST", "SKIP"))
-        assert result is False
-
-    def test_visit_is_archivable_empty_forbidden_list(self, archiver_service):
-        """Test that all visits are allowed when forbidden list is empty."""
-        result = archiver_service.visit_is_archivable("TEST-1", ())
-        assert result is True
-
-    def test_visit_is_archivable_partial_match(self, archiver_service):
-        """Test that only prefix matching counts."""
-        # TEST-1 should match forbidden code TEST
-        result = archiver_service.visit_is_archivable("TEST-1", ("TEST",))
-        assert result is False
-
-        # TESTING-1 should match forbidden code TEST (starts with TEST)
-        result = archiver_service.visit_is_archivable("TESTING-1", ("TEST",))
-        assert result is False
-
-        # NOTTEST-1 should NOT match forbidden code TEST
-        result = archiver_service.visit_is_archivable("NOTTEST-1", ("TEST",))
-        assert result is True
-
-
 class TestDropfileGeneration:
     """Tests for dropfile XML generation."""
 

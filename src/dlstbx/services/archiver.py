@@ -167,7 +167,8 @@ class DLSArchiver(CommonService):
         file_range_limit = int(settings.get("limit-files", 0))
 
         filepaths = params["pattern"].split("/")
-        _, _, beamline, _, _, visit_id = filepaths[0:6]
+        beamline = params["beamline"]
+        visit_id = params["visit"]
 
         df = Dropfile(visit_id.upper(), beamline, "/".join(filepaths[6:-1]) or "topdir")
 
@@ -279,7 +280,6 @@ class DLSArchiver(CommonService):
 
         # Extract parameters
         params = rw.recipe_step["parameters"]
-
         if isinstance(message, dict):
             multipart = message.get("archive-multipart", 1)
             filelist = message.get("filelist", params.get("filelist", []))

@@ -6,6 +6,7 @@ import os
 import os.path
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from pathlib import Path
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -166,11 +167,12 @@ class DLSArchiver(CommonService):
 
         file_range_limit = int(settings.get("limit-files", 0))
 
-        filepaths = params["pattern"].split("/")
+        filepath = Path(params["pattern"])
+        dataset_name = Path(*filepath.parts[6:-1]).as_posix() or "topdir"
         beamline = params["beamline"]
         visit_id = params["visit"]
 
-        df = Dropfile(visit_id.upper(), beamline, "/".join(filepaths[6:-1]) or "topdir")
+        df = Dropfile(visit_id.upper(), beamline, dataset_name)
 
         message_out = {"success": 0, "failed": 0}
         files_not_found = []
@@ -317,9 +319,10 @@ class DLSArchiver(CommonService):
             self._transport.transaction_commit(txn)
             return
 
-        filepaths = filelist[0].split("/")
+        filepath = Path(filelist[0])
+        dataset_name = Path(*filepath.parts[6:-1]).as_posix() or "topdir"
         # Archive files
-        df = Dropfile(visit_id.upper(), beamline, "/".join(filepaths[6:-1]) or "topdir")
+        df = Dropfile(visit_id.upper(), beamline, dataset_name)
 
         message_out = {"success": 0, "failed": 0}
         files_not_found = []

@@ -2427,8 +2427,8 @@ class DLSTrigger(CommonService):
             # Check if finished copying files over
 
             needed_files = [
-                multiplex_dir / "models.expt",
-                multiplex_dir / "observations.refl",
+                multiplex_dir / "models_scaled.expt",
+                multiplex_dir / "observations_scaled.refl",
                 multiplex_dir / "scaled.mtz",
                 multiplex_dir / "xia2-multiplex-working.phil",
                 multiplex_dir / "xia2.multiplex.json",

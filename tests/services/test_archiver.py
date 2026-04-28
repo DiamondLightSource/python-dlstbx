@@ -135,14 +135,14 @@ class TestArchiverFilelist:
         # Create test files
         files = create_test_files(tmp_path, ["file1.txt"])
 
-        # Create recipe parameters with forbidden visit code
+        # Create recipe parameters with forbidden industrial visit code
         dropfile_path = tmp_path / "dropfile.xml"
         parameters = {
             "visit": "in12345-1",
             "beamline": "i03",
             "dropfile": str(dropfile_path),
             "filelist": files,
-            "forbidden-visit-codes": ["in", "il"],
+            "allowed-industrial-visit-codes": [],
         }
 
         # Create message
@@ -160,6 +160,46 @@ class TestArchiverFilelist:
         # Verify no dropfile was created
         assert not dropfile_path.exists(), (
             "Dropfile should not be created for forbidden visit"
+        )
+
+        # Verify transaction was committed
+        transport.transaction_commit.assert_called_with(txn)
+
+    def test_archive_filelist_with_allowed_industrial_visit_code(
+        self, archiver_service, mock_transport, tmp_path
+    ):
+        """Test that a dropfile is created when an industrial visit is explicitly allowed."""
+        transport, txn = mock_transport
+        archiver_service._transport = transport
+
+        # Create test files
+        files = create_test_files(tmp_path, ["file1.txt", "file2.txt"])
+
+        # Create recipe parameters with allowed industrial visit code
+        dropfile_path = tmp_path / "dropfile.xml"
+        parameters = {
+            "visit": "in12345-1",
+            "beamline": "i03",
+            "dropfile": str(dropfile_path),
+            "filelist": files,
+            "allowed-industrial-visit-codes": ["in"],
+        }
+
+        # Create message
+        message = create_recipe_message_filelist(parameters, files)
+        header = {
+            "message-id": "test-message-id",
+            "subscription": "test-subscription",
+        }
+
+        # Create wrapper and call method
+        rw = RecipeWrapper(message=message, transport=OfflineTransport())
+        rw._transport = OfflineTransport()
+        archiver_service.archive_filelist(rw, header, message.get("payload"))
+
+        # Verify dropfile was created
+        assert dropfile_path.exists(), (
+            "Dropfile should be created for allowed industrial visit"
         )
 
         # Verify transaction was committed
@@ -303,7 +343,7 @@ class TestArchiverDCID:
             filepath = image_dir / f"image_{i:06d}.h5"
             filepath.write_text(f"Image data {i}")
 
-        # Create recipe parameters with forbidden visit code
+        # Create recipe parameters with forbidden industrial visit code
         dropfile_path = tmp_path / "dropfile.xml"
         parameters = {
             "visit": "in12345-1",
@@ -311,7 +351,7 @@ class TestArchiverDCID:
             "pattern-start": "1",
             "pattern-end": "1",
             "dropfile": str(dropfile_path),
-            "forbidden-visit-codes": ["in", "il"],
+            "allowed-industrial-visit-codes": [],
         }
 
         # Create message
@@ -329,6 +369,55 @@ class TestArchiverDCID:
         # Verify no dropfile was created
         assert not dropfile_path.exists(), (
             "Dropfile should not be created for forbidden visit"
+        )
+
+        # Verify transaction was committed
+        transport.transaction_commit.assert_called_with(txn)
+
+    def test_archive_dcid_with_allowed_industrial_visit_code(
+        self, archiver_service, mock_transport, tmp_path
+    ):
+        """Test that a dropfile is created when an industrial visit is explicitly allowed."""
+        transport, txn = mock_transport
+        archiver_service._transport = transport
+
+        # Create test files
+        image_dir = (
+            tmp_path / "data" / "cm" / "TEST" / "i03" / "2024" / "Jan" / "TEST-1"
+        )
+        image_dir.mkdir(parents=True, exist_ok=True)
+        pattern = str(image_dir / "image_%06d.h5")
+        for i in range(1, 2):
+            filepath = image_dir / f"image_{i:06d}.h5"
+            filepath.write_text(f"Image data {i}")
+
+        # Create recipe parameters with allowed industrial visit code
+        dropfile_path = tmp_path / "dropfile.xml"
+        parameters = {
+            "visit": "in12345-1",
+            "beamline": "i03",
+            "pattern": pattern,
+            "pattern-start": "1",
+            "pattern-end": "1",
+            "dropfile": str(dropfile_path),
+            "allowed-industrial-visit-codes": ["in"],
+        }
+
+        # Create message
+        message = create_recipe_message_dcid(parameters)
+        header = {
+            "message-id": "test-message-id",
+            "subscription": "test-subscription",
+        }
+
+        # Create wrapper and call method
+        rw = RecipeWrapper(message=message, transport=OfflineTransport())
+        rw._transport = OfflineTransport()
+        archiver_service.archive_dcid(rw, header, message.get("payload"))
+
+        # Verify dropfile was created
+        assert dropfile_path.exists(), (
+            "Dropfile should be created for allowed industrial visit"
         )
 
         # Verify transaction was committed

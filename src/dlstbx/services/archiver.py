@@ -11,6 +11,8 @@ from pathlib import Path
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+from dlstbx.util import INDUSTRIAL_CODES
+
 
 class Dropfile:
     """A class encapsulating the XML dropfile tree as it is built up."""
@@ -134,10 +136,14 @@ class DLSArchiver(CommonService):
             yield group[0][1], group[-1][1]
 
     def visit_is_archivable(
-        self, visit: str, forbidden_visit_codes: tuple[str, ...]
+        self, visit: str, allowed_industrial_visit_codes: tuple[str, ...]
     ) -> bool:
-        """Check if the visit code of a visit is in the list of forbidden visit codes."""
-        return not visit.startswith(forbidden_visit_codes)
+        """Return false if visit has an industrial code that is not in the list of allowed industrial visit codes."""
+        if visit.startswith(tuple(INDUSTRIAL_CODES)) and not visit.startswith(
+            allowed_industrial_visit_codes
+        ):
+            return False
+        return True
 
     def archive_dcid(self, rw, header, message):
         """Archive collected datafiles connected to a data collection."""
@@ -149,8 +155,12 @@ class DLSArchiver(CommonService):
         # Extract parameters from the recipe
         params = rw.recipe_step["parameters"]
 
-        forbidden_visit_codes = tuple(params.get("forbidden-visit-codes", ()))
-        if not self.visit_is_archivable(params["visit"], forbidden_visit_codes):
+        allowed_industrial_visit_codes = tuple(
+            params.get("allowed-industrial-visit-codes", ())
+        )
+        if not self.visit_is_archivable(
+            params["visit"], allowed_industrial_visit_codes
+        ):
             self.log.info(
                 f"Skipping archiving of {params['pattern']} because it is from a forbidden visit"
             )
@@ -311,8 +321,10 @@ class DLSArchiver(CommonService):
 
         visit_id = params["visit"]
         beamline = params["beamline"]
-        forbidden_visit_codes = tuple(params.get("forbidden-visit-codes", ()))
-        if not self.visit_is_archivable(visit_id, forbidden_visit_codes):
+        allowed_industrial_visit_codes = tuple(
+            params.get("allowed-industrial-visit-codes", ())
+        )
+        if not self.visit_is_archivable(visit_id, allowed_industrial_visit_codes):
             self.log.info(
                 f"Skipping archiving of {filelist} because it is from a forbidden visit"
             )

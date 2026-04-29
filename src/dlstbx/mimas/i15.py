@@ -14,7 +14,6 @@ def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
-            "generate-crystal-thumbnails",
             "processing-rlv",
             "strategy-screen19",
             "per-image-analysis-rotation",

@@ -144,9 +144,6 @@ def handle_eiger_end(
 ) -> List[mimas.Invocation]:
     stopped = scenario.runstatus == "DataCollection Stopped"
     tasks: List[mimas.Invocation] = [
-        mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        ),
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),
     ]
     if not stopped:
@@ -163,11 +160,7 @@ def handle_pilatus_end(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    return [
-        mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        )
-    ]
+    return []
 
 
 @mimas.match_specification(is_eiger & is_screening & is_end & is_mx_beamline & ~is_vmxi)

@@ -144,7 +144,7 @@ def gridscan3d(
                 )
             )
             max_count = int(thresholded[max_voxel])
-            n_voxels = np.count_nonzero(labels == sub_label)
+            n_voxels = np.count_nonzero(sub_labels == sub_label)
             total_count = int(
                 scipy.ndimage.sum_labels(
                     thresholded, labels=sub_labels, index=sub_label

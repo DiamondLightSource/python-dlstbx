@@ -118,6 +118,7 @@ service_list = [
     "DLSNexusParser = dlstbx.services.nexusparser:DLSNexusParser",
     "DLSNotifyGDA = dlstbx.services.notifygda:DLSNotifyGDA",
     "DLSPerImageAnalysis = dlstbx.services.per_image_analysis:DLSPerImageAnalysis",
+    "DLSResonetResolution = dlstbx.services.resonet_resolution:DLSResonetResolution",
     "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
     "DLSStrategy = dlstbx.services.strategy:DLSStrategy",
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",

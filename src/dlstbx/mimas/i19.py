@@ -139,11 +139,7 @@ def handle_i19_end_eiger(
 
 @mimas.match_specification(is_i19 & is_end & ~is_serial)
 def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
-    tasks: List[mimas.Invocation] = [
-        mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        )
-    ]
+    tasks: List[mimas.Invocation] = []
 
     ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
     extra_params: List[ParamTuple] = [()]

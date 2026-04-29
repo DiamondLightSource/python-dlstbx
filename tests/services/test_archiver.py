@@ -20,10 +20,15 @@ def mock_transport():
 
 @pytest.fixture
 def archiver_service(mock_transport):
-    """Create a DLSArchiver service instance with mocked transport."""
+    """Create a DLSArchiver service instance with mocked transport and config."""
     transport, _ = mock_transport
     service = DLSArchiver()
     service._transport = transport
+    service._environment = {
+        "config": mock.Mock(
+            storage={"zocalo.archiver.allowed_industrial_visit_codes": ["sw"]},
+        )
+    }
     return service
 
 
@@ -142,7 +147,6 @@ class TestArchiverFilelist:
             "beamline": "i03",
             "dropfile": str(dropfile_path),
             "filelist": files,
-            "allowed-industrial-visit-codes": [],
         }
 
         # Create message
@@ -178,11 +182,10 @@ class TestArchiverFilelist:
         # Create recipe parameters with allowed industrial visit code
         dropfile_path = tmp_path / "dropfile.xml"
         parameters = {
-            "visit": "in12345-1",
+            "visit": "sw12345-1",
             "beamline": "i03",
             "dropfile": str(dropfile_path),
             "filelist": files,
-            "allowed-industrial-visit-codes": ["in"],
         }
 
         # Create message
@@ -351,7 +354,6 @@ class TestArchiverDCID:
             "pattern-start": "1",
             "pattern-end": "1",
             "dropfile": str(dropfile_path),
-            "allowed-industrial-visit-codes": [],
         }
 
         # Create message
@@ -394,13 +396,12 @@ class TestArchiverDCID:
         # Create recipe parameters with allowed industrial visit code
         dropfile_path = tmp_path / "dropfile.xml"
         parameters = {
-            "visit": "in12345-1",
+            "visit": "sw12345-1",
             "beamline": "i03",
             "pattern": pattern,
             "pattern-start": "1",
             "pattern-end": "1",
             "dropfile": str(dropfile_path),
-            "allowed-industrial-visit-codes": ["in"],
         }
 
         # Create message

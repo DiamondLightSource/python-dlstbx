@@ -156,7 +156,9 @@ class DLSArchiver(CommonService):
         params = rw.recipe_step["parameters"]
 
         allowed_industrial_visit_codes = tuple(
-            params.get("allowed-industrial-visit-codes", ())
+            self.config.storage.get(
+                "zocalo.archiver.allowed_industrial_visit_codes", []
+            )
         )
         if not self.visit_is_archivable(
             params["visit"], allowed_industrial_visit_codes
@@ -322,7 +324,9 @@ class DLSArchiver(CommonService):
         visit_id = params["visit"]
         beamline = params["beamline"]
         allowed_industrial_visit_codes = tuple(
-            params.get("allowed-industrial-visit-codes", ())
+            self.config.storage.get(
+                "zocalo.archiver.allowed_industrial_visit_codes", []
+            )
         )
         if not self.visit_is_archivable(visit_id, allowed_industrial_visit_codes):
             self.log.info(

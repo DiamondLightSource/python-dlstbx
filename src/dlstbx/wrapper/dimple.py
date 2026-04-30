@@ -317,8 +317,14 @@ class DimpleWrapper(Wrapper):
                 os.fspath(self.results_directory), symlink
             )
             mtzsymlink = mtz.parent / symlink
-            if not mtzsymlink.exists():
+            if "multiplex" in mtzsymlink.name:
+                parts = list(mtzsymlink.parts)
+                parts.remove("DataFiles")
+                mtzsymlink = pathlib.Path(*parts)
+                deltapath = os.path.relpath(self.results_directory, mtz.parent.parent)
+            else:
                 deltapath = os.path.relpath(self.results_directory, mtz.parent)
+            if not mtzsymlink.exists():
                 os.symlink(deltapath, mtzsymlink)
         for f in self.working_directory.iterdir():
             if f.name.startswith("."):

@@ -248,8 +248,8 @@ class Xia2MultiplexWrapper(Wrapper):
                 self.log.debug(result.stderr)
         self.log.info(f"working_directory: {working_directory}")
 
-        scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
-        multiplex_json = working_directory / "xia2.multiplex.json"
+        scaled_unmerged_mtz = working_directory / "DataFiles/scaled_unmerged.mtz"
+        multiplex_json = working_directory / "Processing/xia2.multiplex.json"
 
         # Placeholder logic to keep existing functionality - TODO - review if this is needed still
         if not (scaled_unmerged_mtz.is_file() and multiplex_json.is_file()):
@@ -257,6 +257,10 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Create results directory
         results_directory.mkdir(parents=True, exist_ok=True)
+        subdirs = ("DataFiles", "LogFiles", "Processing")
+        for subdir in subdirs:
+            new_dir = results_directory / subdir
+            new_dir.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory, params["create_symlink"]
@@ -275,6 +279,10 @@ class Xia2MultiplexWrapper(Wrapper):
                     for patt in pipeline_final_params["patterns"]
                 )
 
+        for subdir in subdirs:
+            new_dir = final_directory / subdir
+            new_dir.mkdir(parents=True, exist_ok=True)
+
         keep_ext = {
             ".png": None,
             ".log": "log",
@@ -285,6 +293,8 @@ class Xia2MultiplexWrapper(Wrapper):
             ".mtz": None,
             ".html": "log",
             ".sca": None,
+            ".bib": "misc",  # want these copied, don't need in synchweb
+            ".phil": "misc",
         }
         keep = {
             "scaled.mtz": "result",
@@ -299,8 +309,8 @@ class Xia2MultiplexWrapper(Wrapper):
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
         primary_log_files = [
-            working_directory / "xia2.multiplex.html",
-            working_directory / "xia2.multiplex.log",
+            working_directory / "LogFiles/xia2.multiplex.html",
+            working_directory / "LogFiles/xia2.multiplex.log",
         ]
 
         allfiles = []
@@ -311,33 +321,53 @@ class Xia2MultiplexWrapper(Wrapper):
                 d = json.load(fh)
 
             for dataset_name, dataset in d["datasets"].items():
+                base_dir_logs = working_directory / "LogFiles"
+                base_dir_results = working_directory / "DataFiles"
+
                 if dataset_name == "All data":
-                    base_dir = working_directory
+                    base_dir_processing = working_directory / "Processing"
                     dimple_symlink = "dimple-xia2.multiplex"
                     cluster_prefix = ""
                     cluster_num = None
+                    cluster_results = None
                 elif "coordinate cluster" in dataset_name:
                     cluster_count += 1
                     cluster_num = dataset_name.split(" ")[-1]
                     cluster_prefix = f"coordinate_cluster_{cluster_num}_"
-                    base_dir = working_directory / f"coordinate_cluster_{cluster_num}"
+                    base_dir_processing = (
+                        working_directory
+                        / f"Processing/coordinate_cluster_{cluster_num}"
+                    )
                     dimple_symlink = (
                         f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
                     )
+                    cluster_results = (
+                        results_directory
+                        / f"Processing/coordinate_cluster_{cluster_num}"
+                    )
+                    cluster_results.mkdir(parents=True, exist_ok=True)
+                    cluster_final = (
+                        final_directory / f"Processing/coordinate_cluster_{cluster_num}"
+                    )
+                    cluster_final.mkdir(parents=True, exist_ok=True)
                 else:
                     self.log.warning(
                         f"Ignoring unrecognised dataset pattern {dataset_name}"
                     )
                     continue
 
-                scaled_unmerged_mtz = base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
+                scaled_unmerged_mtz = (
+                    base_dir_results / f"{cluster_prefix}scaled_unmerged.mtz"
+                )
                 i_obs = iotbx.merging_statistics.select_data(
                     scaled_unmerged_mtz.as_posix(), data_labels=None
                 )
 
                 merging_stats = dataset["merging_stats"]
                 merging_stats_anom = dataset["merging_stats_anom"]
-                with (base_dir / f"{cluster_prefix}merging-stats.json").open("w") as fh:
+                with (base_dir_results / f"{cluster_prefix}merging-stats.json").open(
+                    "w"
+                ) as fh:
                     json.dump(merging_stats, fh)
 
                 ispyb_d = {
@@ -379,7 +409,13 @@ class Xia2MultiplexWrapper(Wrapper):
                 xtriage_results = dataset.get("xtriage")
                 attachments = []
 
-                for filename in set(primary_log_files + list(base_dir.iterdir())):
+                for filename in set(
+                    primary_log_files
+                    + list(base_dir_processing.iterdir())
+                    + list(base_dir_results.iterdir())
+                    + list(base_dir_logs.iterdir())
+                    + list(working_directory.iterdir())
+                ):
                     filetype = None
                     if not filename.is_file():
                         continue  # primary log files may not actually exist
@@ -390,14 +426,27 @@ class Xia2MultiplexWrapper(Wrapper):
                     if filetype is None:
                         continue
 
-                    destination = results_directory / filename.name
-                    if (
-                        destination.as_posix() in allfiles
-                        and filename not in primary_log_files
-                    ):
-                        destination = (
-                            results_directory / f"{cluster_prefix}{filename.name}"
-                        )
+                    # Work out if in Processing, DataFiles or LogFiles (parent_dir)
+
+                    parent_dir = None
+
+                    for i in subdirs:
+                        if i in filename.parts:
+                            parent_dir = i
+
+                    if not parent_dir:
+                        destination = results_directory / filename.name
+                    else:
+                        # Get folder of clustering results (subdir of Processing)
+
+                        if cluster_results and parent_dir == "Processing":
+                            if cluster_results.name in filename.parts:
+                                destination = cluster_results / filename.name
+                            else:
+                                self.log.warning(f"Broken paths for {filename}")
+                                continue
+                        else:
+                            destination = results_directory / parent_dir / filename.name
 
                     if destination.as_posix() not in allfiles:
                         self.log.debug(f"Copying {filename} to {destination}")
@@ -405,44 +454,77 @@ class Xia2MultiplexWrapper(Wrapper):
                         allfiles.append(destination.as_posix())
 
                     if pipeline_final_params and is_final_result(destination):
-                        destination = final_directory / destination.name
+                        for i, part in enumerate(destination.parts):
+                            if part in subdirs:
+                                destination = final_directory / pathlib.Path(
+                                    *destination.parts[i:]
+                                )
                         if destination not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")
                             shutil.copy(filename, destination)
                             allfiles.append(destination.as_posix())
 
                     # Files uploaded separately for each cluster
-                    if filetype:
-                        attachments.append(
-                            {
-                                "file_path": destination.parent.as_posix(),
-                                "file_name": destination.name,
-                                "file_type": filetype,
-                                "importance_rank": (
-                                    1
-                                    if destination.name.endswith(
-                                        (
-                                            "scaled.mtz",
-                                            "xia2.multiplex.html",
-                                            "xia2.multiplex.log",
-                                        )
-                                    )
-                                    else 2
-                                ),
-                            }
-                        )
+
+                    file_data = {
+                        "file_path": destination.parent.as_posix(),
+                        "file_name": destination.name,
+                        "file_type": filetype,
+                        "importance_rank": (
+                            1
+                            if destination.name.endswith(
+                                (
+                                    "scaled.mtz",
+                                    "xia2.multiplex.html",
+                                    "xia2.multiplex.log",
+                                )
+                            )
+                            else 2
+                        ),
+                    }
+
+                    if "DataFiles" in destination.parts and filetype:
+                        # if it is a cluster, only append cluster files
+                        if cluster_results and "coordinate_cluster" in destination.name:
+                            attachments.append(file_data)
+                        # if it is not a cluster, only append non-cluster files
+                        elif (
+                            not cluster_results
+                            and "coordinate_cluster" not in destination.name
+                        ):
+                            attachments.append(file_data)
+
+                    elif "LogFiles" in destination.parts and filetype:
+                        # attach all log files for clusters and non-clusters
+                        attachments.append(file_data)
+
+                    elif "Processing" in destination.parts and filetype:
+                        # If cluster, only attach files that are in a cluster folder
+                        if (
+                            cluster_results
+                            and cluster_results.name in destination.parts
+                        ):
+                            attachments.append(file_data)
+                        # it not a cluster, make sure file is not in a cluster folder
+                        elif (
+                            not cluster_results
+                            and destination.parent.name == "Processing"
+                        ):
+                            attachments.append(file_data)
+
                 # Add parameters to the environment to be picked up downstream by trigger function
                 self.recwrap.environment.update(
                     {
                         "scaled_mtz": (
-                            results_directory / f"{cluster_prefix}scaled.mtz"
+                            results_directory / f"DataFiles/{cluster_prefix}scaled.mtz"
                         ).as_posix()
                     }
                 )
                 self.recwrap.environment.update(
                     {
                         "scaled_unmerged_mtz": (
-                            results_directory / f"{cluster_prefix}scaled_unmerged.mtz"
+                            results_directory
+                            / f"DataFiles/{cluster_prefix}scaled_unmerged.mtz"
                         ).as_posix()
                     }
                 )

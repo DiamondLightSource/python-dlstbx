@@ -62,13 +62,6 @@ class MimasService(CommonSystemTest):
         expected_recipe_pointers_and_payloads = (
             (
                 2,
-                {
-                    "recipes": ["generate-crystal-thumbnails"],
-                    "parameters": {"ispyb_dcid": 8257178},
-                },
-            ),
-            (
-                2,
                 {"recipes": ["archive-nexus"], "parameters": {"ispyb_dcid": 8257178}},
             ),
             (

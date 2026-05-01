@@ -42,7 +42,9 @@ class PanDDAWrapper(Wrapper):
         panddas_dir = Path(pandda_dir / "panddas")
         Path(panddas_dir).mkdir(exist_ok=True)
 
+        reprocessing = params.get("reprocessing")
         n_datasets = int(params.get("n_datasets"))
+
         if n_datasets > 1:  # array job case
             batch = True
             with open(model_dir / ".batch.json", "r") as f:
@@ -121,11 +123,15 @@ class PanDDAWrapper(Wrapper):
         pandda2_log = dataset_pdir / "pandda2.log"
         attachments.extend([pandda2_log, ligand_cif])
 
-        args_string = self.get_pandda_settings(
-            user_yaml
-        )  # user specified pandda parameters
+        if reprocessing and dataset_pdir.exists():
+            shutil.rmtree(dataset_pdir)
+
+        # add any user specified pandda parameters
+        args_string = self.get_pandda_settings(user_yaml)
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=False --local_cpus=4 {args_string}"
+        python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=True --local_cpus=4 {args_string}"
+
+        self.log.info(f"Running PanDDA2 command: {pandda2_command}")
 
         try:
             result = subprocess.run(
@@ -187,12 +193,12 @@ class PanDDAWrapper(Wrapper):
 
         event_idx = best_key
         # bdc = best_entry["BDC"]
-        coord = best_entry["Centroid"]
+        event_score = best_entry["Score"]
+        event_coord = best_entry["Centroid"]
 
         restricted_build_dmap = dataset_pdir / "build.ccp4"
         z_map = dataset_pdir / f"{dtag}-z_map.native.ccp4"
-        event_map = list(dataset_pdir.glob(f"{dtag}-event_{event_idx}*"))[0]
-        # event_map = dataset_dir / f'{dtag}-event_{event_idx}_1-BDC_{bdc}_map.native.ccp4' #round BDC to 2dp?
+        event_map = next(dataset_pdir.glob(f"{dtag}-event_{event_idx}_1-BDC_*"), None)
         pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
         mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
         restricted_pdb_file = dataset_pdir / "build.pdb"
@@ -200,17 +206,14 @@ class PanDDAWrapper(Wrapper):
         # Rhofit can be confused by hunting non-binding site density. This can be avoided
         # by truncating the map to near the binding site
         dmap = self.read_pandda_map(event_map)
-        dmap = self.mask_map(dmap, coord)
+        dmap = self.mask_map(dmap, event_coord)
         self.save_xmap(dmap, restricted_build_dmap)
 
         # Rhofit masks the protein before building. If the original protein
         # model clips the event then this results in autobuilding becoming impossible.
-        # To address this residues within a 10A neighbourhood of the binding event
-        # are removed.
-        self.log.debug("Removing nearby atoms to make room for autobuilding")
         self.remove_nearby_atoms(
             pdb_file,
-            coord,
+            event_coord,
             10.0,
             restricted_pdb_file,
         )
@@ -221,7 +224,7 @@ class PanDDAWrapper(Wrapper):
         rhofit_log = dataset_pdir / "rhofit.log"
         attachments.extend([event_map, z_map, rhofit_log])
         rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"  # dmap_cut=2.0
+        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"
 
         self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
@@ -245,18 +248,25 @@ class PanDDAWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Ligand scoring
-        # Iterate over rhofit builds and score each one
+        build_scores = {}
         build_dir = out_dir / "rhofit"
-        builds = list(build_dir.glob("Hit*.pdb"))
+        rhofit_builds = list(build_dir.glob("Hit*.pdb"))
 
-        if not builds:
-            self.log.info(f"No rhofit builds for {dtag}, can't continue")
+        # Include any PanDDA2 internal autobuilds
+        pandda2_build = next(
+            dataset_pdir.glob(f"*_event_{best_key}_best_autobuild.pdb"), None
+        )
+        if pandda2_build:
+            build_scores[pandda2_build] = event_score
+
+        if not rhofit_builds and not pandda2_build:
+            self.log.info(f"No autobuilds for {dtag}, can't continue")
             return False
 
-        scores = {}
         self.log.info(f"Running Ligand Score routine for {build_dir}")
 
-        for build_path in builds:
+        # Iterate over rhofit builds and score each one
+        for build_path in rhofit_builds:
             ligand_score = build_dir / f"{build_path.stem}.txt"
 
             st = gemmi.read_structure(str(build_path))
@@ -275,12 +285,12 @@ class PanDDAWrapper(Wrapper):
                 self.log.error(e.stderr)
 
             with open(ligand_score, "r") as file:
-                scores[build_path] = float(file.read().strip())
+                build_scores[build_path] = float(file.read().strip())
 
-        best_build_path = max(scores, key=lambda _x: scores[_x])
-        score = scores[best_build_path]
+        best_build_path = max(build_scores, key=lambda _x: build_scores[_x])
+        best_score = build_scores[best_build_path]
 
-        self.log.info(f"Best ligand score for {dtag} = {score}")
+        self.log.info(f"Best ligand score for {dtag} = {best_score}: {best_build_path}")
 
         # -------------------------------------------------------
         # Merge the protein structure with best fitted ligand -> pandda model
@@ -300,6 +310,11 @@ class PanDDAWrapper(Wrapper):
 
         protein_st.write_pdb(str(pandda_model))
 
+        try:
+            self.remove_waters_from_ligand(pandda_model)
+        except Exception as e:
+            self.log.error(f"Exception removing waters from {pandda_model}: {e}")
+
         # -------------------------------------------------------
         # Output
 
@@ -318,20 +333,20 @@ class PanDDAWrapper(Wrapper):
                 outdir=dataset_pdir,
                 dtag=dtag,
                 smiles=smiles,
-                score=score,
+                score=best_score,
             )
             attachments.extend([mvs_html])
         except Exception as e:
             self.log.debug(f"Exception generating mvs html: {e}")
 
-        # data = [
-        #     ["SMILES code", "Fitted_ligand?", "Hit?"],
-        #     [f"{smiles}", "True", "True"],
-        # ]
-        # json_results = dataset_pdir / "pandda2_results.json"
-        # with open(json_results, "w") as f:
-        #     json.dump(data, f)
-        # attachments.extend([json_results])
+        data = [
+            ["SMILES code", "Best autobuild", "Ligand score"],
+            [f"{smiles}", f"{best_build_path}", f"{best_score}"],
+        ]
+        json_results = dataset_pdir / "pandda2_results.json"
+        with open(json_results, "w") as f:
+            json.dump(data, f)
+        attachments.extend([json_results])
 
         self.log.info(f"Attachments list: {attachments}")
         self.send_attachments_to_ispyb(attachments, batch)
@@ -444,6 +459,53 @@ class PanDDAWrapper(Wrapper):
                         new_st[j][k].add_residue(res)
         new_st.write_pdb(str(pandda_model))
 
+    def remove_waters_from_ligand(self, pandda_model):
+        st = gemmi.read_structure(str(pandda_model))
+        st.setup_entities()
+
+        LIGAND_RES_NAME = "LIG"
+
+        # Collect ligand atoms with their VdW radii
+        ligand_atoms = []  # list of (pos, vdw_radius)
+        for chain in st[0]:
+            for res in chain:
+                if res.name == LIGAND_RES_NAME:
+                    for atom in res:
+                        vdw = atom.element.vdw_r
+                        ligand_atoms.append((atom.pos, vdw))
+
+        max_vdw = max(r for _, r in ligand_atoms)
+        search_radius = max_vdw  # + O_VDW=1.5
+
+        ns = gemmi.NeighborSearch(st[0], st.cell, search_radius).populate()
+
+        # Find waters where any atom overlaps within VdW radii
+        waters_to_remove = set()
+        for lig_pos, lig_vdw in ligand_atoms:
+            for mark in ns.find_atoms(lig_pos, "\0", radius=search_radius):
+                cra = mark.to_cra(st[0])
+                if cra.residue.entity_type != gemmi.EntityType.Water:
+                    continue
+                wat_vdw = cra.atom.element.vdw_r
+                cutoff = lig_vdw + wat_vdw
+                dist = lig_pos.dist(mark.pos)
+                if dist < cutoff:
+                    waters_to_remove.add((cra.chain.name, cra.residue.seqid))
+
+        # Remove waters
+        for chain in st[0]:
+            to_delete = [
+                i
+                for i, res in enumerate(chain)
+                if res.entity_type == gemmi.EntityType.Water
+                and (chain.name, res.seqid) in waters_to_remove
+            ]
+            for i in reversed(to_delete):  # reversed so indices stay valid
+                del chain[i]
+
+        st.write_pdb(str(pandda_model.parents[0] / pandda_model.name))
+        self.log.info(f"Removed {len(waters_to_remove)} waters in {pandda_model.name}")
+
     def get_contact_chain(self, protein_st, ligand_st):
         """A simple estimation of the contact chain based on which chain has the most atoms
         nearby."""
@@ -499,7 +561,7 @@ class PanDDAWrapper(Wrapper):
     def get_pandda_settings(self, yaml_file):
         with open(yaml_file, "r") as file:
             expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
-        settings = expt_yaml["autoprocessing"]["pandda"]
+        settings = expt_yaml.get("autoprocessing", {}).get("pandda", {})
         if settings:
             args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
         else:

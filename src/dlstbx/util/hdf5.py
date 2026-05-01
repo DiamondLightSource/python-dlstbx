@@ -64,7 +64,9 @@ def find_all_references(startfile):
             try:
                 shape = fhed[entry].shape
             except KeyError as e:
-                if "unable to open external file" in str(e) and "'" in str(e):
+                if (
+                    "unable to open external file" in str(e) and "'" in str(e)
+                ) or "(can't open file)" in str(e):
                     log.warning(
                         "Referenced file %s does not exist.", filename, exc_info=True
                     )

@@ -22,6 +22,8 @@ class ArchiverService(CommonSystemTest):
                     "pattern-start": 1,
                     "pattern-end": "10",
                     "dropfile-queue": self.target_queue,
+                    "visit": "mx12345-6",
+                    "beamline": "i03",
                 },
                 "output": 2,
             },
@@ -78,7 +80,8 @@ class ArchiverService(CommonSystemTest):
                 "queue": "archive.filelist",
                 "parameters": {
                     "filelist": files,
-                    "visit": "DIALS",
+                    "visit": "mx12345-6",
+                    "beamline": "i03",
                     "dropfile-queue": self.target_queue,
                 },
                 "output": 2,
@@ -134,6 +137,8 @@ class ArchiverService(CommonSystemTest):
                     "pattern-start": 1,
                     "pattern-end": "10",
                     "limit-files": 6,
+                    "visit": "mx12345-6",
+                    "beamline": "i03",
                 },
                 "output": 2,
             },
@@ -198,7 +203,12 @@ class ArchiverService(CommonSystemTest):
             1: {
                 "service": "DLS Archiver",
                 "queue": "archive.filelist",
-                "parameters": {"filelist": files, "visit": "DIALS", "limit-files": 6},
+                "parameters": {
+                    "filelist": files,
+                    "visit": "mx12345-6",
+                    "beamline": "i03",
+                    "limit-files": 6,
+                },
                 "output": 2,
             },
             2: {
@@ -262,6 +272,8 @@ class ArchiverService(CommonSystemTest):
                     "pattern-start": "40",
                     "pattern-end": 50,
                     "log-summary-warning-as-info": True,
+                    "visit": "mx12345-6",
+                    "beamline": "i03",
                 },
                 "output": {
                     "dropfile": 2,
@@ -327,7 +339,8 @@ class ArchiverService(CommonSystemTest):
                 "queue": "archive.filelist",
                 "parameters": {
                     "filelist": files,
-                    "visit": "DIALS",
+                    "visit": "mx12345-6",
+                    "beamline": "i03",
                     "log-summary-warning-as-info": True,
                 },
                 "output": 2,

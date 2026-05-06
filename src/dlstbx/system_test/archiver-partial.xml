@@ -3,9 +3,9 @@
   <study>
     <investigation>
       <!--Producer: Zocalo dlstbx.services.archiver-->
-      <inv_number>DIALS</inv_number>
-      <visit_id>DIALS</visit_id>
-      <instrument>science</instrument>
+      <inv_number>MX12345</inv_number>
+      <visit_id>MX12345-6</visit_id>
+      <instrument>i03</instrument>
       <title>dont need it</title>
       <inv_type>experiment</inv_type>
       <dataset>

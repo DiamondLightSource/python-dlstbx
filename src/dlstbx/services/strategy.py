@@ -193,9 +193,12 @@ class DLSStrategy(CommonService):
             )
         beamline_config = parse_config_file(beamline_config_file)
 
+        scaled_transmission = parameters.get("scaled_transmission", 1.0) 
+
         transmission_limits = (
             get_beamline_param(beamline_config, ("gda.mx.udc.minTransmission",), 0.0),
-            get_beamline_param(beamline_config, ("gda.mx.udc.maxTransmission",), 1.0),
+            min(get_beamline_param(beamline_config, ("gda.mx.udc.maxTransmission",), 1.0), 
+                scaled_transmission)
         )
         exposure_time_limits = (
             get_beamline_param(

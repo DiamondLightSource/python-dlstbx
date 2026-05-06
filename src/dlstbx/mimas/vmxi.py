@@ -29,9 +29,6 @@ def handle_vmxi_end(
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        ),
-        mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),

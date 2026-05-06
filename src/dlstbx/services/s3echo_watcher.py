@@ -78,11 +78,10 @@ class S3EchoWatcher(CommonService):
             minio_client, bucket_name, dcid, None, None, self.log
         )
         if response_info and response_info["status"] == -1:
-            self.log.error(
+            rw.send_to("failure", message, transaction=txn)
+            raise RuntimeError(
                 f"Upload of the following files to S3 bucket {params['bucket']} reported in error state:\n{pformat(rw.environment['s3echo_upload'])}"
             )
-            rw.send_to("failure", message, transaction=txn)
-            return False
 
         upload_file_list = s3echo_upload_files.keys()
         self.log.debug(f"Full list of files to upload: {pformat(s3echo_upload_files)}")

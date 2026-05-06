@@ -34,7 +34,9 @@ class DLSReverseBridge(CommonService):
         send_to = args
         if send_to:
             try:
-                self.log.info("Shuttling message to ActiveMQ queue %s", send_to)
+                self.log.info(
+                    f"Shuttling message to ActiveMQ queue {send_to}\nMessage content: {message}\nHeaders: {header}"
+                )
                 if send_to == "darc.dropzone":
                     # Archiving queue: expect a bytestring and
                     # don't send to zocalo namespace

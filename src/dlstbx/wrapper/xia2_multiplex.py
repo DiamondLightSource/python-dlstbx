@@ -27,7 +27,12 @@ class Xia2MultiplexWrapper(Wrapper):
     name = "xia2.multiplex"
 
     def send_results_to_ispyb(
-        self, z, xtriage_results=None, cluster_num=None, attachments=[]
+        self,
+        z,
+        xtriage_results=None,
+        cluster_num=None,
+        attachments=[],
+        multiplex_filtering=False,
     ):
         ispyb_command_list = []
 
@@ -138,6 +143,14 @@ class Xia2MultiplexWrapper(Wrapper):
         self.log.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
+        # After xia2.multiplex, xia2.multiplex_filtering can be optionally run to improve data reduction
+        # Currently not supported for clusters
+        # Only triggered if filtering parameters exist -> logic handled in trigger_multiplex
+
+        if not cluster_num and multiplex_filtering:
+            self.log.info("Triggering xia2.multiplex filtering.")
+            self.recwrap.send_to("filtering", True)
+
     def construct_commandline(self, params):
         """Construct xia2.multiplex command line.
         Takes job parameter dictionary, returns array."""
@@ -150,10 +163,15 @@ class Xia2MultiplexWrapper(Wrapper):
             command.append(f)
 
         if params.get("ispyb_parameters"):
-            ignore = {"sample_id", "sample_group_id"}
-            for param in params["ispyb_parameters"]:
-                if "group_dcid" in param:
-                    ignore.add(param)
+            # ignore filtering parameters for xia2.multiplex_filtering
+            ignore = {
+                "sample_id",
+                "sample_group_id",
+                "filtering.method",
+                "deltacchalf.stdcutoff",
+                "deltacchalf.mode",
+                "deltacchalf.group_size",
+            }
             translation = {
                 "d_min": "resolution.d_min",
                 "spacegroup": "symmetry.space_group",
@@ -430,11 +448,27 @@ class Xia2MultiplexWrapper(Wrapper):
                 self.log.info(
                     f"Triggering downstream recipe steps for dataset: '{dataset_name}'"
                 )
+
+                # Check if filtering parameters present -> if so, trigger filtering when sending results to ispyb
+                # Whether or not these are present is currently handled by the trigger service
+
+                filtering = False
+
+                if params.get("ispyb_parameters"):
+                    if ("filtering.method", ["deltacchalf"]) in params[
+                        "ispyb_parameters"
+                    ].items():
+                        self.log.info(
+                            "Additional filtering with xia2.multiplex_filtering selected."
+                        )
+                        filtering = True
+
                 self.send_results_to_ispyb(
                     ispyb_d,
                     xtriage_results=xtriage_results,
                     cluster_num=cluster_num,
                     attachments=attachments,
+                    multiplex_filtering=filtering,
                 )
 
             self._success_counter.inc()

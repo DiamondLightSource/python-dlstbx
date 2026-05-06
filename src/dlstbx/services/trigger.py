@@ -74,7 +74,6 @@ class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0, default=None)
     sample_group_id: Optional[int] = pydantic.Field(gt=0, default=None)
-    name: Optional[str] = None
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -2233,7 +2232,7 @@ class DLSTrigger(CommonService):
                 f"xia2.multiplex_filtering trigger: Processing job {jobid} triggered"
             )
 
-        return {"success": True, "return_value": jobid}
+        return {"success": True, "return_value": jobids}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_xia2_ssx_reduce(

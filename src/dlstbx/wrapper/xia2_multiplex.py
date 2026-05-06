@@ -442,8 +442,6 @@ class Xia2MultiplexWrapper(Wrapper):
                 )
                 self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
 
-                self.recwrap.environment.update({"cluster_number": cluster_num})
-
                 # Send results to ispyb and trigger downstream recipe steps for this dataset
                 self.log.info(
                     f"Triggering downstream recipe steps for dataset: '{dataset_name}'"

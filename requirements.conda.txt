@@ -1,4 +1,6 @@
 drmaa
+h5py
+hdf5 <2
 hdf5plugin
 ispyb>=12.0.0
 junit-xml>=1.9

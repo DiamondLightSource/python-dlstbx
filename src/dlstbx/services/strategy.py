@@ -155,6 +155,7 @@ class DLSStrategy(CommonService):
         recipe_params = rw.recipe_step["parameters"]
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
+            recipe_params.get("ispyb_parameters", {}), 
             recipe_params,
             substitutions=rw.environment,
         )
@@ -163,21 +164,20 @@ class DLSStrategy(CommonService):
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
-        ispyb_parameters = parameters.get("ispyb_parameters", {})
         beamline = (
-            ispyb_parameters["beamline"][0]
-            if isinstance(ispyb_parameters["beamline"], list)
-            else ispyb_parameters["beamline"]
+            parameters["beamline"][0]
+            if isinstance(parameters["beamline"], list)
+            else parameters["beamline"]
         )
         wavelength = (
-            float(ispyb_parameters["wavelength"][0])
-            if isinstance(ispyb_parameters["wavelength"], list)
-            else float(ispyb_parameters["wavelength"])
+            float(parameters["wavelength"][0])
+            if isinstance(parameters["wavelength"], list)
+            else float(parameters["wavelength"])
         )
         resolution_estimate = (
-            float(ispyb_parameters["resolution"][0])
-            if isinstance(ispyb_parameters["resolution"], list)
-            else float(ispyb_parameters["resolution"])
+            float(parameters["resolution"][0])
+            if isinstance(parameters["resolution"], list)
+            else float(parameters["resolution"])
         )
         dc_transmission = (
             float(recipe_params.get("transmission", 100)) / 100

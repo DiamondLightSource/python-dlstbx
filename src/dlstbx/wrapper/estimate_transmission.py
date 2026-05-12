@@ -14,29 +14,6 @@ from dials.array_family import flex
 
 from dlstbx.wrapper import Wrapper
 
-
-def build_hist_from_reflections(reflections):
-    "Iterate through the shoeboxes to a reflection and generate a pixel histogram"
-
-    shoeboxes = reflections["shoebox"]
-    counter = Counter()
-    for sbox in shoeboxes:
-        counter.update(sbox.data.as_numpy_array().ravel())
-
-    sorted_counter = sorted(counter.items())
-    return zip(*sorted_counter)
-
-
-def get_percentile_index(num_pixels, percentile):
-    threshold = sum(num_pixels) * percentile
-
-    for i, cum_sum in enumerate(accumulate(num_pixels)):
-        if cum_sum >= threshold:
-            return i
-
-    return len(num_pixels)
-
-
 class EstimateTransmissionWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.estimate_transmission"
 
@@ -48,9 +25,8 @@ class EstimateTransmissionWrapper(Wrapper):
         results_directory = Path(params["results_directory"])
 
         beamline = params["beamline"]
-        pixel_percentile = params["pixel_percentile"].get(beamline, 100) / 100
-        target_countrate_pct = params["target_countrate_pct"].get(beamline, 25) / 100
-        oscillation = float(params["oscillation"])
+        trusted_countrate_pct = params["trusted_countrate_pct"].get(beamline, 100) / 100
+        target_countrate_pct = params["target_max_pixel_countrate_pct"].get(beamline, 50) / 100
         transmission = float(params["transmission"])
         file = params["input_file"]
 
@@ -102,23 +78,24 @@ class EstimateTransmissionWrapper(Wrapper):
 
         reflection_file = results_directory / "strong.refl"
         reflections = flex.reflection_table.from_file(reflection_file)
-        num_counts, num_pixels = build_hist_from_reflections(reflections)
+        num_counts, _ = self.build_hist_from_reflections(reflections)
 
-        index_of_percentile = get_percentile_index(num_pixels, pixel_percentile)
-        counts_at_percentile = num_counts[index_of_percentile]
+        max_counts = num_counts[-1]  
 
-        mosaicity_corr = params.get("mosaicity_correction", False)
-        average_to_peak = (
-            self.mosaicity_correction(mosaicity_corr, oscillation)
-            if mosaicity_corr
-            else 1
-        )
+        max_pixel_countrate_pct = max_counts / trusted_range 
+        if max_pixel_countrate_pct < trusted_countrate_pct: 
+            self.log.info(f"Max pixel is less intense than the trusted value of {trusted_countrate_pct}. Pixel intensity is {max_pixel_countrate_pct}")
+            self.log.info(f"Recommended transmission will not be scaled")
 
-        countrate_saturation = counts_at_percentile / trusted_range
-        self.log.info(
-            f"Countrate saturation is : {counts_at_percentile / trusted_range}"
-        )
-        scale_factor = average_to_peak * target_countrate_pct / countrate_saturation
+            self.recwrap.send_to(
+                "strategy",
+                {"parameters": {"scaled_transmission": transmission}},
+            )
+
+            self.log.info("Done.")
+            return True
+
+        scale_factor =  target_countrate_pct / max_pixel_countrate_pct
 
         scaled_transmission = min(1, (transmission * scale_factor) / 100)
         self.log.info(f"Scaled transmission is : {scaled_transmission}")
@@ -131,12 +108,13 @@ class EstimateTransmissionWrapper(Wrapper):
         self.log.info("Done.")
         return True
 
-    def mosaicity_correction(self, moscaicity_coefficent: float, oscillation: float):
-        delta_z = oscillation / (moscaicity_coefficent) * math.sqrt(2)
-        average_to_peak = (
-            math.sqrt(math.pi) * delta_z * math.erf(delta_z)
-            + math.exp(-(delta_z * delta_z))
-            - 1
-        ) / (delta_z * delta_z)
-        self.log.info("Average-to-peak intensity ratio: %f", average_to_peak)
-        return average_to_peak
+    def build_hist_from_reflections(self, reflections):
+        "Iterate through the shoeboxes to a reflection and generate a pixel histogram"
+
+        shoeboxes = reflections["shoebox"]
+        counter = Counter()
+        for sbox in shoeboxes:
+            counter.update(sbox.data.as_numpy_array().ravel())
+
+        sorted_counter = sorted(counter.items())
+        return zip(*sorted_counter)

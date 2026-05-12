@@ -180,7 +180,7 @@ class DLSStrategy(CommonService):
             else float(parameters["resolution"])
         )
         dc_transmission = (
-            float(recipe_params.get("transmission", 100)) / 100
+            float(parameters.get("transmission", 100)) / 100
         )
         resolution_offset = 0.5
         min_resolution = 0.9

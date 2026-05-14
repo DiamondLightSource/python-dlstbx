@@ -222,7 +222,7 @@ class DLSStrategy(CommonService):
             ),
         )
 
-        recipes = {"OSC.yaml": "Native", "Ligand binding.yaml": "Ligand"}
+        recipes = {"OSC.yaml": "Native", "Ligand binding.yaml": "Ligand", "SAD.yaml": "Phasing"}
         ispyb_command_list = []
 
         for recipe, recipe_alias in recipes.items():

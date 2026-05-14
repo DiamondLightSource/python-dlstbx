@@ -229,6 +229,10 @@ class MultiplexParameters(pydantic.BaseModel):
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
     use_clustering: Optional[List[str]] = None
+    use_filtering: Optional[List[str]] = None
+    filtering_group_size: Dict[str, int] = pydantic.Field(
+        default={"default": 50}, alias="filtering-group-size"
+    )
     beamline: str
     trigger_every_collection: bool
 
@@ -2168,6 +2172,7 @@ class DLSTrigger(CommonService):
                 job_parameters.append(("sample_id", str(group.sample_id)))
             else:
                 job_parameters.append(("sample_group_id", str(group.sample_group_id)))
+
             if parameters.spacegroup:
                 job_parameters.append(("spacegroup", parameters.spacegroup))
             if (
@@ -2187,6 +2192,27 @@ class DLSTrigger(CommonService):
                         ("clustering.output_clusters", "true"),
                     ]
                 )
+
+            # See if beamline is in list of allowed ones for filtering
+            # If so, add filtering parameters to job_parameters
+            # This will set the xia2.multiplex wrapper to send the job for filtering after completed
+
+            if (
+                parameters.use_filtering
+                and parameters.beamline in parameters.use_filtering
+            ):
+                group_size = parameters.filtering_group_size.get(
+                    parameters.beamline, parameters.filtering_group_size["default"]
+                )
+
+                job_parameters.extend(
+                    [
+                        ("filtering.method", "deltacchalf"),
+                        ("deltacchalf.stdcutoff", "3"),
+                        ("deltacchalf.mode", "image_group"),
+                        ("deltacchalf.group_size", str(group_size)),
+                    ]
+                )
             for k, v in job_parameters:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
@@ -2202,7 +2228,9 @@ class DLSTrigger(CommonService):
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
             rw.transport.send("processing_recipe", message)
 
-            self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
+            self.log.info(
+                f"xia2.multiplex_filtering trigger: Processing job {jobid} triggered"
+            )
 
         return {"success": True, "return_value": jobids}
 

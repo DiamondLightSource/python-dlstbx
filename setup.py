@@ -93,6 +93,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "xchem_collate = dlstbx.wrapper.xchem_collate:XChemCollateWrapper",
     "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
+    "xia2.multiplex_filtering = dlstbx.wrapper.xia2_multiplex_filtering:Xia2MultiplexFilteringWrapper",
     "xia2.overload = dlstbx.wrapper.xia2_overload:Xia2OverloadWrapper",
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",

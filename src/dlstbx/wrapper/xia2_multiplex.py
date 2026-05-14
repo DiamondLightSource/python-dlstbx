@@ -300,6 +300,7 @@ class Xia2MultiplexWrapper(Wrapper):
         ]
 
         allfiles = []
+        cluster_count = 0
 
         if success:
             with multiplex_json.open("r") as fh:
@@ -312,6 +313,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_prefix = ""
                     cluster_num = None
                 elif "coordinate cluster" in dataset_name:
+                    cluster_count += 1
                     cluster_num = dataset_name.split(" ")[-1]
                     cluster_prefix = f"coordinate_cluster_{cluster_num}_"
                     base_dir = working_directory / f"coordinate_cluster_{cluster_num}"
@@ -470,6 +472,8 @@ class Xia2MultiplexWrapper(Wrapper):
                 )
 
             self._success_counter.inc()
+            if cluster_count >= 2:
+                self.recwrap.send_to("email", True)
         else:
             self._failure_counter.inc()
 

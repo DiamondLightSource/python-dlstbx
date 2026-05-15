@@ -152,9 +152,11 @@ class DLSStrategy(CommonService):
         """Generate a strategy from the results of an upstream pipeline"""
         self.log.info("Received strategy request, generating strategy")
 
+        recipe_params = rw.recipe_step["parameters"]
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"].get("ispyb_parameters", {}),
+            recipe_params.get("ispyb_parameters", {}),
+            recipe_params,
             substitutions=rw.environment,
         )
         self.log.info(f"Received parameters for strategy generation:\n{parameters}")
@@ -177,6 +179,9 @@ class DLSStrategy(CommonService):
             if isinstance(parameters["resolution"], list)
             else float(parameters["resolution"])
         )
+        dc_transmission = (
+            float(parameters.get("transmission", 100)) / 100
+        )
         resolution_offset = 0.5
         min_resolution = 0.9
         resolution = max((resolution_estimate) - resolution_offset, min_resolution)
@@ -193,12 +198,16 @@ class DLSStrategy(CommonService):
             )
         beamline_config = parse_config_file(beamline_config_file)
 
-        scaled_transmission = parameters.get("scaled_transmission", 1.0) 
+        recommended_max_transmission = parameters.get("scaled_transmission", 1.0)
 
-        transmission_limits = (
-            get_beamline_param(beamline_config, ("gda.mx.udc.minTransmission",), 0.0),
-            min(get_beamline_param(beamline_config, ("gda.mx.udc.maxTransmission",), 1.0), 
-                scaled_transmission)
+        transmission_limits = (get_beamline_param(
+            beamline_config, ("gda.mx.udc.minTransmission",), 0.0),
+            min(
+                get_beamline_param(
+                    beamline_config, ("gda.mx.udc.maxTransmission",), 1.0
+                ),
+                recommended_max_transmission
+            ),
         )
         exposure_time_limits = (
             get_beamline_param(
@@ -213,7 +222,7 @@ class DLSStrategy(CommonService):
             ),
         )
 
-        recipes = {"OSC.yaml": "Native", "Ligand binding.yaml": "Ligand"}
+        recipes = {"OSC.yaml": "Native", "Ligand binding.yaml": "Ligand", "SAD.yaml": "Phasing"}
         ispyb_command_list = []
 
         for recipe, recipe_alias in recipes.items():
@@ -304,7 +313,7 @@ class DLSStrategy(CommonService):
                 ispyb_command_list.append(d)
 
                 # Convert transmission to percentage for ISPyB
-                transmission_pct = transmission * 100
+                relative_transmission_pct = transmission / dc_transmission * 100
 
                 axis_end = (
                     rotation_start + rotation_increment * recipe_step.number_of_images
@@ -318,10 +327,11 @@ class DLSStrategy(CommonService):
                     "axisstart": rotation_start,
                     "axisend": axis_end,
                     "exposuretime": exposure_time,
-                    "transmission": transmission_pct,
+                    "transmission": relative_transmission_pct,
                     "oscillationrange": rotation_increment,
                     "noimages": recipe_step.number_of_images,
                     "resolution": resolution,
+                    "doseTotal": dose,
                     "ispyb_command": "insert_screening_strategy_sub_wedge",
                     "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",
                     "store_result": f"ispyb_screening_strategy_sub_wedge_id_{n_step}",

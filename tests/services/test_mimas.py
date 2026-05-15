@@ -38,7 +38,7 @@ def test_mimas(with_dummy_plugins, monkeypatch, mocker):
     }
 
     t = OfflineTransport()
-    rw = RecipeWrapper(message, transport=t)
+    rw = RecipeWrapper(message=message, transport=t)
     spy_send = mocker.spy(rw, "send")
     spy_send_to = mocker.spy(rw, "send_to")
 
@@ -75,7 +75,7 @@ def test_mimas_with_invalid_space_group_and_unit_cell(
     }
 
     t = OfflineTransport()
-    rw = RecipeWrapper(message, transport=t)
+    rw = RecipeWrapper(message=message, transport=t)
     spy_send = mocker.spy(rw, "send")
     spy_send_to = mocker.spy(rw, "send_to")
 

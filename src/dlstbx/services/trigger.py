@@ -4,9 +4,9 @@ import os
 import pathlib
 import re
 from datetime import datetime, timedelta
+from itertools import chain
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
-from itertools import chain
 
 import gemmi
 import ispyb
@@ -2889,28 +2889,30 @@ class DLSTrigger(CommonService):
 
         find_process_program = (
             session.query(AutoProcProgram.processingPrograms)
-            .join(ProcessingJob, AutoProcProgram.processingJobId == ProcessingJob.processingJobId)
+            .join(
+                ProcessingJob,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
             .filter(ProcessingJob.dataCollectionId == parameters.dcid)
         )
 
-        curr_program = (
-            find_process_program
-            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
-            .scalar()
-        )
+        curr_program = find_process_program.filter(
+            AutoProcProgram.autoProcProgramId == parameters.program_id
+        ).scalar()
         # xia2 dials occassionaly gives optimistic estimate for resolution
-        if 'curr_program' == "xia2 dials":
-            self.log.info(f"Skipping strategy trigger for dcid={parameters.dcid} from program: xia2 dials.")
+        if curr_program == "xia2 dials":
+            self.log.info(
+                f"Skipping strategy trigger for dcid={parameters.dcid} from program: xia2 dials."
+            )
             return {"success": True}
 
-        udc_strategy_previously_triggered = (
-            find_process_program
-            .filter(AutoProcProgram.processingPrograms == "UDC strategy")
-            .filter(AutoProcProgram.processingStatus == 1)
-            .all()
-        )
+        udc_strategy_previously_triggered = find_process_program.filter(
+            AutoProcProgram.processingPrograms == "UDC strategy"
+        ).all()
         if udc_strategy_previously_triggered:
-            self.log.info(f"Skipping strategy trigger: UDC Strategy has already been triggered for dcid={parameters.dcid}.")
+            self.log.info(
+                f"Skipping strategy trigger: UDC Strategy has already been triggered for dcid={parameters.dcid}."
+            )
             return {"success": True}
 
         # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.

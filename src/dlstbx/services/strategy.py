@@ -151,11 +151,11 @@ class DLSStrategy(CommonService):
     ):
         """Generate a strategy from the results of an upstream pipeline"""
         self.log.info("Received strategy request, generating strategy")
-        
+
         recipe_params = rw.recipe_step["parameters"]
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
-            recipe_params.get("ispyb_parameters", {}), 
+            recipe_params.get("ispyb_parameters", {}),
             recipe_params,
             substitutions=rw.environment,
         )
@@ -331,6 +331,7 @@ class DLSStrategy(CommonService):
                     "oscillationrange": rotation_increment,
                     "noimages": recipe_step.number_of_images,
                     "resolution": resolution,
+                    "doseTotal": dose,
                     "ispyb_command": "insert_screening_strategy_sub_wedge",
                     "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",
                     "store_result": f"ispyb_screening_strategy_sub_wedge_id_{n_step}",

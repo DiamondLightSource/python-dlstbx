@@ -33,22 +33,8 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2.multiplex_filtering"
     name = "xia2.multiplex_filtering"
 
-    def send_results_to_ispyb(
-        self, z, xtriage_results=None, cluster_num=None, attachments=[]
-    ):
+    def send_results_to_ispyb(self, z, xtriage_results=None, attachments=[]):
         ispyb_command_list = []
-
-        # Place holder code for future iterations where may run filtering jobs on clusters
-
-        if cluster_num is not None:
-            register_autoproc_prog = {
-                "ispyb_command": "register_processing",
-                "program": "xia2.multiplex_filtering",
-                "cmdline": "xia2.multiplex_filtering (ap-zoc)",
-                "environment": {"cluster": cluster_num},
-                "store_result": "ispyb_autoprocprogram_id",
-            }
-            ispyb_command_list.append(register_autoproc_prog)
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
 
@@ -82,10 +68,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
         # Step 3: Store integration result, linked to the ScalingID
         # Use pre-registered integration id for 'Filtered' dataset
 
-        if cluster_num is not None:
-            integration_id = None
-        else:
-            integration_id = "$ispyb_integration_id"
+        integration_id = "$ispyb_integration_id"
 
         integration = {
             "ispyb_command": "upsert_integration",
@@ -114,16 +97,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 }
                 ispyb_command_list.append(upload_attachment)
 
-        # Step 5: Register successful processing for cluster jobs (placeholder code)
-
-        if cluster_num is not None:
-            update_autoproc_prog = {
-                "ispyb_command": "update_processing_status",
-                "program_id": "$ispyb_autoprocprogram_id",
-                "message": "processing successful",
-                "status": "success",
-            }
-            ispyb_command_list.append(update_autoproc_prog)
+        # Step 5: Register successful processing
 
         if xtriage_results is not None:
             for level, messages in xtriage_results.items():
@@ -288,7 +262,6 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                         final_directory, params["create_symlink"]
                     )
 
-                # Maybe move this function elsewhere
                 def is_final_result(final_file: pathlib.Path) -> bool:
                     return any(
                         fnmatch(str(final_file.name), patt)
@@ -329,17 +302,15 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 with multiplex_filtering_json.open("r") as fh:
                     d = json.load(fh)
 
-                # Retain place holder logic from multiplex wrapper for future iterations with clusters
+                # Retain some logic from multiplex for clusters, because the clusters are copied to the multiplex_filtering.json file
+                #   This is so that the html has quick and easy comparisons between all multiplex jobs.
                 #   Note that 'all data' corresponds to the parent multiplex job
-                #   It is also added to the multiplex_filtering_json so the html has user-friendly comparisons
                 #   However, as it is just a copy of the results from multiplex, it is ignored here
 
                 for dataset_name, dataset in d["datasets"].items():
                     if dataset_name == "Filtered":
                         base_dir = working_directory
                         dimple_symlink = "dimple-xia2.multiplex_filtering"
-                        cluster_prefix = ""
-                        cluster_num = None
                     elif "coordinate cluster" in dataset_name:
                         self.log.warning("Not currently applying filtering to clusters")
                         continue
@@ -354,17 +325,13 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                         )
                         continue
 
-                    filtered_unmerged_mtz = (
-                        base_dir / f"{cluster_prefix}filtered_unmerged.mtz"
-                    )
+                    filtered_unmerged_mtz = base_dir / "filtered_unmerged.mtz"
                     i_obs = iotbx.merging_statistics.select_data(
                         filtered_unmerged_mtz.as_posix(), data_labels=None
                     )
                     merging_stats = dataset["merging_stats"]
                     merging_stats_anom = dataset["merging_stats_anom"]
-                    with (base_dir / f"{cluster_prefix}merging-stats.json").open(
-                        "w"
-                    ) as fh:
+                    with (base_dir / "merging-stats.json").open("w") as fh:
                         json.dump(merging_stats, fh)
 
                     ispyb_d = {
@@ -424,9 +391,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                             destination.as_posix() in allfiles
                             and filename not in primary_log_files
                         ):
-                            destination = (
-                                results_directory / f"{cluster_prefix}{filename.name}"
-                            )
+                            destination = results_directory / filename.name
 
                         if destination.as_posix() not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")
@@ -464,17 +429,12 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                     # As using the same downstream triggers, update "scaled_mtz" rather than calling it by "filtered.mtz"
 
                     self.recwrap.environment.update(
-                        {
-                            "scaled_mtz": (
-                                results_directory / f"{cluster_prefix}filtered.mtz"
-                            ).as_posix()
-                        }
+                        {"scaled_mtz": (results_directory / "filtered.mtz").as_posix()}
                     )
                     self.recwrap.environment.update(
                         {
                             "scaled_unmerged_mtz": (
-                                results_directory
-                                / f"{cluster_prefix}filtered_unmerged.mtz"
+                                results_directory / "filtered_unmerged.mtz"
                             ).as_posix()
                         }
                     )
@@ -488,7 +448,6 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                     self.send_results_to_ispyb(
                         ispyb_d,
                         xtriage_results=xtriage_results,
-                        cluster_num=cluster_num,
                         attachments=attachments,
                     )
                 self._success_counter.inc()

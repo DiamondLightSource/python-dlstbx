@@ -2887,28 +2887,18 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        find_process_program = (
+        udc_strategy_previously_triggered = (
             session.query(AutoProcProgram.processingPrograms)
             .join(
                 ProcessingJob,
                 AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
             )
             .filter(ProcessingJob.dataCollectionId == parameters.dcid)
+            .filter(
+            AutoProcProgram.processingPrograms == "UDC strategy"
+            ).all()
         )
 
-        curr_program = find_process_program.filter(
-            AutoProcProgram.autoProcProgramId == parameters.program_id
-        ).scalar()
-        # xia2 dials occassionaly gives optimistic estimate for resolution
-        if curr_program == "xia2 dials":
-            self.log.info(
-                f"Skipping strategy trigger for dcid={parameters.dcid} from program: xia2 dials."
-            )
-            return {"success": True}
-
-        udc_strategy_previously_triggered = find_process_program.filter(
-            AutoProcProgram.processingPrograms == "UDC strategy"
-        ).all()
         if udc_strategy_previously_triggered:
             self.log.info(
                 f"Skipping strategy trigger: UDC Strategy has already been triggered for dcid={parameters.dcid}."

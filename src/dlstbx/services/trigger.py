@@ -229,7 +229,7 @@ class MultiplexParameters(pydantic.BaseModel):
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
     use_clustering: Optional[List[str]] = None
-    use_filtering: Optional[List[str]] = None
+    use_filtering: List[str] = []
     filtering_group_size: Dict[str, int] = pydantic.Field(
         default={"default": 50}, alias="filtering-group-size"
     )
@@ -2197,10 +2197,7 @@ class DLSTrigger(CommonService):
             # If so, add filtering parameters to job_parameters
             # This will set the xia2.multiplex wrapper to send the job for filtering after completed
 
-            if (
-                parameters.use_filtering
-                and parameters.beamline in parameters.use_filtering
-            ):
+            if parameters.beamline in parameters.use_filtering:
                 group_size = parameters.filtering_group_size.get(
                     parameters.beamline, parameters.filtering_group_size["default"]
                 )
@@ -2229,7 +2226,7 @@ class DLSTrigger(CommonService):
             rw.transport.send("processing_recipe", message)
 
             self.log.info(
-                f"xia2.multiplex_filtering trigger: Processing job {jobid} triggered"
+                f"xia2.multiplex trigger: Processing job {jobid} triggered"
             )
 
         return {"success": True, "return_value": jobids}

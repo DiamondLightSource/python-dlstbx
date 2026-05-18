@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import math
+import matplotlib.pyplot as plt 
 import shutil
 import subprocess
 from collections import Counter
@@ -98,7 +98,7 @@ class EstimateTransmissionWrapper(Wrapper):
             self.log.info(f"Copying {str(source_file)} to {str(destination)}")
             shutil.copy(source_file, destination)
 
-        self.draw_plot(num_counts, num_pixels)
+        self.save_plot(num_counts, num_pixels, results_directory)
         self.save_hist_to_json(counts_hist, trusted_range, results_directory)
 
         self.log.info("Done.")
@@ -125,7 +125,7 @@ class EstimateTransmissionWrapper(Wrapper):
         return len(num_pixels)
 
     def save_hist_to_json(self, hist, max_trusted_value, results_dir):
-        results_path = results_dir / "overload.json"
+        results_path = results_dir / "pixel_counts.json"
         self.log.info(f"Saving counts histogram to {str(results_path)}")
         with open(results_path, "w") as f:
             json.dump(
@@ -134,39 +134,19 @@ class EstimateTransmissionWrapper(Wrapper):
 
         self.log.info("Saved.")
 
-    def draw_plot(self, counts, pixels):
-        """Create ASCII art histogram"""
+    def save_plot(self, counts, pixels, dir):
+        """Save the plot as png """
 
         self.log.info("Plotting pixel intensities...")
         
-        width, height = 60, 20
-        title = "'Pixel intensity distribution'"
-        xlabel = "'Num counts'"
-        ylabel = "'Counts'"
+        xlabel = "Num counts"
+        ylabel = "Counts"
 
-        command = ["gnuplot"]
-        plot_commands = [
-            "set term dumb %d %d" % (width, height - 2),
-            "set logscale y",
-            "set logscale x",
-            "set ytics out",
-            "set title %s" % title,
-            "set xlabel %s" % xlabel,
-            "set ylabel %s offset character %d,0" % (ylabel, len(ylabel) // 2),
-        ]
-
-        data_string = "\n".join(f"{x} {y}" for x, y in zip(counts[1:], pixels[1:]))
-
-        plot_commands.append("plot '-' using 1:2 title '' with lines")
-        plot_commands.append(data_string)
-
-        try:
-            result = subprocess.run(
-                command, input="\n".join(plot_commands), text=True, capture_output=True
-            )
-        except (OSError, subprocess.TimeoutExpired) as e:
-            self.log.info("Error plotting counts vs pixels")
-            self.log.info(e)
-            return
-        else:
-            self.log.info(result.stdout)
+        fig = plt.subplot()
+        fig.scatter(counts, pixels)
+        fig.set_xlabel(xlabel)
+        fig.set_ylabel(ylabel)
+        fig.set_xscale("log")
+        fig.set_yscale("log")
+        
+        plt.savefig(dir / "pixel_intensities.png")

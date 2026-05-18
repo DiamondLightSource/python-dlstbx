@@ -166,10 +166,10 @@ class PipedreamWrapper(Wrapper):
         )
 
         pictures_dir = report_dir / "ligand/pictures"
-        ligand_gifs = list(pictures_dir.glob("*.gif"))
+        ligand_gifs = list(pictures_dir.glob("*.gif"))  # multiple
 
         attachments.extend(
-            [buster_report, refine_mtz, refine_pdb, pipedream_summary, ligand_gifs]
+            [buster_report, refine_mtz, refine_pdb, pipedream_summary, *ligand_gifs]
         )
 
         try:

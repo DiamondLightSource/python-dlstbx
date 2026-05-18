@@ -162,7 +162,7 @@ class PanDDAWrapper(Wrapper):
         ligand_dir = dataset_pdir / "ligand_files"
         ligand_dir.mkdir(exist_ok=True)
 
-        # pandda2 not moving files into ligand_dir, fix
+        # pandda2 not moving files into ligand_dir fix
         for file in compound_dir.rglob("*"):
             if file.is_file() and file.suffix.lower() in {".pdb", ".cif", ".smiles"}:
                 targets = [ligand_dir / file.name, dataset_dir / file.name]
@@ -178,13 +178,20 @@ class PanDDAWrapper(Wrapper):
 
         if not events_yaml.exists():
             self.log.info(
-                (f"No events in {events_yaml}, can't continue with PanDDA2 Rhofit")
+                (f"{events_yaml} does not exist, can't continue with PanDDA2 Rhofit")
             )
             self.send_attachments_to_ispyb(attachments, batch)
             return False
 
         with open(events_yaml, "r") as file:
             data = yaml.load(file, Loader=yaml.SafeLoader)
+
+        if not data:
+            self.log.info(
+                (f"No events in {events_yaml}, can't continue with PanDDA2 Rhofit")
+            )
+            self.send_attachments_to_ispyb(attachments, batch)
+            return False
 
         # Determine which builds to perform. More than one binder is unlikely and score ranks
         # well so build the best scoring event of each dataset.
@@ -303,7 +310,7 @@ class PanDDAWrapper(Wrapper):
         protein_st = gemmi.read_structure(str(protein_st_file))
         ligand_st = gemmi.read_structure(str(ligand_st_file))
         contact_chain = self.get_contact_chain(protein_st, ligand_st)
-        protein_st[0][contact_chain].add_residue(ligand_st[0][0][0])
+        self.merge_build(protein_st, ligand_st, contact_chain)
 
         if pandda_model.exists():  # backup previous model
             shutil.copy2(pandda_model, modelled_dir / "pandda-internal-fitted.pdb")
@@ -557,6 +564,31 @@ class PanDDAWrapper(Wrapper):
                             chain_counts[chain.name] += 1
 
         return min(chain_counts, key=lambda _x: chain_counts[_x])
+
+    def merge_build(self, receptor, ligand, contact_chain):
+        # Get the receptor chain
+        receptor_chain = receptor[0][contact_chain]
+
+        # Get current ligand ids
+        seqid_nums = []
+        for receptor_res in receptor_chain:
+            num = receptor_res.seqid.num
+            seqid_nums.append(num)
+
+        # Assign a new, unused ligand id
+        if len(seqid_nums) == 0:
+            min_ligand_seqid = 100
+        else:
+            min_ligand_seqid = max(seqid_nums) + 100
+
+        # Update the ligand residue sequenceid
+        ligand_residue = ligand[0][0][0]
+        ligand_residue.seqid.num = min_ligand_seqid
+
+        # Add the ligand residue
+        receptor_chain.add_residue(ligand_residue, pos=-1)
+
+        return receptor
 
     def get_pandda_settings(self, yaml_file):
         with open(yaml_file, "r") as file:

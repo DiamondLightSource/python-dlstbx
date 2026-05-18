@@ -80,23 +80,18 @@ class EstimateTransmissionWrapper(Wrapper):
         )
 
         results_directory.mkdir(parents=True, exist_ok=True)
-        log_file_name = [
-            f for f in working_directory.glob("*.out") if "slurm" in str(f)
-        ][0]
-        output_files = {
-            "dials.find_spots.log": "dials.find_spots.log",
-            log_file_name: "estimate_transmission.log",
-        }
-        for src_file_name, dest_file_name in output_files.items():
-            source_file = working_directory / src_file_name
-            destination = results_directory / dest_file_name
+        
+        output_file = "dials.find_spots.log"
+        
+        source_file = working_directory / output_file
+        destination = results_directory / output_file
 
-            if not source_file.exists():
-                self.log.info(f"{source_file=} does not exsist")
-                return False
+        if not source_file.exists():
+            self.log.info(f"{source_file=} does not exsist")
+            return False
 
-            self.log.info(f"Copying {str(source_file)} to {str(destination)}")
-            shutil.copy(source_file, destination)
+        self.log.info(f"Copying {str(source_file)} to {str(destination)}")
+        shutil.copy(source_file, destination)
 
         self.save_plot(num_counts, num_pixels, results_directory)
         self.save_hist_to_json(counts_hist, trusted_range, results_directory)

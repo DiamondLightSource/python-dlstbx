@@ -302,154 +302,132 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 with multiplex_filtering_json.open("r") as fh:
                     d = json.load(fh)
 
-                # Retain some logic from multiplex for clusters, because the clusters are copied to the multiplex_filtering.json file
-                #   This is so that the html has quick and easy comparisons between all multiplex jobs.
-                #   Note that 'all data' corresponds to the parent multiplex job
-                #   However, as it is just a copy of the results from multiplex, it is ignored here
+                dataset = d["datasets"]["Filtered"]
+                dimple_symlink = "dimple-xia2.multiplex_filtering"
 
-                for dataset_name, dataset in d["datasets"].items():
-                    if dataset_name == "Filtered":
-                        base_dir = working_directory
-                        dimple_symlink = "dimple-xia2.multiplex_filtering"
-                    elif "coordinate cluster" in dataset_name:
-                        self.log.warning("Not currently applying filtering to clusters")
-                        continue
-                    elif dataset_name == "All data":
-                        self.log.warning(
-                            'Results for "All Data" already in parent xia2.multiplex run.'
-                        )
-                        continue
-                    else:
-                        self.log.warning(
-                            f"Ignoring unrecognised dataset pattern {dataset_name}"
-                        )
-                        continue
+                filtered_unmerged_mtz = working_directory / "filtered_unmerged.mtz"
+                i_obs = iotbx.merging_statistics.select_data(
+                    filtered_unmerged_mtz.as_posix(), data_labels=None
+                )
+                merging_stats = dataset["merging_stats"]
+                merging_stats_anom = dataset["merging_stats_anom"]
+                with (working_directory / "merging-stats.json").open("w") as fh:
+                    json.dump(merging_stats, fh)
 
-                    filtered_unmerged_mtz = base_dir / "filtered_unmerged.mtz"
-                    i_obs = iotbx.merging_statistics.select_data(
-                        filtered_unmerged_mtz.as_posix(), data_labels=None
-                    )
-                    merging_stats = dataset["merging_stats"]
-                    merging_stats_anom = dataset["merging_stats_anom"]
-                    with (base_dir / "merging-stats.json").open("w") as fh:
-                        json.dump(merging_stats, fh)
-
-                    ispyb_d = {
-                        "commandline": " ".join(command),
-                        "spacegroup": i_obs.space_group().type().lookup_symbol(),
-                        "unit_cell": list(i_obs.unit_cell().parameters()),
-                        "scaling_statistics": {},
+                ispyb_d = {
+                    "commandline": " ".join(command),
+                    "spacegroup": i_obs.space_group().type().lookup_symbol(),
+                    "unit_cell": list(i_obs.unit_cell().parameters()),
+                    "scaling_statistics": {},
+                }
+                for shell in ("overall", "innerShell", "outerShell"):
+                    ispyb_d["scaling_statistics"][shell] = {
+                        "cc_half": lookup(merging_stats, "cc_one_half", shell),
+                        "completeness": lookup(merging_stats, "completeness", shell),
+                        "mean_i_sig_i": lookup(
+                            merging_stats, "i_over_sigma_mean", shell
+                        ),
+                        "multiplicity": lookup(merging_stats, "multiplicity", shell),
+                        "n_tot_obs": lookup(merging_stats, "n_obs", shell),
+                        "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
+                        "r_merge": lookup(merging_stats, "r_merge", shell),
+                        "res_lim_high": uctbx.d_star_sq_as_d(
+                            lookup(merging_stats, "d_star_sq_min", shell)
+                        ),
+                        "res_lim_low": uctbx.d_star_sq_as_d(
+                            lookup(merging_stats, "d_star_sq_max", shell)
+                        ),
+                        "anom_completeness": lookup(
+                            merging_stats_anom, "anom_completeness", shell
+                        ),
+                        "anom_multiplicity": lookup(
+                            merging_stats_anom, "multiplicity", shell
+                        ),
+                        "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
+                        "r_meas_all_iplusi_minus": lookup(
+                            merging_stats_anom, "r_meas", shell
+                        ),
                     }
-                    for shell in ("overall", "innerShell", "outerShell"):
-                        ispyb_d["scaling_statistics"][shell] = {
-                            "cc_half": lookup(merging_stats, "cc_one_half", shell),
-                            "completeness": lookup(
-                                merging_stats, "completeness", shell
-                            ),
-                            "mean_i_sig_i": lookup(
-                                merging_stats, "i_over_sigma_mean", shell
-                            ),
-                            "multiplicity": lookup(
-                                merging_stats, "multiplicity", shell
-                            ),
-                            "n_tot_obs": lookup(merging_stats, "n_obs", shell),
-                            "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
-                            "r_merge": lookup(merging_stats, "r_merge", shell),
-                            "res_lim_high": uctbx.d_star_sq_as_d(
-                                lookup(merging_stats, "d_star_sq_min", shell)
-                            ),
-                            "res_lim_low": uctbx.d_star_sq_as_d(
-                                lookup(merging_stats, "d_star_sq_max", shell)
-                            ),
-                            "anom_completeness": lookup(
-                                merging_stats_anom, "anom_completeness", shell
-                            ),
-                            "anom_multiplicity": lookup(
-                                merging_stats_anom, "multiplicity", shell
-                            ),
-                            "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
-                            "r_meas_all_iplusi_minus": lookup(
-                                merging_stats_anom, "r_meas", shell
-                            ),
-                        }
-                    xtriage_results = dataset.get("xtriage")
-                    attachments = []
+                xtriage_results = dataset.get("xtriage")
+                attachments = []
 
-                    for filename in set(primary_log_files + list(base_dir.iterdir())):
-                        filetype = None
-                        if not filename.is_file():
-                            continue
-                        filetype = keep_ext.get(filename.suffix)
-                        for file_pattern in keep:
-                            if filename.name.endswith(file_pattern):
-                                filetype = keep[file_pattern]
-                        if filetype is None:
-                            continue
+                for filename in set(
+                    primary_log_files + list(working_directory.iterdir())
+                ):
+                    filetype = None
+                    if not filename.is_file():
+                        continue
+                    filetype = keep_ext.get(filename.suffix)
+                    for file_pattern in keep:
+                        if filename.name.endswith(file_pattern):
+                            filetype = keep[file_pattern]
+                    if filetype is None:
+                        continue
 
+                    destination = results_directory / filename.name
+                    if (
+                        destination.as_posix() in allfiles
+                        and filename not in primary_log_files
+                    ):
                         destination = results_directory / filename.name
-                        if (
-                            destination.as_posix() in allfiles
-                            and filename not in primary_log_files
-                        ):
-                            destination = results_directory / filename.name
 
-                        if destination.as_posix() not in allfiles:
+                    if destination.as_posix() not in allfiles:
+                        self.log.debug(f"Copying {filename} to {destination}")
+                        shutil.copy(filename, destination)
+                        allfiles.append(destination.as_posix())
+                    if pipeline_final_params and is_final_result(destination):
+                        destination = final_directory / destination.name
+                        if destination not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")
                             shutil.copy(filename, destination)
                             allfiles.append(destination.as_posix())
-                        if pipeline_final_params and is_final_result(destination):
-                            destination = final_directory / destination.name
-                            if destination not in allfiles:
-                                self.log.debug(f"Copying {filename} to {destination}")
-                                shutil.copy(filename, destination)
-                                allfiles.append(destination.as_posix())
 
-                        if filetype:
-                            attachments.append(
-                                {
-                                    "file_path": destination.parent.as_posix(),
-                                    "file_name": destination.name,
-                                    "file_type": filetype,
-                                    "importance_rank": (
-                                        1
-                                        if destination.name.endswith(
-                                            (
-                                                "filtered.mtz",
-                                                "xia2.multiplex_filtering.html",
-                                                "xia2.multiplex_filtering.log",
-                                            )
+                    if filetype:
+                        attachments.append(
+                            {
+                                "file_path": destination.parent.as_posix(),
+                                "file_name": destination.name,
+                                "file_type": filetype,
+                                "importance_rank": (
+                                    1
+                                    if destination.name.endswith(
+                                        (
+                                            "filtered.mtz",
+                                            "xia2.multiplex_filtering.html",
+                                            "xia2.multiplex_filtering.log",
                                         )
-                                        else 2
-                                    ),
-                                }
-                            )
+                                    )
+                                    else 2
+                                ),
+                            }
+                        )
 
-                    # Add parameters to the environment to be picked up downstream by trigger function
+                # Add parameters to the environment to be picked up downstream by trigger function
 
-                    # As using the same downstream triggers, update "scaled_mtz" rather than calling it by "filtered.mtz"
+                # As using the same downstream triggers, update "scaled_mtz" rather than calling it by "filtered.mtz"
 
-                    self.recwrap.environment.update(
-                        {"scaled_mtz": (results_directory / "filtered.mtz").as_posix()}
-                    )
-                    self.recwrap.environment.update(
-                        {
-                            "scaled_unmerged_mtz": (
-                                results_directory / "filtered_unmerged.mtz"
-                            ).as_posix()
-                        }
-                    )
-                    self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
+                self.recwrap.environment.update(
+                    {"scaled_mtz": (results_directory / "filtered.mtz").as_posix()}
+                )
+                self.recwrap.environment.update(
+                    {
+                        "scaled_unmerged_mtz": (
+                            results_directory / "filtered_unmerged.mtz"
+                        ).as_posix()
+                    }
+                )
+                self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
 
-                    # Send results to ispyb and trigger downstream recipe steps for this dataset
+                # Send results to ispyb and trigger downstream recipe steps for this dataset
 
-                    self.log.info(
-                        f"Triggering downstream recipe steps for dataset: '{dataset_name}"
-                    )
-                    self.send_results_to_ispyb(
-                        ispyb_d,
-                        xtriage_results=xtriage_results,
-                        attachments=attachments,
-                    )
+                self.log.info(
+                    "Triggering downstream recipe steps for 'Filtered' Dataset"
+                )
+                self.send_results_to_ispyb(
+                    ispyb_d,
+                    xtriage_results=xtriage_results,
+                    attachments=attachments,
+                )
                 self._success_counter.inc()
             else:
                 self._failure_counter.inc()

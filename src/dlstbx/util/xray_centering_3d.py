@@ -48,6 +48,8 @@ def gridscan3d(
     data: tuple[np.ndarray, ...],
     threshold: float = 0.25,
     threshold_absolute: float = 0,
+    threshold_msp: float = 0.25,
+    threshold_msp_absolute: float = 3,
     plot: bool = False,
     sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
@@ -96,10 +98,14 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
-    # Apply absolute threshold for multipin samples to screen out noise.
+    # Use alternative thresholds for multi-sample pins
     if multipin_sample_ids:
-        data[0][data[0] < threshold_absolute] = 0
-        data[1][data[1] < threshold_absolute] = 0
+        threshold = threshold_msp
+        threshold_absolute = threshold_msp_absolute
+
+    # Apply absolute threshold to screen out noise.
+    data[0][data[0] < threshold_absolute] = 0
+    data[1][data[1] < threshold_absolute] = 0
 
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)

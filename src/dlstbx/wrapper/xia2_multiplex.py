@@ -163,7 +163,7 @@ class Xia2MultiplexWrapper(Wrapper):
             command.append(f)
 
         if params.get("ispyb_parameters"):
-            # ignore filtering parameters for xia2.multiplex_filtering
+            # ignore sample id for cmd line and filtering parameters only for xia2.multiplex_filtering
             ignore = {
                 "sample_id",
                 "sample_group_id",

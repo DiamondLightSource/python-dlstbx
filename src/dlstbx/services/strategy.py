@@ -283,13 +283,11 @@ class DLSStrategy(CommonService):
             for n_step, recipe_step in enumerate(recipe_steps, start=1):
                 scale = 1.0
                 default_wavelength = recipe_step.wavelength
-                scale *= get_wavelength_scale(wavelength, default_wavelength)
                 scale *= get_resolution_scale(resolution)
-
                 dose, _ = scale_parameter(
                     recipe_step.dose, scale, limits=agamemnon_recipe_limits.dose
                 )
-
+                scale *= get_wavelength_scale(wavelength, default_wavelength)
                 rotation_axis = recipe_step.scan_axis
                 rotation_start = recipe_step.__getattribute__(f"{rotation_axis}_start")
                 rotation_increment = recipe_step.__getattribute__(

@@ -9,6 +9,8 @@ from workflows.services.common_service import CommonService
 
 from dlstbx.util import ChainMapWithReplacement
 
+type Limits = tuple[float, float]
+
 
 def scale_parameter(
     value: float, scale_factor: float, limits: tuple[float, float] | None = None
@@ -72,10 +74,44 @@ class AgamemnonParameters(BaseModel):
     wavelength: float = Field(gt=0)
 
 
+class AgamemnonLimits(BaseModel):
+    transmission: Limits
+    exposure_time: Limits
+    dose: Limits
+
+
 def parse_agamemnon_recipe(recipe_path: Path) -> list[AgamemnonParameters]:
     with open(recipe_path, "r") as f:
         recipe = yaml.safe_load(f)
     return [AgamemnonParameters(**step) for step in recipe]
+
+
+def parse_agamemnon_config(recipe_config_path: Path) -> dict[str, AgamemnonLimits]:
+    inf = float("inf")
+    default_limits = AgamemnonLimits(
+        transmission=(-inf, inf), exposure_time=(-inf, inf), dose=(-inf, inf)
+    )
+
+    def parse_limits(limits):
+        limits = limits[0]
+        params = (limits.get("min", -inf), limits.get("max", inf))
+        return params
+
+    with open(recipe_config_path, "r") as f:
+        recipe_conf = yaml.safe_load(f)
+
+    agamemnon_limits = {}
+    for strategy, parameters in recipe_conf.items():
+        if strategy == "globals":
+            continue
+        if not isinstance(parameters, dict):
+            continue
+
+        agamemnon_limits[strategy] = default_limits.model_copy(
+            update={param: parse_limits(limits) for param, limits in parameters.items()}
+        )
+
+    return agamemnon_limits
 
 
 def parse_config_file(config_file: Path) -> dict:
@@ -179,9 +215,7 @@ class DLSStrategy(CommonService):
             if isinstance(parameters["resolution"], list)
             else float(parameters["resolution"])
         )
-        dc_transmission = (
-            float(parameters.get("transmission", 100)) / 100
-        )
+        dc_transmission = float(parameters.get("transmission", 100)) / 100
         resolution_offset = 0.5
         min_resolution = 0.9
         resolution = max((resolution_estimate) - resolution_offset, min_resolution)
@@ -199,34 +233,20 @@ class DLSStrategy(CommonService):
         beamline_config = parse_config_file(beamline_config_file)
 
         recommended_max_transmission = parameters.get("scaled_transmission", 1.0)
-
-        transmission_limits = (get_beamline_param(
-            beamline_config, ("gda.mx.udc.minTransmission",), 0.0),
-            min(
-                get_beamline_param(
-                    beamline_config, ("gda.mx.udc.maxTransmission",), 1.0
-                ),
-                recommended_max_transmission
-            ),
+        base_recipe_home = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes")
+        agamemnon_recipe_config = base_recipe_home / "recipe_config.yaml"
+        agamemnon_limits: dict[str, AgamemnonLimits] = parse_agamemnon_config(
+            agamemnon_recipe_config
         )
-        exposure_time_limits = (
-            get_beamline_param(
-                beamline_config,
-                ("gda.mx.udc.minExposureTime", "gda.exptTableModel.minExposureTime"),
-                0.002,
-            ),
-            get_beamline_param(
-                beamline_config,
-                ("gda.mx.udc.maxExposureTime", "gda.exptTableModel.maxExposureTime"),
-                float("inf"),
-            ),
+        recipes = (
+            ("OSC.yaml", "OSC", "Native"),
+            ("Ligand binding.yaml", "Ligand Binding", "Ligand"),
+            ("SAD.yaml", "SAD", "Phasing"),
         )
-
-        recipes = {"OSC.yaml": "Native", "Ligand binding.yaml": "Ligand", "SAD.yaml": "Phasing"}
         ispyb_command_list = []
 
-        for recipe, recipe_alias in recipes.items():
-            recipe_path = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes/{recipe}")
+        for recipe_file, recipe_name, recipe_alias in recipes:
+            recipe_path = base_recipe_home / recipe_file
             if not recipe_path.is_file():
                 self.log.error(
                     f"Recipe file {recipe_path} not found, terminating strategy generation"
@@ -259,13 +279,16 @@ class DLSStrategy(CommonService):
             }
             ispyb_command_list.append(d)
 
+            agamemnon_recipe_limits = agamemnon_limits[recipe_name]
             for n_step, recipe_step in enumerate(recipe_steps, start=1):
                 scale = 1.0
                 default_wavelength = recipe_step.wavelength
                 scale *= get_wavelength_scale(wavelength, default_wavelength)
                 scale *= get_resolution_scale(resolution)
 
-                dose, _ = scale_parameter(recipe_step.dose, scale)
+                dose, _ = scale_parameter(
+                    recipe_step.dose, scale, limits=agamemnon_recipe_limits.dose
+                )
 
                 rotation_axis = recipe_step.scan_axis
                 rotation_start = recipe_step.__getattribute__(f"{rotation_axis}_start")
@@ -275,6 +298,45 @@ class DLSStrategy(CommonService):
                 transmission = recipe_step.transmission
                 exposure_time = recipe_step.exposure_time
 
+                transmission_limits = (
+                    max(
+                        get_beamline_param(
+                            beamline_config, ("gda.mx.udc.minTransmission",), 0.0
+                        ),
+                        agamemnon_recipe_limits.transmission[0],
+                    ),
+                    min(
+                        get_beamline_param(
+                            beamline_config, ("gda.mx.udc.maxTransmission",), 1.0
+                        ),
+                        recommended_max_transmission,
+                        agamemnon_recipe_limits.transmission[1],
+                    ),
+                )
+                exposure_time_limits = (
+                    max(
+                        get_beamline_param(
+                            beamline_config,
+                            (
+                                "gda.mx.udc.minExposureTime",
+                                "gda.exptTableModel.minExposureTime",
+                            ),
+                            0.002,
+                        ),
+                        agamemnon_recipe_limits.exposure_time[0],
+                    ),
+                    min(
+                        get_beamline_param(
+                            beamline_config,
+                            (
+                                "gda.mx.udc.maxExposureTime",
+                                "gda.exptTableModel.maxExposureTime",
+                            ),
+                            float("inf"),
+                        ),
+                        agamemnon_recipe_limits.exposure_time[1],
+                    ),
+                )
                 # Runs twice to ensure that limits are applied correctly to both parameters, as they are interdependent - is this necessary?
                 for _ in range(2):
                     if scale > 1.0:

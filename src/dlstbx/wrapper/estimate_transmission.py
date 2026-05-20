@@ -1,22 +1,39 @@
 from __future__ import annotations
 
 import json
-import matplotlib.pyplot as plt 
 import shutil
 import subprocess
 from collections import Counter
 from itertools import accumulate
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 from dials.array_family import flex
 
 from dlstbx.wrapper import Wrapper
 
 
 class EstimateTransmissionWrapper(Wrapper):
+    """Wrapper to estimate the transmission to be used in a UDC data collection.
+    It uses the dials.import and dials.find_spots to collect pixel intensities
+    and scale them to the target count rate."""
+
     _logger_name = "dlstbx.wrap.estimate_transmission"
 
     def run(self):
+        """Entrypoint for the estimate_transmission wrapper.
+
+        :param beamline: The beamline to use for the scaling parameters.
+        :type beamline: str
+        :param pixel_percentile: The percentile of pixel intensities to use for scaling, for each beamline.
+        :type pixel_percentile: dict
+        :param target_countrate_pct: The target count rate percentage to scale the pixel_percentile to, for each beamline.
+        :type target_countrate_pct: dict
+        :param transmission: The transmission value used in the screening.
+        :type transmission: float
+        :param input_file: The path to the input file.
+        :type input_file: str
+        """
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
@@ -24,8 +41,8 @@ class EstimateTransmissionWrapper(Wrapper):
         results_directory = Path(params["results_directory"])
 
         beamline = params["beamline"]
-        pixel_percentile = params["pixel_percentile"].get(beamline, 100) / 100
-        target_countrate_pct = params["target_countrate_pct"].get(beamline, 50) / 100
+        pixel_percentile = params["pixel_percentile"][beamline] / 100
+        target_countrate_pct = params["target_countrate_pct"][beamline] / 100
         transmission = float(params["transmission"])
         file = params["input_file"]
 
@@ -85,24 +102,24 @@ class EstimateTransmissionWrapper(Wrapper):
             warning_level = 1
         else:
             warning_level = 2
-        
+
         warning_message = {
-            0 : "Diffraction spots are unlikely to have detector count rate issues", 
-            1 : "Some diffraction spots may have detector count rate issues", 
-            2 : "Some diffraction spots are likely to have detector count rate issues"
+            0: "Diffraction spots are unlikely to have detector count rate issues",
+            1: "Some diffraction spots may have detector count rate issues",
+            2: "Some diffraction spots are likely to have detector count rate issues",
         }.get(warning_level)
 
         warning_description = f"The most intense pixel is {max_pixel_count_pct * 100}% of the detector's limit"
-        warning_severity = {0: "INFO", 1: "WARNING", 2: "ERROR"}.get( warning_level),
+        warning_severity = ({0: "INFO", 1: "WARNING", 2: "ERROR"}.get(warning_level),)
 
         ispyb_command_list = [
-                    {
-                        "ispyb_command": "add_program_message",
-                        "program_id": "$ispyb_autoprocprogram_id",
-                        "message": warning_message,
-                        "description": warning_description,
-                        "severity": warning_severity                   
-                    }
+            {
+                "ispyb_command": "add_program_message",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": warning_message,
+                "description": warning_description,
+                "severity": warning_severity,
+            }
         ]
 
         self.log.info("Sending %s", str(ispyb_command_list))
@@ -157,10 +174,10 @@ class EstimateTransmissionWrapper(Wrapper):
         self.log.info("Saved.")
 
     def save_plot(self, counts, pixels, dir):
-        """Save the plot as png """
+        """Save the plot as png"""
 
         self.log.info("Plotting pixel intensities...")
-        
+
         xlabel = "Num counts"
         ylabel = "Counts"
 
@@ -170,5 +187,5 @@ class EstimateTransmissionWrapper(Wrapper):
         fig.set_ylabel(ylabel)
         fig.set_xscale("log")
         fig.set_yscale("log")
-        
+
         plt.savefig(dir / "pixel_intensities.png")

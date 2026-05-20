@@ -4,7 +4,6 @@ import os
 import pathlib
 import re
 from datetime import datetime, timedelta
-from itertools import chain
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
@@ -2894,9 +2893,8 @@ class DLSTrigger(CommonService):
                 AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
             )
             .filter(ProcessingJob.dataCollectionId == parameters.dcid)
-            .filter(
-            AutoProcProgram.processingPrograms == "UDC strategy"
-            ).all()
+            .filter(AutoProcProgram.processingPrograms == "UDC strategy")
+            .all()
         )
 
         if udc_strategy_previously_triggered:

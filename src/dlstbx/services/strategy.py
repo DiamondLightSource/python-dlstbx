@@ -245,6 +245,9 @@ class DLSStrategy(CommonService):
         )
         ispyb_command_list = []
 
+        beamline_wants_dose_displayed = beamline in [
+            "i04",
+        ]
         for recipe_file, recipe_name, recipe_alias in recipes:
             recipe_path = base_recipe_home / recipe_file
             if not recipe_path.is_file():
@@ -287,15 +290,45 @@ class DLSStrategy(CommonService):
                 dose, _ = scale_parameter(
                     recipe_step.dose, scale, limits=agamemnon_recipe_limits.dose
                 )
-                scale *= get_wavelength_scale(wavelength, default_wavelength)
                 rotation_axis = recipe_step.scan_axis
                 rotation_start = recipe_step.__getattribute__(f"{rotation_axis}_start")
                 rotation_increment = recipe_step.__getattribute__(
                     f"{rotation_axis}_increment"
                 )
-                transmission = recipe_step.transmission
-                exposure_time = recipe_step.exposure_time
 
+                # Step 3: Store screeningStrategyWedge results, linked to the screeningStrategyId
+                #         Keep the screeningStrategyWedgeId
+                d = {
+                    "wedgenumber": n_step,
+                    "resolution": resolution,
+                    "phi": recipe_step.phi_start,
+                    "chi": recipe_step.chi,
+                    "kappa": recipe_step.kappa,
+                    "wavelength": wavelength,
+                    "dosetotal": dose,
+                    "comments": recipe_alias,
+                    "ispyb_command": "insert_screening_strategy_wedge",
+                    "screening_strategy_id": "$ispyb_screening_strategy_id",
+                    "store_result": f"ispyb_screening_strategy_wedge_id_{n_step}",
+                }
+                ispyb_command_list.append(d)
+
+                axis_end = (
+                    rotation_start + rotation_increment * recipe_step.number_of_images
+                )
+
+                screening_sub_wedge_command = {
+                    "subwedgenumber": 1,
+                    "rotationaxis": recipe_step.scan_axis,
+                    "axisstart": rotation_start,
+                    "axisend": axis_end,
+                    "oscillationrange": rotation_increment,
+                    "noimages": recipe_step.number_of_images,
+                    "resolution": resolution,
+                    "ispyb_command": "insert_screening_strategy_sub_wedge",
+                    "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",
+                    "store_result": f"ispyb_screening_strategy_sub_wedge_id_{n_step}",
+                }
                 transmission_limits = (
                     max(
                         get_beamline_param(
@@ -311,6 +344,17 @@ class DLSStrategy(CommonService):
                         agamemnon_recipe_limits.transmission[1],
                     ),
                 )
+                if beamline_wants_dose_displayed:
+                    screening_sub_wedge_command.update(
+                        dosetotal=dose, transmission=(transmission_limits[1] * 100)
+                    )
+                    ispyb_command_list.append(screening_sub_wedge_command)
+                    continue
+
+                scale *= get_wavelength_scale(wavelength, default_wavelength)
+                transmission = recipe_step.transmission
+                exposure_time = recipe_step.exposure_time
+
                 exposure_time_limits = (
                     max(
                         get_beamline_param(
@@ -355,49 +399,13 @@ class DLSStrategy(CommonService):
                         f"Exposure time scaled to {exposure_time:.3f} s, transmission scaled to {transmission:.3f}, scale factor now {scale:.3f}"
                     )
 
-                # Step 3: Store screeningStrategyWedge results, linked to the screeningStrategyId
-                #         Keep the screeningStrategyWedgeId
-                d = {
-                    "wedgenumber": n_step,
-                    "resolution": resolution,
-                    "phi": recipe_step.phi_start,
-                    "chi": recipe_step.chi,
-                    "kappa": recipe_step.kappa,
-                    "wavelength": wavelength,
-                    "dosetotal": dose,
-                    "comments": recipe_alias,
-                    "ispyb_command": "insert_screening_strategy_wedge",
-                    "screening_strategy_id": "$ispyb_screening_strategy_id",
-                    "store_result": f"ispyb_screening_strategy_wedge_id_{n_step}",
-                }
-                ispyb_command_list.append(d)
-
                 # Convert transmission to percentage for ISPyB
                 relative_transmission_pct = transmission / dc_transmission * 100
 
-                axis_end = (
-                    rotation_start + rotation_increment * recipe_step.number_of_images
+                screening_sub_wedge_command.update(
+                    exposure_time=exposure_time, transmission=relative_transmission_pct
                 )
-
-                # Step 4: Store second screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
-                #         Keep the screeningStrategyWedgeId
-                d = {
-                    "subwedgenumber": 1,
-                    "rotationaxis": recipe_step.scan_axis,
-                    "axisstart": rotation_start,
-                    "axisend": axis_end,
-                    "exposuretime": exposure_time,
-                    "transmission": relative_transmission_pct,
-                    "oscillationrange": rotation_increment,
-                    "noimages": recipe_step.number_of_images,
-                    "resolution": resolution,
-                    "doseTotal": dose,
-                    "ispyb_command": "insert_screening_strategy_sub_wedge",
-                    "screening_strategy_wedge_id": f"$ispyb_screening_strategy_wedge_id_{n_step}",
-                    "store_result": f"ispyb_screening_strategy_sub_wedge_id_{n_step}",
-                }
-                ispyb_command_list.append(d)
-
+                ispyb_command_list.append(screening_sub_wedge_command)
         # Send results onwards
         rw.set_default_channel("ispyb")
         rw.send_to("ispyb", {"ispyb_command_list": ispyb_command_list}, transaction=txn)

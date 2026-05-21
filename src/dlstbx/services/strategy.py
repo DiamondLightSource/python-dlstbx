@@ -240,7 +240,7 @@ class DLSStrategy(CommonService):
         )
         recipes = (
             ("OSC.yaml", "OSC", "Native"),
-            ("Ligand binding.yaml", "Ligand Binding", "Ligand"),
+            ("Ligand binding.yaml", "Ligand binding", "Ligand"),
             ("SAD.yaml", "SAD", "Phasing"),
         )
         ispyb_command_list = []

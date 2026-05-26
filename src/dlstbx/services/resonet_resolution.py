@@ -175,7 +175,6 @@ class DLSResonetResolution(CommonService):
         n_found = len(fnames)
         self.log.info("Found %d images matching %s", n_found, glob_s)
 
-        results = []
         t_reads = []
         seen = 0
 
@@ -265,14 +264,12 @@ class DLSResonetResolution(CommonService):
                     with self._cuda_profiler.record():
                         d = self._predictor.detect_resolution()
                         q_val = 1000.0 / float(d) ** 2 if d > 0 else 0
-                    results.append(
-                        {
-                            "file": f,
-                            "frame": frame_idx,
-                            "resolution": round(float(d), 4),
-                            "n_spots_total": round(q_val),
-                        }
-                    )
+                    result = {
+                        "file": f,
+                        "frame": frame_idx,
+                        "resolution": round(float(d), 4),
+                        "n_spots_total": round(q_val),
+                    }
                     self.log.debug(
                         "%s [%d]  resolution=%.3f Å  (%d/%d)",
                         os.path.basename(f),
@@ -281,18 +278,17 @@ class DLSResonetResolution(CommonService):
                         i_f + 1,
                         n_found,
                     )
+                    yield result, n_found
                 else:
                     with self._cuda_profiler.record():
                         pval = self._predictor.detect_multilattice_scattering(
                             binary=False
                         )
-                    results.append(
-                        {
-                            "file": f,
-                            "frame": frame_idx,
-                            "multilattice_probability": round(float(pval), 6),
-                        }
-                    )
+                    result = {
+                        "file": f,
+                        "frame": frame_idx,
+                        "multilattice_probability": round(float(pval), 6),
+                    }
                     self.log.debug(
                         "%s [%d]  multilattice_probability=%.4f  (%d/%d)",
                         os.path.basename(f),
@@ -301,6 +297,7 @@ class DLSResonetResolution(CommonService):
                         i_f + 1,
                         n_found,
                     )
+                    yield result, n_found
                 seen += 1
                 frame_count += 1
 
@@ -332,7 +329,7 @@ class DLSResonetResolution(CommonService):
                 infer_median,
                 mem_msg,
             )
-        return results, n_found
+        return
 
     def process(self, rw, header, message):
         msg = message if isinstance(message, dict) else {}
@@ -352,13 +349,24 @@ class DLSResonetResolution(CommonService):
             )
         except pydantic.ValidationError as e:
             self.log.error("Invalid parameters for resonet.resolution: %s", e)
-            rw.transport.nack(header)
+            txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
+            rw.transport.nack(header, transaction=txn)
+            rw.transport.transaction_commit(txn)
             return
 
+        results_messages = []
         try:
-            results, n_found = self.eat_images(
+            for result, n_found in self.eat_images(
                 payload.glob_pattern, payload.max_proc, payload.seen_images
-            )
+            ):
+                result_message = {
+                    "glob_pattern": payload.glob_pattern,
+                    "n_found": n_found,
+                }
+                result_message.update(result)
+                for key in (x for x in message if x.startswith("file")):
+                    result_message[key] = message[key]
+                results_messages.append(result_message)
         except Exception as e:
             self.log.error("Unexpected error in eat_images: %s", e, exc_info=True)
             txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
@@ -377,16 +385,11 @@ class DLSResonetResolution(CommonService):
         #    except Exception as e:
         #        self.log.warning("Could not save resolution grid plot: %s", e)
 
-        result_message = {
-            "glob_pattern": payload.glob_pattern,
-            "n_found": n_found,
-            "n_processed": len(results),
-            "results": results,
-        }
-        for key in (x for x in message if x.startswith("file")):
-            result_message[key] = message[key]
-
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
-        rw.send(result_message, transaction=txn)
+        for i, res in enumerate(results_messages):
+            res["file-number"] = (
+                seen_images if seen_images is not None else i + 1
+            )  # 1-indexed for compatibility with DLSFilewatcher "every" messages
+            rw.send(res, transaction=txn)
         rw.transport.transaction_commit(txn)

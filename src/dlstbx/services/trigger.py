@@ -2905,9 +2905,26 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        if parameters.beamline not in ["i03", "i04", "i04-1"]:
+        if parameters.beamline not in ["i04"]:
             self.log.info(
                 f"Skipping strategy trigger: beamline {parameters.beamline} not supported"
+            )
+            return {"success": True}
+
+        udc_strategy_previously_triggered = (
+            session.query(AutoProcProgram.processingPrograms)
+            .join(
+                ProcessingJob,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .filter(ProcessingJob.dataCollectionId == parameters.dcid)
+            .filter(AutoProcProgram.processingPrograms == "UDC strategy")
+            .all()
+        )
+
+        if udc_strategy_previously_triggered:
+            self.log.info(
+                f"Skipping strategy trigger: UDC Strategy has already been triggered for dcid={parameters.dcid}."
             )
             return {"success": True}
 

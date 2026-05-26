@@ -95,7 +95,7 @@ class EstimateTransmissionWrapper(Wrapper):
             {"parameters": {"scaled_transmission": float(scaled_transmission)}},
         )
 
-        max_pixel_count_pct = num_counts[-1] / trusted_range
+        max_pixel_count_pct = int(num_counts[-1]) / trusted_range
         if max_pixel_count_pct < 0.7:
             warning_level = 0
         elif max_pixel_count_pct < 0.85:

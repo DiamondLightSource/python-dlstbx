@@ -404,7 +404,7 @@ class DLSStrategy(CommonService):
                 relative_transmission_pct = transmission / dc_transmission * 100
 
                 screening_sub_wedge_command.update(
-                    exposure_time=exposure_time, transmission=relative_transmission_pct
+                    exposuretime=exposure_time, transmission=relative_transmission_pct
                 )
                 ispyb_command_list.append(screening_sub_wedge_command)
         # Send results onwards

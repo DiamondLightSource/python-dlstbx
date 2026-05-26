@@ -317,6 +317,7 @@ class DLSStrategy(CommonService):
                     rotation_start + rotation_increment * recipe_step.number_of_images
                 )
 
+                # Partial command for the ScreeningSubWedge table is updated depending on what fields the beamline wants to be shown in Synchweb
                 screening_sub_wedge_command = {
                     "subwedgenumber": 1,
                     "rotationaxis": recipe_step.scan_axis,

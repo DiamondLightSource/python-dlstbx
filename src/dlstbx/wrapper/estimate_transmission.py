@@ -110,7 +110,7 @@ class EstimateTransmissionWrapper(Wrapper):
         }.get(warning_level)
 
         warning_description = f"The most intense pixel is {max_pixel_count_pct * 100}% of the detector's limit"
-        warning_severity = ({0: "INFO", 1: "WARNING", 2: "ERROR"}.get(warning_level),)
+        warning_severity = {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(warning_level)
 
         ispyb_command_list = [
             {

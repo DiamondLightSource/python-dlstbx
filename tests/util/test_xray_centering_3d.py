@@ -103,3 +103,64 @@ def test_gridscan3d_with_absolute_threshold():
         "bounding_box": ((2, 3, 2), (7, 6, 6)),
         "sample_id": 12345,
     }
+
+
+def test_gridscan3d_for_multipin_sample():
+    # Create simple dataset comprising two 12x1 grids with two real peaks and one noise peak.
+    ydata = np.array([0, 3, 3, 0, 0, 20, 10, 0, 0, 1, 0, 1])
+    zdata = np.array([0, 3, 3, 0, 0, 10, 10, 0, 0, 1, 1, 1])
+    data = np.array([ydata, zdata])
+    steps = (12, 1)
+
+    data = tuple(
+        dlstbx.util.xray_centering.reshape_grid(
+            d,
+            steps,
+            snaked=True,
+            orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+        )
+        for d in data
+    )
+
+    sample_id = 12345
+    multipin_sample_ids = {1: 12345, 2: 12346, 3: 12347}
+    well_limits = [(0.0, 4.0), (4.0, 7.0), (8.0, 11.0)]
+
+    # Fit peaks with multipin threshold parameters and check that correct results are obtained.
+    results = dlstbx.util.xray_centering_3d.gridscan3d(
+        data,
+        threshold_msp=0.25,
+        threshold_msp_absolute=3,
+        sample_id=sample_id,
+        plot=False,
+        multipin_sample_ids=multipin_sample_ids,
+        well_limits=well_limits,
+    )
+
+    assert len(results) == 2
+    expected_results = [
+        {
+            "centre_of_mass": (5.833333333333333, 0.5, 0.5),
+            "max_voxel": (5, 0, 0),
+            "max_count": 200.0,
+            "n_voxels": 2,
+            "total_count": 300.0,
+            "sample_id": 12346,
+            "bounding_box": ((5, 0, 0), (7, 1, 1)),
+        },
+        {
+            "centre_of_mass": (2.0, 0.5, 0.5),
+            "max_voxel": (1, 0, 0),
+            "max_count": 9.0,
+            "n_voxels": 2,
+            "total_count": 18.0,
+            "sample_id": 12345,
+            "bounding_box": ((1, 0, 0), (3, 1, 1)),
+        },
+    ]
+
+    for result_num, result in enumerate(results):
+        result_d = result.model_dump()
+        # check that the results are JSON-serializable
+        json.dumps(result_d)
+        assert result_d == expected_results[result_num]

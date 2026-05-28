@@ -51,7 +51,20 @@ class PrometheusMetrics(BasePrometheusMetrics):
         )
 
 
-class PanDDAParameters(pydantic.BaseModel):
+class ModelBuildingParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    scaling_id: list[int]
+    timeout: float = pydantic.Field(default=180, alias="timeout-minutes")
+    backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    pipedream: Optional[bool] = True
+    overwrite: Optional[bool] = False
+
+
+class HitIndentificationParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     comparator_threshold: int = pydantic.Field(default=350)
     automatic: Optional[bool] = False
@@ -62,10 +75,10 @@ class PanDDAParameters(pydantic.BaseModel):
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     pipedream: Optional[bool] = True
-    reprocessing: Optional[bool] = False
+    overwrite: Optional[bool] = False
 
 
-class XChemCollate_Parameters(pydantic.BaseModel):
+class CollateParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
@@ -77,7 +90,7 @@ class XChemCollate_Parameters(pydantic.BaseModel):
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     pipedream: Optional[bool] = False
-    reprocessing: Optional[bool] = False
+    overwrite: Optional[bool] = False
 
 
 class DLSTriggerXChem(CommonService):
@@ -203,7 +216,7 @@ class DLSTriggerXChem(CommonService):
         rw: workflows.recipe.RecipeWrapper,
         *,
         message: Dict,
-        parameters: PanDDAParameters,
+        parameters: HitIndentificationParameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,
         **kwargs,
@@ -237,7 +250,7 @@ class DLSTriggerXChem(CommonService):
         scaling_id = parameters.scaling_id[0]
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
-        reprocessing = parameters.reprocessing
+        overwrite = parameters.overwrite
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         # protein_id = getattr(protein_info, "proteinId")
@@ -700,7 +713,7 @@ class DLSTriggerXChem(CommonService):
 
         self.log.info(f"Creating directory {dataset_dir}")
 
-        if not reprocessing:
+        if not overwrite:
             try:
                 compound_dir.mkdir(parents=True, exist_ok=False)
             except FileExistsError:
@@ -746,7 +759,7 @@ class DLSTriggerXChem(CommonService):
             "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
             "smiles": str(CompoundSMILES),
             "pipedream": pipedream,
-            "reprocessing": reprocessing,
+            "overwrite": overwrite,
         }
 
         dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
@@ -790,12 +803,116 @@ class DLSTriggerXChem(CommonService):
         return {"success": True}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_pandda_xchem_legacy(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        message: Dict,
+        parameters: HitIndentificationParameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,
+        **kwargs,
+    ):
+        """PanDDA2/Pipedream trigger for legacy visits where model_building is already populated.
+
+        Skips upstream-pipeline waiting, best-dataset selection, labxchem-directory discovery,
+        soakDB ligand lookup, and dimple file copying. Resolves processing_directory from the
+        conventional /dls/labxchem/data/{proposal}/{visit}/processing layout via the dcid's
+        BLSession. Assumes processing_directory/auto/analysis/pandda2/model_building/<dtag>/
+        contains dimple.pdb, dimple.mtz, {dtag}.mtz (symlink to upstream), and
+        compound/<CompoundCode>.smiles.
+        """
+        dcid = parameters.dcid
+        scaling_id = parameters.scaling_id[0]
+        pipedream = parameters.pipedream
+        overwrite = parameters.overwrite
+
+        _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
+        visit = ispyb_info.get("ispyb_visit", "")
+        if not visit:
+            self.log.info(f"Exiting legacy trigger: no visit for dcid {dcid}")
+            return {"success": True}
+        proposal_string = visit.split("-")[0]
+        processing_dir = pathlib.Path(
+            f"/dls/labxchem/data/{proposal_string}/{visit}/processing"
+        )
+        xchem_visit_dir = processing_dir.parent
+
+        if not processing_dir.is_dir():
+            self.log.info(f"Exiting legacy trigger: {processing_dir} not found")
+            return {"success": True}
+
+        dtag_row = (
+            session.query(BLSample.name)
+            .join(DataCollection, DataCollection.BLSAMPLEID == BLSample.blSampleId)
+            .filter(DataCollection.dataCollectionId == dcid)
+            .first()
+        )
+        if not dtag_row:
+            self.log.info(f"Exiting legacy trigger: no BLSample for dcid {dcid}")
+            return {"success": True}
+        dtag = dtag_row[0]
+
+        model_dir = processing_dir / "auto" / "analysis" / "pandda2" / "model_building"
+        dataset_dir = model_dir / dtag
+        compound_dir = dataset_dir / "compound"
+        mtz_link = dataset_dir / f"{dtag}.mtz"
+
+        required = [dataset_dir / "dimple.pdb", dataset_dir / "dimple.mtz", mtz_link]
+        missing = [p for p in required if not p.exists()]
+        if missing or not compound_dir.is_dir():
+            self.log.info(
+                f"Exiting legacy trigger for dcid {dcid}: missing {missing or compound_dir}"
+            )
+            return {"success": True}
+
+        upstream_mtz = mtz_link.resolve().name
+
+        smiles_files = list(compound_dir.glob("*.smiles"))
+        if len(smiles_files) != 1:
+            self.log.info(
+                f"Exiting legacy trigger for dcid {dcid}: expected 1 .smiles in {compound_dir}, found {len(smiles_files)}"
+            )
+            return {"success": True}
+        smiles = smiles_files[0].read_text().strip()
+
+        db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
+
+        recipe_parameters = {
+            "dcid": dcid,
+            "xchem_visit_dir": str(xchem_visit_dir),
+            "processing_directory": str(processing_dir),
+            "model_directory": str(model_dir),
+            "dtag": dtag,
+            "n_datasets": 1,
+            "scaling_id": scaling_id,
+            "comparator_threshold": parameters.comparator_threshold,
+            "database_path": str(db_master),
+            "upstream_mtz": upstream_mtz,
+            "smiles": str(smiles),
+            "pipedream": pipedream,
+            "overwrite": overwrite,
+        }
+
+        self.log.info(
+            f"Legacy trigger: launching PanDDA2 for dtag {dtag} (dcid {dcid})"
+        )
+        self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+        if pipedream:
+            self.log.info(
+                f"Legacy trigger: launching Pipedream for dtag {dtag} (dcid {dcid})"
+            )
+            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
+
+        return {"success": True}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_xchem_collate(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
         message: Dict,
-        parameters: XChemCollate_Parameters,
+        parameters: CollateParameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,
         **kwargs,
@@ -822,7 +939,7 @@ class DLSTriggerXChem(CommonService):
         program_id = parameters.program_id
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
-        # reprocessing = parameters.reprocessing
+        # overwrite = parameters.overwrite
         pipedream = parameters.pipedream
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)

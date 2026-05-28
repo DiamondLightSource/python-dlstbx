@@ -301,6 +301,14 @@ class DLSTriggerXChem(CommonService):
         location = int(query.one()[1])
         container_code = query.one()[2]
 
+        # Check for crystal recollections
+        latest_dcid = self._dcid_for_dtag(session, dtag)
+        if latest_dcid and latest_dcid != dcid:
+            self.log.info(
+                f"Exiting PanDDA2/Pipedream trigger: dcid {dcid} is not the latest for dtag {dtag}; Recollection underway?"
+            )
+            return {"success": True}
+
         # Get the user defined spacegroup
         query = (
             session.query(Crystal.spaceGroup)

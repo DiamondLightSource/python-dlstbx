@@ -2931,7 +2931,7 @@ class DLSTrigger(CommonService):
 
         if "estimate_transmission" != processing_program:
             self.log.info(
-                f"Skipping strategy trigger: processing program {processing_program[0]} does not contain estimate_transmission"
+                f"Skipping strategy trigger: processing program {processing_program} not supported"
             )
             return {"success": True}
 
@@ -2959,7 +2959,6 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
-        # Need to change to use the dcid and find the minimum
         resolution = (
             session.query(AutoProcScalingStatistics.resolutionLimitHigh)
             .join(
@@ -2981,6 +2980,9 @@ class DLSTrigger(CommonService):
             .all()
         )
 
+        self.log.info(
+            f"Strategy trigger: resolution estimate from ispyb for dcid={parameters.dcid} is {resolution}"
+        )
         if resolution is None:
             # Send results to myself for next round of processing
             self.log.info(
@@ -3055,7 +3057,7 @@ class DLSTrigger(CommonService):
             "beamline": parameters.beamline,
             "resolution": min_resolution,
             "wavelength": parameters.wavelength,
-            "transmission": transmission,
+            "transmission_estimate": transmission,
         }
 
         for key, value in strategy_parameters.items():

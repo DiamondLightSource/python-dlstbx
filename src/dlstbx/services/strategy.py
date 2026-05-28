@@ -192,7 +192,6 @@ class DLSStrategy(CommonService):
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
             recipe_params.get("ispyb_parameters", {}),
-            recipe_params,
             substitutions=rw.environment,
         )
         self.log.info(f"Received parameters for strategy generation:\n{parameters}")
@@ -215,6 +214,11 @@ class DLSStrategy(CommonService):
             if isinstance(parameters["resolution"], list)
             else float(parameters["resolution"])
         )
+        recommended_max_transmission = (
+            float(parameters["transmission_estimate"][0])
+            if isinstance(parameters["transmission_estimate"], list)
+            else float(parameters.get("transmission_estimate", 100))
+        )
         dc_transmission = float(parameters.get("transmission", 100)) / 100
         resolution_offset = 0.5
         min_resolution = 0.9
@@ -232,7 +236,6 @@ class DLSStrategy(CommonService):
             )
         beamline_config = parse_config_file(beamline_config_file)
 
-        recommended_max_transmission = parameters.get("scaled_transmission", 1.0)
         base_recipe_home = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes")
         agamemnon_recipe_config = base_recipe_home / "recipe_config.yaml"
         agamemnon_limits: dict[str, AgamemnonLimits] = parse_agamemnon_config(

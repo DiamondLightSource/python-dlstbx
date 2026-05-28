@@ -78,16 +78,21 @@ def gridscan3d(
 
     Args:
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
-        threshold: mask out values less than this fraction of the maximum data value
-                in an identified region of the reconstructed 3d grid
+        threshold: Mask out values less than this fraction of the maximum data value
+            in an identified region of the reconstructed 3d grid. Does not apply to
+            multi-sample pins.
         threshold_absolute: filter out identified regions of continuous signal where the
-        max value is less than this absolute value.
+            max value is less than this absolute value.
+        threshold_msp: Applies only to multi-sample pins. Mask out values less than this
+            fraction of the maximum data value in each continuous region of the reconstructed
+            3d grid.
+        threshold_msp_absolute: Applied instead of threshold_absolute for multi-sample pins.
         plot: Show interactive debug plots of the grid scan analysis (default=False)
         sample_id: The sample id attributed to the grid_scan. This will usually be the
             sample in sublocation 1 in the case of multi-sample pins.
         multipin_sample_ids: Sample_ids for all samples on a multi-sample pin.
-                A dictionary of sample ids with the corresponding sub-locations in the
-                pin as keys.
+            A dictionary of sample ids with the corresponding sub-locations in the
+            pin as keys.
         well_limits: The lower and upper limits of the x-coordinate for each well in
             the multi-sample pin in units of grid scan boxes.
 

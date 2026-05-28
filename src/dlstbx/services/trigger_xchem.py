@@ -76,6 +76,7 @@ class HitIndentificationParameters(pydantic.BaseModel):
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     pipedream: Optional[bool] = True
     overwrite: Optional[bool] = False
+    bulk_array: Optional[bool] = None
 
 
 class CollateParameters(pydantic.BaseModel):
@@ -210,8 +211,21 @@ class DLSTriggerXChem(CommonService):
 
         self.log.info(f"{procname}_id trigger: Processing job {jobid} triggered")
 
+    def _dcid_for_dtag(self, session, dtag):
+        """Return the most recent dataCollectionId for the BLSample named `dtag`, or None."""
+        query = (
+            session.query(DataCollection.dataCollectionId)
+            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
+            .filter(BLSample.name == dtag)
+            .order_by(DataCollection.dataCollectionId)
+        )
+        df = pd.read_sql(query.statement, query.session.bind)
+        if df.empty:
+            return None
+        return int(df["dataCollectionId"].tolist()[-1])
+
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def trigger_pandda_xchem(
+    def trigger_hitidentification(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
@@ -226,7 +240,7 @@ class DLSTriggerXChem(CommonService):
         upstream DIMPLE job
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
-        - target: set this to "pandda_xchem"
+        - target: set this to "hitidentification"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
         - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
@@ -236,7 +250,7 @@ class DLSTriggerXChem(CommonService):
         processing PanDDA jobs
         - automatic: boolean value passed to ProcessingJob.automatic field
         Example recipe parameters:
-        { "target": "pandda_xchem",
+        { "target": "hitidentification",
             "dcid": 123456,
             "comparator_threshold": 300,
             "scaling_id": [123456],
@@ -251,6 +265,7 @@ class DLSTriggerXChem(CommonService):
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
         overwrite = parameters.overwrite
+        bulk_array = bool(parameters.bulk_array)
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         # protein_id = getattr(protein_info, "proteinId")
@@ -757,14 +772,26 @@ class DLSTriggerXChem(CommonService):
             "comparator_threshold": comparator_threshold,
             "database_path": str(db_master),
             "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
-            "smiles": str(CompoundSMILES),
             "pipedream": pipedream,
             "overwrite": overwrite,
         }
 
         dataset_list = sorted([p.parts[-1] for p in model_dir.iterdir() if p.is_dir()])
-        dataset_count = sum(1 for p in model_dir.iterdir() if p.is_dir())
+        dataset_count = len(dataset_list)
         self.log.info(f"Dataset count is: {dataset_count}")
+
+        if bulk_array:
+            recipe_parameters["n_datasets"] = dataset_count
+            with open(model_dir / ".batch.json", "w") as f:
+                json.dump(dataset_list, f)
+            self.log.info(
+                f"bulk_array=True, launching PanDDA2 array job over {dataset_count} datasets"
+            )
+            self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
+            if pipedream:
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
+                self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
+            return {"success": True}
 
         if dataset_count < comparator_threshold:
             self.log.info(
@@ -777,16 +804,23 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         elif dataset_count == comparator_threshold:
-            recipe_parameters["n_datasets"] = len(dataset_list)
-
-            with open(model_dir / ".batch.json", "w") as f:
-                json.dump(dataset_list, f)
-                # cannot pass as ispyb_parameter
-
             self.log.info(
-                f"{dataset_count} = comparator dataset threshold of {comparator_threshold}, launching PanDDA2 array job"
+                f"{dataset_count} = comparator dataset threshold of {comparator_threshold}, launching per-dcid PanDDA2 jobs"
             )
-            self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+            for batch_dtag in dataset_list:
+                batch_dcid = self._dcid_for_dtag(session, batch_dtag)
+                if batch_dcid is None:
+                    self.log.warning(
+                        f"No dcid resolvable for dtag {batch_dtag}, skipping"
+                    )
+                    continue
+                batch_params = {
+                    **recipe_parameters,
+                    "dcid": batch_dcid,
+                    "dtag": batch_dtag,
+                    "n_datasets": 1,
+                }
+                self.upsert_proc(rw, batch_dcid, "PanDDA2", batch_params)
 
             if pipedream:
                 self.log.info(f"Launching Pipedream for dtag {dtag}")
@@ -803,7 +837,7 @@ class DLSTriggerXChem(CommonService):
         return {"success": True}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def trigger_pandda_xchem_legacy(
+    def trigger_hitidentification_legacy(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
@@ -818,93 +852,70 @@ class DLSTriggerXChem(CommonService):
         Skips upstream-pipeline waiting, best-dataset selection, labxchem-directory discovery,
         soakDB ligand lookup, and dimple file copying. Resolves processing_directory from the
         conventional /dls/labxchem/data/{proposal}/{visit}/processing layout via the dcid's
-        BLSession. Assumes processing_directory/auto/analysis/pandda2/model_building/<dtag>/
-        contains dimple.pdb, dimple.mtz, {dtag}.mtz (symlink to upstream), and
-        compound/<CompoundCode>.smiles.
+        BLSession.
+
+        With bulk_array=True (default for legacy), fires a single PanDDA2 array job over every
+        dtag found in model_building/, plus a single Pipedream for the input dcid. With
+        bulk_array=False, fires a per-dtag PanDDA2 + Pipedream for the dtag derived from the
+        input dcid (assumes that dataset_dir contains dimple.pdb, dimple.mtz, {dtag}.mtz, and
+        compound/<CompoundCode>.smiles).
         """
-        dcid = parameters.dcid
+        dcid = parameters.dcid  # or use dtag as input and get dcid this way?
+        xchem_visit_dir = parameters.visit_dir
         scaling_id = parameters.scaling_id[0]
         pipedream = parameters.pipedream
-        overwrite = parameters.overwrite
-
-        _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
-        visit = ispyb_info.get("ispyb_visit", "")
-        if not visit:
-            self.log.info(f"Exiting legacy trigger: no visit for dcid {dcid}")
-            return {"success": True}
-        proposal_string = visit.split("-")[0]
-        processing_dir = pathlib.Path(
-            f"/dls/labxchem/data/{proposal_string}/{visit}/processing"
+        # overwrite = parameters.overwrite
+        bulk_array = (
+            parameters.bulk_array if parameters.bulk_array is not None else True
         )
-        xchem_visit_dir = processing_dir.parent
+
+        processing_dir = pathlib.Path(xchem_visit_dir / "processing")
+        model_dir = processing_dir / "analysis" / "model_building"
+
+        # Create dataset directory structure for auto results
+        auto_dir = processing_dir / "auto"
+        analysis_dir = auto_dir / "analysis"
+        pandda_dir = analysis_dir / "pandda2"
+        model_dir = pandda_dir / "model_building"
+        db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
 
         if not processing_dir.is_dir():
             self.log.info(f"Exiting legacy trigger: {processing_dir} not found")
             return {"success": True}
-
-        dtag_row = (
-            session.query(BLSample.name)
-            .join(DataCollection, DataCollection.BLSAMPLEID == BLSample.blSampleId)
-            .filter(DataCollection.dataCollectionId == dcid)
-            .first()
-        )
-        if not dtag_row:
-            self.log.info(f"Exiting legacy trigger: no BLSample for dcid {dcid}")
-            return {"success": True}
-        dtag = dtag_row[0]
-
-        model_dir = processing_dir / "auto" / "analysis" / "pandda2" / "model_building"
-        dataset_dir = model_dir / dtag
-        compound_dir = dataset_dir / "compound"
-        mtz_link = dataset_dir / f"{dtag}.mtz"
-
-        required = [dataset_dir / "dimple.pdb", dataset_dir / "dimple.mtz", mtz_link]
-        missing = [p for p in required if not p.exists()]
-        if missing or not compound_dir.is_dir():
-            self.log.info(
-                f"Exiting legacy trigger for dcid {dcid}: missing {missing or compound_dir}"
-            )
+        if not model_dir.is_dir():
+            self.log.info(f"Exiting legacy trigger: {model_dir} not found")
             return {"success": True}
 
-        upstream_mtz = mtz_link.resolve().name
-
-        smiles_files = list(compound_dir.glob("*.smiles"))
-        if len(smiles_files) != 1:
-            self.log.info(
-                f"Exiting legacy trigger for dcid {dcid}: expected 1 .smiles in {compound_dir}, found {len(smiles_files)}"
+        if bulk_array:
+            dataset_list = sorted(
+                [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
             )
+            if not dataset_list:
+                self.log.info(f"Exiting legacy trigger: no datasets in {model_dir}")
+                return {"success": True}
+            with open(model_dir / ".batch.json", "w") as f:
+                json.dump(dataset_list, f)
+
+            recipe_parameters = {
+                "dcid": dcid,
+                "xchem_visit_dir": str(xchem_visit_dir),
+                "processing_directory": str(processing_dir),
+                "model_directory": str(model_dir),
+                "dtag": dataset_list[0],
+                "n_datasets": len(dataset_list),
+                "scaling_id": scaling_id,
+                "database_path": str(db_master),
+            }
+            self.log.info(
+                f"Legacy trigger: launching PanDDA2 array job over {len(dataset_list)} datasets (dcid {dcid})"
+            )
+            self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
+            if pipedream:
+                self.log.info(
+                    f"Legacy trigger: launching Pipedream array job over {len(dataset_list)} datasets (dcid {dcid})"
+                )
+                self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
             return {"success": True}
-        smiles = smiles_files[0].read_text().strip()
-
-        db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
-
-        recipe_parameters = {
-            "dcid": dcid,
-            "xchem_visit_dir": str(xchem_visit_dir),
-            "processing_directory": str(processing_dir),
-            "model_directory": str(model_dir),
-            "dtag": dtag,
-            "n_datasets": 1,
-            "scaling_id": scaling_id,
-            "comparator_threshold": parameters.comparator_threshold,
-            "database_path": str(db_master),
-            "upstream_mtz": upstream_mtz,
-            "smiles": str(smiles),
-            "pipedream": pipedream,
-            "overwrite": overwrite,
-        }
-
-        self.log.info(
-            f"Legacy trigger: launching PanDDA2 for dtag {dtag} (dcid {dcid})"
-        )
-        self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
-        if pipedream:
-            self.log.info(
-                f"Legacy trigger: launching Pipedream for dtag {dtag} (dcid {dcid})"
-            )
-            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
-
-        return {"success": True}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_xchem_collate(

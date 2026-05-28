@@ -27,6 +27,9 @@ from ispyb.sqlalchemy import (
     ProcessingJob,
     Proposal,
     Protein,
+    Screening,
+    ScreeningOutput,
+    ScreeningStrategy,
 )
 from sqlalchemy import or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
@@ -2225,9 +2228,7 @@ class DLSTrigger(CommonService):
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
             rw.transport.send("processing_recipe", message)
 
-            self.log.info(
-                f"xia2.multiplex trigger: Processing job {jobid} triggered"
-            )
+            self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobids}
 
@@ -2952,6 +2953,25 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
+        transmission = (
+            session.query(ScreeningStrategy.transmission)
+            .join(
+                ScreeningOutput,
+                ScreeningOutput.screeningOutputId
+                == ScreeningStrategy.screeningOutputId,
+            )
+            .join(Screening, Screening.screeningId == ScreeningOutput.screeningId)
+            .filter(Screening.dataCollectionId == parameters.dcid)
+            .filter(ScreeningStrategy.program == "estimate_transmission")
+            .scalar()
+        )
+
+        if not transmission:
+            self.log.info(
+                f"Skipping strategy trigger: no transmission recommendation found for dcid={parameters.dcid}"
+            )
+            return {"success": True}
+
         jp = self.ispyb.mx_processing.get_job_params()
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
@@ -2965,6 +2985,7 @@ class DLSTrigger(CommonService):
             "beamline": parameters.beamline,
             "resolution": resolution,
             "wavelength": parameters.wavelength,
+            "transmission": transmission,
         }
 
         for key, value in strategy_parameters.items():

@@ -20,6 +20,67 @@ class EstimateTransmissionWrapper(Wrapper):
 
     _logger_name = "dlstbx.wrap.estimate_transmission"
 
+    def collect_ispyb_command_list(self, transmission, max_pixel_count_pct):
+        if max_pixel_count_pct < 0.7:
+            warning_level = 0
+        elif max_pixel_count_pct < 0.85:
+            warning_level = 1
+        else:
+            warning_level = 2
+
+        warning_message = {
+            0: "Diffraction spots are unlikely to have detector count rate issues",
+            1: "Some diffraction spots may have detector count rate issues",
+            2: "Some diffraction spots are likely to have detector count rate issues",
+        }.get(warning_level)
+
+        warning_description = f"The most intense pixel is {max_pixel_count_pct * 100}% of the detector's limit"
+        warning_severity = {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(warning_level)
+
+        # Step 0: Add a program message about the count rate warning,
+        # store the autoproc program
+        ispyb_command_list = []
+        d = {
+            "ispyb_command": "add_program_message",
+            "program_id": "$ispyb_autoprocprogram_id",
+            "message": warning_message,
+            "description": warning_description,
+            "severity": warning_severity,
+        }
+        ispyb_command_list.append(d)
+
+        # Step 1: Create screeningOutput record for recipe, linked to the screeningId
+        #         Keep the screeningOutputId
+        d = {
+            "program": "estimate_transmission",
+            "strategysuccess": 1,
+            "ispyb_command": "insert_screening_output",
+            "screening_id": "$ispyb_screening_id",
+            "store_result": "ispyb_screening_output_id",
+        }
+        ispyb_command_list.append(d)
+
+        # Step 2: Store screeningStrategy results, linked to the screeningOutputId
+        #         Keep the screeningStrategyId
+        d = {
+            "program": "estimate_transmission",
+            "ispyb_command": "insert_screening_strategy",
+            "transmission": transmission,
+            "screening_output_id": "$ispyb_screening_output_id",
+        }
+        ispyb_command_list.append(d)
+
+        d = {
+            "ispyb_command": "update_processing_status",
+            "program_id": "$ispyb_autoprocprogram_id",
+            "message": "Processing successful",
+            "status": "success",
+        }
+        ispyb_command_list.append(d)
+
+        self.log.info("Sending %s", str(ispyb_command_list))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+
     def run(self):
         """Entrypoint for the estimate_transmission wrapper.
 
@@ -90,40 +151,8 @@ class EstimateTransmissionWrapper(Wrapper):
         scaled_transmission = min(1, (transmission * scale_factor) / 100)
         self.log.info(f"Scaled transmission is : {scaled_transmission}")
 
-        self.recwrap.send_to(
-            "strategy",
-            {"parameters": {"scaled_transmission": float(scaled_transmission)}},
-        )
-
         max_pixel_count_pct = int(num_counts[-1]) / trusted_range
-        if max_pixel_count_pct < 0.7:
-            warning_level = 0
-        elif max_pixel_count_pct < 0.85:
-            warning_level = 1
-        else:
-            warning_level = 2
-
-        warning_message = {
-            0: "Diffraction spots are unlikely to have detector count rate issues",
-            1: "Some diffraction spots may have detector count rate issues",
-            2: "Some diffraction spots are likely to have detector count rate issues",
-        }.get(warning_level)
-
-        warning_description = f"The most intense pixel is {max_pixel_count_pct * 100}% of the detector's limit"
-        warning_severity = ({0: "INFO", 1: "WARNING", 2: "ERROR"}.get(warning_level),)
-
-        ispyb_command_list = [
-            {
-                "ispyb_command": "add_program_message",
-                "program_id": "$ispyb_autoprocprogram_id",
-                "message": warning_message,
-                "description": warning_description,
-                "severity": warning_severity,
-            }
-        ]
-
-        self.log.info("Sending %s", str(ispyb_command_list))
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        self.collect_ispyb_command_list(transmission, max_pixel_count_pct)
 
         results_directory.mkdir(parents=True, exist_ok=True)
         output_file = "dials.find_spots.log"
@@ -140,6 +169,19 @@ class EstimateTransmissionWrapper(Wrapper):
         self.save_plot(num_counts, num_pixels, results_directory)
         self.save_hist_to_json(counts_hist, trusted_range, results_directory)
 
+        output_files = {
+            "pixel_intensities.png": "result",
+            "pixel_counts.json": "result",
+            output_file: "log",
+        }
+        for file, filetype in output_files.items():
+            self.record_result_individual_file(
+                {
+                    "file_path": str(results_directory),
+                    "file_name": file,
+                    "file_type": filetype,
+                }
+            )
         self.log.info("Done.")
         return True
 

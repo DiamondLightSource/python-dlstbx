@@ -119,18 +119,19 @@ def gridscan3d(
 
     # Count corner-corner contacts as a continuous region
     structure = np.ones((3, 3, 3))
+    # For multi-sample pins first find separate continuous regions in the 3d grid
     if multipin_sample_ids:
         # Find all continuous regions
         labels, n_regions = scipy.ndimage.label(reconstructed_3d, structure=structure)
         logger.info(f"Found {n_regions} distinct regions")
 
     else:
-        # For single sample pins, we can just take the whole thing as one region and apply the relative threshold to find the centres.
+        # For single sample pins, treat the entire grid as a single region
         labels = np.ones_like(reconstructed_3d, dtype=int)
         n_regions = 1
 
     results: list[GridScan3DResult] = []
-
+    # Loop over each continuous region, apply a relative threshold then find sub-regions
     for label in range(1, n_regions + 1):
         labelled_data = (labels == label) * reconstructed_3d
         # Apply relative threshold to filter out edge effects and to separate out multiple centres in a single region.

@@ -242,3 +242,98 @@ def test_xray_centering_3d(mocker):
         },
         transaction=mock.ANY,
     )
+
+
+def test_xray_centering_3d_multisample_pin(mocker):
+    dcids = (54321, 54324)
+    parameters = {
+        "dcid": f"{dcids[0]}",
+        "dcg_dcids": [dcids[1]],
+        "experiment_type": "Mesh3D",
+        "beamline": "i03",
+        "sample_id": 12345,
+        "msp_sample_ids": {1: 12345, 2: 12346, 3: 12347},
+        "loop_type": "multipin_3x4+2",
+        "threshold_msp": 0.25,
+        "threshold_absolute_msp": 3,
+    }
+
+    gridinfo = {
+        "dx_mm": 0.001,
+        "dy_mm": 0.001,
+        "gridInfoId": 1061461,
+        "orientation": "horizontal",
+        "micronsPerPixelX": 0.438,
+        "micronsPerPixelY": 0.438,
+        "snaked": 1,
+        "snapshot_offsetXPixel": 363.352,
+        "snapshot_offsetYPixel": 274.936,
+        "steps_x": 12.0,
+        "steps_y": 1.0,
+    }
+
+    t = OfflineTransport()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    xc.transport = t
+    xc.start()
+    # fmt: off
+    spots_count_m45 = [0, 3, 3, 0, 0, 20, 10, 0, 0, 1, 0, 1]
+    spot_counts_p45 = [0, 3, 3, 0, 0, 10, 10, 0, 0, 1, 1, 1]
+    # fmt: on
+    m = generate_recipe_message(parameters, gridinfo)
+    rw = RecipeWrapper(message=m, transport=t)
+    message = {"n_spots_total": 10, "file-number": 1, "file-seen-at": time.time()}
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+    send_to = mocker.spy(rw, "send_to")
+    for i, n_spots in enumerate(spots_count_m45):
+        message = {
+            "n_spots_total": n_spots,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
+        xc.add_pia_result(rw, header, message)
+    send_to.assert_not_called()
+
+    m = generate_recipe_message(
+        {**parameters, "dcg_dcids": [dcids[0]], "dcid": dcids[1]}, gridinfo
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+    for i, n_spots in enumerate(spot_counts_p45):
+        message = {
+            "n_spots_total": n_spots,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
+        xc.add_pia_result(rw, header, message)
+    send_to.assert_called_with(
+        "success",
+        {
+            "results": [
+                {
+                    "max_voxel": (5, 0, 0),
+                    "max_count": 200.0,
+                    "n_voxels": 2,
+                    "total_count": 300.0,
+                    "centre_of_mass": mock.ANY,
+                    "bounding_box": ((5, 0, 0), (7, 1, 1)),
+                    "sample_id": 12346,
+                },
+                {
+                    "max_voxel": (1, 0, 0),
+                    "max_count": 9.0,
+                    "n_voxels": 2,
+                    "total_count": 18.0,
+                    "centre_of_mass": mock.ANY,
+                    "bounding_box": ((1, 0, 0), (3, 1, 1)),
+                    "sample_id": 12345,
+                },
+            ],
+            "status": "success",
+            "type": "3d",
+        },
+        transaction=mock.ANY,
+    )

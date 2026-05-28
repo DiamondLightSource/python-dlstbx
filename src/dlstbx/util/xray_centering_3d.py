@@ -48,8 +48,6 @@ def gridscan3d(
     data: tuple[np.ndarray, ...],
     threshold: float = 0.25,
     threshold_absolute: float = 0,
-    threshold_msp: float = 0.25,
-    threshold_msp_absolute: float = 3,
     plot: bool = False,
     sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
@@ -58,13 +56,19 @@ def gridscan3d(
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
 
-    Fitting routine finds each separate region of continuously connected data, filters
-    out any regions which do not have a voxel with intensity > threshold_absolute. Then,
-    for each of these regions, a relative threshold of the max voxel intensity for that
-    region is applied, with the aim to separate/disconnect peaks of intensity within the
-    region. Each continuously connected sub_region within the region after applying the
-    threshold is then found and is stored as grid_Scan result. The purpose of this second
-    step is to try and locate the individual centres of crystals that are close together.
+    Fitting routine first filters out any pixels from either gridscan with intensity
+    less than threshold_absolute, then constructs a pseudo-3D grid by taking the outer
+    product of the 2D scans. For multi-sample pins, any separate continuous regions of
+    signal are found first, whereas for single sample pins the entire 3D grid is treated
+    as a single region for the following steps. For each region, a relative threshold of
+    the max voxel intensity of the region is applied, with the aim to separate/disconnect
+    peaks of intensity within the region. Separate continuous sub-regions are then found
+    after applying the threshold, which are then stored as grid_scan results. The purpose
+    of this second step is to try and locate the individual centres of crystals that are
+    close together in the gridscan, which would be merged into a single region without
+    applying the relative threshold. For multi-sample pins, the centre of mass of the found
+    sub-regions are tagged with the corresponding sample_id by comparing the x-coordinate
+    to the well limits provided.
 
     Assumption: X is along the rotation axis, Y, Z are perpendicular
 
@@ -79,14 +83,9 @@ def gridscan3d(
     Args:
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
         threshold: Mask out values less than this fraction of the maximum data value
-            in an identified region of the reconstructed 3d grid. Does not apply to
-            multi-sample pins.
+            in an identified region of the reconstructed 3d grid.
         threshold_absolute: filter out identified regions of continuous signal where the
             max value is less than this absolute value.
-        threshold_msp: Applies only to multi-sample pins. Mask out values less than this
-            fraction of the maximum data value in each continuous region of the reconstructed
-            3d grid.
-        threshold_msp_absolute: Applied instead of threshold_absolute for multi-sample pins.
         plot: Show interactive debug plots of the grid scan analysis (default=False)
         sample_id: The sample id attributed to the grid_scan. This will usually be the
             sample in sublocation 1 in the case of multi-sample pins.
@@ -102,11 +101,6 @@ def gridscan3d(
     assert len(data) == 2
     assert data[0].ndim == 2
     assert data[1].ndim == 2
-
-    # Use alternative thresholds for multi-sample pins
-    if multipin_sample_ids:
-        threshold = threshold_msp
-        threshold_absolute = threshold_msp_absolute
 
     # Apply absolute threshold to screen out noise.
     data[0][data[0] < threshold_absolute] = 0

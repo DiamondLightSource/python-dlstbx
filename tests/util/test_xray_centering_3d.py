@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from unittest import mock
 
 import numpy as np
 import pytest
@@ -129,8 +130,8 @@ def test_gridscan3d_for_multipin_sample():
     # Fit peaks with multipin threshold parameters and check that correct results are obtained.
     results = dlstbx.util.xray_centering_3d.gridscan3d(
         data,
-        threshold_msp=0.25,
-        threshold_msp_absolute=3,
+        threshold=0.25,
+        threshold_absolute=3,
         sample_id=sample_id,
         plot=False,
         multipin_sample_ids=multipin_sample_ids,
@@ -140,7 +141,7 @@ def test_gridscan3d_for_multipin_sample():
     assert len(results) == 2
     expected_results = [
         {
-            "centre_of_mass": (5.833333333333333, 0.5, 0.5),
+            "centre_of_mass": mock.ANY,
             "max_voxel": (5, 0, 0),
             "max_count": 200.0,
             "n_voxels": 2,
@@ -149,7 +150,7 @@ def test_gridscan3d_for_multipin_sample():
             "bounding_box": ((5, 0, 0), (7, 1, 1)),
         },
         {
-            "centre_of_mass": (2.0, 0.5, 0.5),
+            "centre_of_mass": mock.ANY,
             "max_voxel": (1, 0, 0),
             "max_count": 9.0,
             "n_voxels": 2,

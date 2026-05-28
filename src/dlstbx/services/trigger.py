@@ -295,6 +295,15 @@ class StrategyParameters(pydantic.BaseModel):
     experiment_type: str
     program_id: int = pydantic.Field(gt=0)
     wavelength: float = pydantic.Field(gt=0)
+    backoff_delay: Dict[str, float] = pydantic.Field(
+        default={"default": 8}, alias="backoff-delay"
+    )
+    backoff_max_try: Dict[str, int] = pydantic.Field(
+        default={"default": 10}, alias="backoff-max-try"
+    )
+    backoff_multiplier: Dict[str, float] = pydantic.Field(
+        default={"default": 2}, alias="backoff-multiplier"
+    )
 
 
 class DLSTrigger(CommonService):
@@ -2895,6 +2904,7 @@ class DLSTrigger(CommonService):
     def trigger_strategy(
         self,
         rw: workflows.recipe.RecipeWrapper,
+        message: Dict,
         *,
         parameters: StrategyParameters,
         session: sqlalchemy.orm.session.Session,
@@ -2911,6 +2921,83 @@ class DLSTrigger(CommonService):
                 f"Skipping strategy trigger: beamline {parameters.beamline} not supported"
             )
             return {"success": True}
+
+        # Check that the processing program is from estimate_transmission, if not skip strategy trigger
+        processing_program = (
+            session.query(AutoProcProgram.processingPrograms)
+            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
+            .scalar()
+        )
+
+        if "estimate_transmission" != processing_program:
+            self.log.info(
+                f"Skipping strategy trigger: processing program {processing_program[0]} does not contain estimate_transmission"
+            )
+            return {"success": True}
+
+        status = {
+            "ntry": 0,
+        }
+        backoff_delay = parameters.backoff_delay.get(
+            parameters.beamline, parameters.backoff_delay["default"]
+        )
+        backoff_multiplier = parameters.backoff_multiplier.get(
+            parameters.beamline, parameters.backoff_multiplier["default"]
+        )
+        backoff_max_try = parameters.backoff_max_try.get(
+            parameters.beamline, parameters.backoff_max_try["default"]
+        )
+
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        status["ntry"] += 1
+        message_delay = int(backoff_delay * backoff_multiplier ** status["ntry"])
+        if status["ntry"] > backoff_max_try:
+            self.log.info(
+                f"Skipping strategy trigger: maximum number of retries exceeded for dcid={parameters.dcid}"
+            )
+            return {"success": True}
+
+        # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
+        # Need to change to use the dcid and find the minimum
+        resolution = (
+            session.query(AutoProcScalingStatistics.resolutionLimitHigh)
+            .join(
+                AutoProcScaling,
+                AutoProcScaling.autoProcScalingId
+                == AutoProcScalingStatistics.autoProcScalingId,
+            )
+            .join(AutoProc, AutoProc.autoProcId == AutoProcScaling.autoProcId)
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+            )
+            .join(
+                ProcessingJob,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .filter(ProcessingJob.dataCollectionId == parameters.dcid)
+            .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
+            .all()
+        )
+
+        if resolution is None:
+            # Send results to myself for next round of processing
+            self.log.info(
+                f"Waiting for a transmission recommendation for dcid={parameters.dcid}"
+            )
+            rw.checkpoint(
+                {
+                    "trigger-status": status,
+                },
+                delay=message_delay,
+            )
+            return {"success": True}
+
+        min_resolution = min(resolution, key=lambda x: x[0])[0]
+        self.log.info(
+            f"Strategy trigger: found minumum resolution {min_resolution} for dcid={parameters.dcid}"
+        )
 
         udc_strategy_previously_triggered = (
             session.query(AutoProcProgram.processingPrograms)
@@ -2929,30 +3016,13 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        # Get resolution estimate from ispyb records for upstream pipeline - returns None if not found.
-        resolution = (
-            session.query(AutoProcScalingStatistics.resolutionLimitHigh)
-            .join(
-                AutoProcScaling,
-                AutoProcScaling.autoProcScalingId
-                == AutoProcScalingStatistics.autoProcScalingId,
-            )
-            .join(AutoProc, AutoProc.autoProcId == AutoProcScaling.autoProcId)
-            .join(
-                AutoProcProgram,
-                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
-            )
-            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
-            .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
-            .scalar()
-        )
-
         if not resolution:
             self.log.info(
                 f"Skipping strategy trigger: no resolution estimate found for dcid={parameters.dcid} auto_proc_program_id={parameters.program_id}"
             )
             return {"success": True}
 
+        # Trigger service will be triggered by estimate_transmission therefore can se autoprocId
         transmission = (
             session.query(ScreeningStrategy.transmission)
             .join(
@@ -2983,7 +3053,7 @@ class DLSTrigger(CommonService):
 
         strategy_parameters = {
             "beamline": parameters.beamline,
-            "resolution": resolution,
+            "resolution": min_resolution,
             "wavelength": parameters.wavelength,
             "transmission": transmission,
         }

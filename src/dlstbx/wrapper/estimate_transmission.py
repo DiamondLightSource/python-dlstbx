@@ -182,6 +182,8 @@ class EstimateTransmissionWrapper(Wrapper):
                     "file_type": filetype,
                 }
             )
+
+        self.recwrap.send_to("trigger", {})
         self.log.info("Done.")
         return True
 

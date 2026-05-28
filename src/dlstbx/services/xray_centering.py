@@ -55,6 +55,8 @@ class Parameters(pydantic.BaseModel):
     msp_sample_ids: Optional[dict[int, int]] = {}
     threshold: pydantic.NonNegativeFloat = 0.25
     threshold_absolute: pydantic.NonNegativeFloat = 0
+    threshold_msp: pydantic.NonNegativeFloat = 0.25
+    threshold_absolute_msp: pydantic.NonNegativeFloat = 3
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -283,11 +285,21 @@ class DLSXRayCentering(CommonService):
                         self.log.debug(f"{perm=}")
                         data = [data[p] for p in perm]
 
+                        if parameters.msp_sample_ids:
+                            self.log.debug(
+                                f"Applying multi-sample pin thresholds for sample IDs {parameters.msp_sample_ids}"
+                            )
+                            threshold = parameters.threshold_msp
+                            threshold_absolute = parameters.threshold_absolute_msp
+                        else:
+                            threshold = parameters.threshold
+                            threshold_absolute = parameters.threshold_absolute
+
                         result = dlstbx.util.xray_centering_3d.gridscan3d(
                             data=tuple(data),
                             sample_id=parameters.sample_id,
-                            threshold=parameters.threshold,
-                            threshold_absolute=parameters.threshold_absolute,
+                            threshold=threshold,
+                            threshold_absolute=threshold_absolute,
                             plot=False,
                             multipin_sample_ids=parameters.msp_sample_ids,
                             well_limits=well_limits,

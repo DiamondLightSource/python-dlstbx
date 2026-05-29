@@ -148,11 +148,11 @@ class EstimateTransmissionWrapper(Wrapper):
         )
         scale_factor = target_countrate_pct / pixel_countrate_pct
 
-        scaled_transmission = min(1, (transmission * scale_factor) / 100)
+        scaled_transmission = min(100, (transmission * scale_factor))
         self.log.info(f"Scaled transmission is : {scaled_transmission}")
 
         max_pixel_count_pct = int(num_counts[-1]) / trusted_range
-        self.collect_ispyb_command_list(transmission, max_pixel_count_pct)
+        self.collect_ispyb_command_list(scaled_transmission, max_pixel_count_pct)
 
         results_directory.mkdir(parents=True, exist_ok=True)
         output_file = "dials.find_spots.log"

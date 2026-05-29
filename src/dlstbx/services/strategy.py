@@ -218,7 +218,7 @@ class DLSStrategy(CommonService):
             float(parameters["transmission_estimate"][0])
             if isinstance(parameters["transmission_estimate"], list)
             else float(parameters.get("transmission_estimate", 100))
-        )
+        ) / 100
         dc_transmission = float(parameters.get("transmission", 100)) / 100
         resolution_offset = 0.5
         min_resolution = 0.9

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+import h5py
 import pytest
 
 import dlstbx.util.hdf5
@@ -61,3 +62,15 @@ def test_validate_pixel_mask_shape_int64():
         dlstbx.util.hdf5.validate_pixel_mask(
             "/dls/mx/data/cm31104/cm31104-1/020222/RT/ToNV_WT/x_27_master.h5"
         )
+
+
+def test_is_SWMR_compatible(tmp_path):
+    # Test that the function correctly identifies SWMR compatible and incompatible files
+    swmr_compatible_file = tmp_path / "swmr_compatible.h5"
+    with h5py.File(swmr_compatible_file.as_posix(), "w", libver=("v110", "latest")):
+        pass
+    assert dlstbx.util.hdf5.is_SWMR_compatible(swmr_compatible_file.as_posix())
+    swmr_incompatible_file = tmp_path / "swmr_incompatible.h5"
+    with h5py.File(swmr_incompatible_file.as_posix(), "w", libver=("earliest", "v108")):
+        pass
+    assert not dlstbx.util.hdf5.is_SWMR_compatible(swmr_incompatible_file.as_posix())

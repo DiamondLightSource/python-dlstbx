@@ -15,6 +15,10 @@ class XChemCollateWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xchem_collate"
 
     def run(self):
+        """Performs collation of PanDDA2 & Pipedream results for a labxchem visit.
+        Runs automated model selection and re-integrates results back into soakDB,
+        and XChem evironment."""
+
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         self.log.info(
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
@@ -26,7 +30,7 @@ class XChemCollateWrapper(Wrapper):
         auto_dir = processing_dir / "auto"
         analysis_dir = auto_dir / "analysis"
         pandda_dir = analysis_dir / "pandda2"
-        model_dir = pandda_dir / "model_building"
+        model_dir = analysis_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
         pipedream_dir = analysis_dir / "pipedream"
 
@@ -56,7 +60,7 @@ class XChemCollateWrapper(Wrapper):
                 self.log.error(e.stderr)
 
         # -------------------------------------------------------
-        # Perform model selection (pandda/pipedream) & re-integrate into XChem environment
+        # Perform model selection (PanDDA2/Pipedream) & re-integrate into XChem environment
 
         try:
             self.update_xchem_database(
@@ -94,7 +98,7 @@ class XChemCollateWrapper(Wrapper):
             )
 
         # -------------------------------------------------------
-        # Perform XChemAlign collate
+        # Perform XChemAlign collate step
         xca_dir = analysis_dir / "xchem_align"
         config = xca_dir / "config.yaml"
         assemblies = xca_dir / "assemblies.yaml"
@@ -135,9 +139,9 @@ class XChemCollateWrapper(Wrapper):
     def find_pipedream_model(self, pipedream_dir, dtag, rscc_thresh):
         RHOFIT_HIT_LOG = "Hit_corr.log"
 
-        dataset_dir = pipedream_dir / dtag
-        rhofit_dir = next(dataset_dir.glob("rhofit-*"), None)
-        postrefine_dir = next(dataset_dir.glob("postrefine-*"), None)
+        pipdream_dtag = pipedream_dir / dtag
+        rhofit_dir = next(pipdream_dtag.glob("rhofit-*"), None)
+        postrefine_dir = next(pipdream_dtag.glob("postrefine-*"), None)
 
         if not rhofit_dir:
             return None
@@ -160,17 +164,15 @@ class XChemCollateWrapper(Wrapper):
         )
 
     def find_pandda_model(self, panddas_dir, dtag) -> Path | None:
-        pandda_dataset_dir = panddas_dir / "processed_datasets" / f"{dtag}"
-        pandda_model = (
-            pandda_dataset_dir / "modelled_structures" / f"{dtag}-pandda-model.pdb"
-        )
+        panddas_dtag = panddas_dir / "processed_datasets" / f"{dtag}"
+        pandda_model = panddas_dtag / "modelled_structures" / f"{dtag}-pandda-model.pdb"
         model_path = pandda_model if pandda_model.exists() else None
         return model_path
 
     def update_xchem_database(
         self, processing_dir, model_dir, pipedream_dir, panddas_dir
     ):
-        """Exports results to SoakDB database"""
+        """Performs model selection & exports results to XChem SoakDB database"""
 
         db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
         db_copy = processing_dir / "auto/database" / "autosoakDBDataFile.sqlite"
@@ -182,10 +184,18 @@ class XChemCollateWrapper(Wrapper):
         self.sync_schema_from_master(db_master, db_copy, "mainTable")
         self.sync_rows_from_master(db_master, db_copy, "mainTable")
 
-        # Build list of update dicts for batch update
+        # Build list of dicts for batch updating rows in SQLite
         db_dicts = []
-        for dir in model_dir.iterdir():  # or iterate through results.json entries
-            dtag = dir.name
+        for dataset_dir in model_dir.iterdir():
+            dtag = dataset_dir.name
+            compound_dir = dataset_dir / "compound"
+            cif_files = list(compound_dir.glob("*.cif"))
+
+            if len(cif_files) > 1:
+                self.log.error(f"Multiple .cif files in {compound_dir}")
+
+            CompoundCode = cif_files[0].stem
+
             db_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
             pipedream_model, rscc = self.find_pipedream_model(
                 pipedream_dir, dtag, rscc_thresh=0.7
@@ -211,11 +221,15 @@ class XChemCollateWrapper(Wrapper):
                         "RefinementOutcome": RefinementOutome,
                         "RefinementLigandConfidence": RefinementLigandConfidence,
                         "RefinementLigandCC": rscc,
-                        # "RefinementCIF": str(model_dir / dtag / compound /)
+                        # "RefinementCIF":
                         "RefinementCIFprogram": "Grade2",
                         "LastUpdated": db_timestamp,
                         "LastUpdated_by": "gda2",
                     }
+                )
+
+                self.export_pipedream_files(
+                    dataset_dir, CompoundCode, pipedream_dir, dtag
                 )
 
             elif pandda_model:
@@ -241,6 +255,7 @@ class XChemCollateWrapper(Wrapper):
                     }
                 )
 
+        # Now update the database with the formed dicts
         try:
             self.update_data_source_bulk(db_dicts, db_copy)
             self.log.debug(f"Bulk updated {db_copy} for {len(db_dicts)} datasets")
@@ -327,3 +342,42 @@ class XChemCollateWrapper(Wrapper):
             os.symlink(src, dst)
         except Exception as e:
             self.log.error(f"Error creating symlink from {src} to {dst}: {e}")
+
+    def export_pipedream_files(self, dataset_dir, compound_code, pipedream_dir, dtag):
+        """Export Pipedream results to model_building directory"""
+
+        compound_dir = dataset_dir / "compound"  # in model_building
+        target_cif = compound_dir / f"{compound_code}.cif"
+        target_pdb = compound_dir / f"{compound_code}.pdb"
+        symlink_cif = dataset_dir / f"{compound_code}.cif"
+
+        rhofit_dir = pipedream_dir / dtag / f"rhofit-{compound_code}"
+        output_cif_file = rhofit_dir / "best.cif"
+        refined_pdb_file = rhofit_dir / "best.pdb"
+
+        if refined_pdb_file.exists() and output_cif_file.exists():
+            shutil.copy2(refined_pdb_file, target_pdb)
+            shutil.copy2(output_cif_file, target_cif)
+            self.safe_symlink(target_cif, symlink_cif)
+        else:
+            self.log.info(f"Could not export restraints files for {dataset_dir}")
+
+        mtz_file_dest = (
+            pipedream_dir / dtag / f"postrefine-{compound_code}" / "refine.mtz"
+        )
+        postrefine_pdb = (
+            pipedream_dir / dtag / f"postrefine-{compound_code}" / "refine.pdb"
+        )
+
+        self.safe_symlink(postrefine_pdb, dataset_dir / "refine.pdb")
+        self.safe_symlink(mtz_file_dest, dataset_dir / "refine.mtz")
+        self.safe_symlink(postrefine_pdb, dataset_dir / "refine.split.bound-state.pdb")
+
+        self.safe_symlink(
+            pipedream_dir / dtag / f"postrefine-{compound_code}" / "refine_2fofc.map",
+            dataset_dir / f"{dtag}_2fofc.map",
+        )
+        self.safe_symlink(
+            pipedream_dir / dtag / f"postrefine-{compound_code}" / "refine_fofc.map",
+            dataset_dir / f"{dtag}_fofc.map",
+        )

@@ -25,13 +25,13 @@ from ispyb.sqlalchemy import (
     AutoProcScaling,
     AutoProcScalingStatistics,
     BLSample,
-    BLSession,
     Container,
     Crystal,
     DataCollection,
     ProcessingJob,
     ProcessingJobParameter,
     Proposal,
+    Protein,
 )
 from sqlalchemy import or_
 from workflows.services.common_service import CommonService
@@ -938,20 +938,31 @@ class DLSTriggerXChem(CommonService):
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         acronym = getattr(protein_info, "acronym")
 
-        # get all dcids for the visit
-        query = (
-            session.query(Proposal, BLSession, DataCollection)
-            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
-            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+        # get the dcids for the protein target under the current proposal
+        dcids = [
+            row[0]
+            for row in session.query(DataCollection.dataCollectionId)
+            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
+            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
+            .join(Protein, Protein.proteinId == Crystal.proteinId)
+            .join(Proposal, Proposal.proposalId == Protein.proposalId)
+            .join(
+                ProcessingJob,
+                ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
             .filter(Proposal.proposalCode == visit_proposal[0:2])
             .filter(Proposal.proposalNumber == visit_proposal[2::])
-            .filter(BLSession.visit_number == visit_number)
-        )
+            .filter(Protein.acronym == acronym)
+            .distinct()
+            .all()
+        ]
 
-        df = pd.read_sql(query.statement, query.session.bind)
-        dcids = df["dataCollectionId"].tolist()
-
-        # trigger on the final PanDDA/Pipedream program_id for the visit
+        # trigger on the final PanDDA/Pipedream program_id from the current
+        # processing batch
         query = (
             (
                 session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -960,7 +971,11 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
-            .filter(AutoProcProgram.processingPrograms.in_(["PanDDA2", "Pipedream"]))
+            .filter(
+                AutoProcProgram.processingPrograms.in_(
+                    ["xia2 dials", "PanDDA2", "Pipedream"]
+                )
+            )
             .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
         )
 
@@ -970,7 +985,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # has processing finished for the current visit? checkpoint if not
+        # has processing finished? checkpoint if not
         min_start_time = datetime.now() - timedelta(hours=8)
         query = (
             (

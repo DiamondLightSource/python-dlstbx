@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import shutil
 import sqlite3
@@ -99,7 +100,7 @@ class XChemCollateWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Perform XChemAlign collate step
-        xca_dir = analysis_dir / "xchem_align"
+        xca_dir = analysis_dir / "xchemalign"
         config = xca_dir / "config.yaml"
         assemblies = xca_dir / "assemblies.yaml"
 
@@ -108,7 +109,7 @@ class XChemCollateWrapper(Wrapper):
                 f"No config/assemblies .yaml in {str(xca_dir)}, skipping autoXCA"
             )
         else:
-            autoxca_dir = auto_dir / "xchem_align"  # do relative paths work from here?
+            autoxca_dir = auto_dir / "xchemalign"  # do relative paths work from here?
             shutil.copy(config, autoxca_dir / "config.yaml")
             shutil.copy(assemblies, autoxca_dir / "assemblies.yaml")
 
@@ -136,32 +137,34 @@ class XChemCollateWrapper(Wrapper):
         self.log.info("Auto XChemCollate finished successfully")
         return True
 
+    # -------------------------------------------------------
+
     def find_pipedream_model(self, pipedream_dir, dtag, rscc_thresh):
+        """Locate the Pipedream postrefine model for a dataset and its best rhofit
+        RSCC."""
+
         RHOFIT_HIT_LOG = "Hit_corr.log"
 
         pipdream_dtag = pipedream_dir / dtag
+        if not pipdream_dtag.is_dir():
+            return None, None
+
         rhofit_dir = next(pipdream_dtag.glob("rhofit-*"), None)
         postrefine_dir = next(pipdream_dtag.glob("postrefine-*"), None)
-
-        if not rhofit_dir:
-            return None
-
-        if not postrefine_dir:
-            return None
+        if not rhofit_dir or not postrefine_dir:
+            return None, None
 
         hit_log = rhofit_dir / RHOFIT_HIT_LOG
         if not hit_log.exists():
-            return None
+            return None, None
 
         with open(hit_log) as f:
             rscc = max(float(line.split()[1]) for line in f if line.strip())
 
         refine_pdb = postrefine_dir / "refine.pdb"
-        return (
-            (refine_pdb, rscc)
-            if refine_pdb.exists() and rscc > rscc_thresh
-            else (None, None)
-        )
+        if refine_pdb.exists() and rscc > rscc_thresh:
+            return refine_pdb, rscc
+        return None, None
 
     def find_pandda_model(self, panddas_dir, dtag) -> Path | None:
         panddas_dtag = panddas_dir / "processed_datasets" / f"{dtag}"
@@ -196,7 +199,7 @@ class XChemCollateWrapper(Wrapper):
 
             CompoundCode = cif_files[0].stem
 
-            db_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
+            db_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
             pipedream_model, rscc = self.find_pipedream_model(
                 pipedream_dir, dtag, rscc_thresh=0.7
             )
@@ -214,6 +217,15 @@ class XChemCollateWrapper(Wrapper):
                     RefinementLigandConfidence = "2 - Correct ligand, weak density"
                     RefinementOutome = "3 - In Refinement"
 
+                # Full refinement/validation statistics from the Pipedream summary json
+                try:
+                    metrics = self.pipedream_refinement_metrics(
+                        pipedream_model, CompoundCode, db_timestamp
+                    )
+                except Exception as e:
+                    self.log.error(f"Could not read Pipedream summary for {dtag}: {e}")
+                    metrics = {}
+
                 db_dicts.append(
                     {
                         "CrystalName": dtag,
@@ -221,10 +233,13 @@ class XChemCollateWrapper(Wrapper):
                         "RefinementOutcome": RefinementOutome,
                         "RefinementLigandConfidence": RefinementLigandConfidence,
                         "RefinementLigandCC": rscc,
-                        # "RefinementCIF":
+                        "RefinementCIF": str(
+                            dataset_dir / "compound" / f"{CompoundCode}.cif"
+                        ),
                         "RefinementCIFprogram": "Grade2",
                         "LastUpdated": db_timestamp,
                         "LastUpdated_by": "gda2",
+                        **metrics,
                     }
                 )
 
@@ -381,3 +396,111 @@ class XChemCollateWrapper(Wrapper):
             pipedream_dir / dtag / f"postrefine-{compound_code}" / "refine_fofc.map",
             dataset_dir / f"{dtag}_fofc.map",
         )
+
+    def pipedream_refinement_metrics(
+        self, pipedream_model, compound_code, db_timestamp
+    ):
+        """Extract refinement & validation statistics from the pipedream_summary.json
+        that sits alongside the selected postrefine model, returning a dict of soakDB
+        mainTable columns. Mirrors https://github.com/Daren-fearon/pipedream_xchem/.
+
+        Note: RefinementOutcome, RefinementLigandConfidence, RefinementLigandCC and
+        RefinementBoundConformation are intentionally left out - they are set from
+        the rhofit rscc by the caller."""
+
+        postrefine_dir = Path(pipedream_model).parent
+        pipedream_out = postrefine_dir.parent
+        summary_path = pipedream_out / "pipedream_summary.json"
+
+        with open(summary_path) as f:
+            summary = json.load(f)
+
+        ligands = summary.get("ligandfitting", {}).get("ligands", [])
+        first_ligand = ligands[0] if ligands else {}
+        molprobity = first_ligand.get("validationstatistics", {}).get("molprobity", {})
+        # postrefinement[1] is the final refinement step (matches collate script)
+        postref = first_ligand.get("postrefinement", [])
+        postref_final = postref[1] if len(postref) > 1 else {}
+
+        # High resolution from data processing input, rounded for display
+        reshigh = summary.get("dataprocessing", {}).get("inputdata", {}).get("reshigh")
+        try:
+            resolution = round(float(reshigh), 2)
+        except (TypeError, ValueError):
+            resolution = None
+
+        def _round(value, digits=3):
+            return round(value, digits) if isinstance(value, (int, float)) else value
+
+        r = _round(postref_final.get("R"))
+        rfree = _round(postref_final.get("Rfree"))
+        molprob = molprobity.get("molprobityscore")
+        rama_out = molprobity.get("ramaoutlierpercent")
+        rama_fav = molprobity.get("ramafavoredpercent")
+        rmsd_bonds = molprobity.get("rmsbonds")
+        rmsd_angles = molprobity.get("rmsangles")
+
+        # BUSTER mmCIF model/reflections and the report HTML live in the
+        # postrefine / report directories of the same Pipedream output
+        mmcif_model = postrefine_dir / "BUSTER_model.cif"
+        mmcif_reflections = postrefine_dir / "BUSTER_refln.cif"
+        report = pipedream_out / f"report-{compound_code}" / "index.html"
+
+        if not mmcif_model.exists():
+            self.log.warning(f"BUSTER model CIF not found at {mmcif_model}")
+        if not mmcif_reflections.exists():
+            self.log.warning(f"BUSTER reflections CIF not found at {mmcif_reflections}")
+
+        return {
+            "RefinementResolution": resolution,
+            "RefinementResolutionTL": self.traffic_light(resolution, 2.0, 2.5),
+            "RefinementRcryst": r,
+            "RefinementRcrystTraficLight": self.traffic_light(r, 0.20, 0.25),
+            "RefinementRfree": rfree,
+            "RefinementRfreeTraficLight": self.traffic_light(rfree, 0.25, 0.30),
+            "RefinementOutcomePerson": "gda2",
+            "RefinementOutcomeDate": db_timestamp,
+            "RefinementPDB_latest": str(pipedream_model),
+            "RefinementMTZ_latest": str(postrefine_dir / "refine.mtz"),
+            "RefinementMMCIFmodel_latest": str(mmcif_model),
+            "RefinementMMCIFreflections_latest": str(mmcif_reflections),
+            "RefinementMolProbityScore": molprob,
+            "RefinementMolProbityScoreTL": self.traffic_light(molprob, 2, 3),
+            "RefinementRamachandranOutliers": rama_out,
+            "RefinementRamachandranOutliersTL": self.traffic_light(rama_out, 0.3, 1),
+            "RefinementRamachandranFavored": rama_fav,
+            "RefinementRamachandranFavoredTL": self.traffic_light(
+                rama_fav, 98, 95, reverse=True
+            ),
+            "RefinementRmsdBonds": rmsd_bonds,
+            "RefinementRmsdBondsTL": self.traffic_light(rmsd_bonds, 0.012, 0.018),
+            "RefinementRmsdAngles": rmsd_angles,
+            "RefinementRmsdAnglesTL": self.traffic_light(rmsd_angles, 1.5, 2.0),
+            "RefinementStatus": "finished",
+            "RefinementBusterReportHTML": str(report),
+            "RefinementDate": db_timestamp,
+        }
+
+    def traffic_light(self, value, green, orange=None, reverse=False):
+        """Return the 'green'/'orange'/'red' band for a metric, or None if it
+        can't be parsed. Set reverse=True for metrics where higher is better
+        (e.g. Ramachandran favoured)."""
+        try:
+            if value in (None, "", "NA"):
+                return None
+            val = float(value)
+            if orange is None:
+                if reverse:
+                    return "green" if val > green else "red"
+                return "green" if val < green else "red"
+            if reverse:
+                # Higher is better
+                if val > green:
+                    return "green"
+                return "orange" if val > orange else "red"
+            # Lower is better (R-factor, resolution, RMSD, ...)
+            if val < green:
+                return "green"
+            return "orange" if val < orange else "red"
+        except (ValueError, TypeError):
+            return None

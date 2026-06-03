@@ -38,12 +38,12 @@ class PanDDAWrapper(Wrapper):
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
         pandda_dir = analysis_dir / "pandda2"
-        model_dir = pandda_dir / "model_building"
+        model_dir = analysis_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
-        Path(panddas_dir).mkdir(exist_ok=True)
+        Path(panddas_dir).mkdir(parents=True, exist_ok=True)
 
-        reprocessing = params.get("reprocessing")
-        n_datasets = int(params.get("n_datasets"))
+        overwrite = params.get("overwrite")
+        n_datasets = int(params.get("n_datasets") or 1)
 
         if n_datasets > 1:  # array job case
             batch = True
@@ -59,7 +59,6 @@ class PanDDAWrapper(Wrapper):
 
         self.log.info(f"Processing dtag: {dtag}")
 
-        smiles = params.get("smiles")
         smiles_files = list(compound_dir.glob("*.smiles"))
 
         if len(smiles_files) == 0:
@@ -75,46 +74,11 @@ class PanDDAWrapper(Wrapper):
 
         smiles_file = smiles_files[0]
         CompoundCode = smiles_file.stem
+        smiles = smiles_file.read_text().strip()
 
-        # -------------------------------------------------------
-        # Ligand restraint generation
-
-        restraints_log = dataset_dir / "restraints.log"
-        attachments = [restraints_log]  # synchweb attachments
-        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
-        # acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
-
-        try:
-            subprocess.run(
-                restraints_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=compound_dir,
-                check=True,
-                timeout=30 * 60,
-            )
-
-        except subprocess.CalledProcessError as e:
-            self.log.error(
-                f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
-            )
-
-            self.log.info(e.stdout)
-            self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, batch)
-            return False
-
-        restraints = compound_dir / f"{CompoundCode}.restraints.cif"
-        restraints.rename(compound_dir / f"{CompoundCode}.cif")
-        ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
-        ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
-
+        # Restraints (grade2) were generated upstream by the ligand-restraints job.
         ligand_cif = compound_dir / f"{CompoundCode}.cif"
-
-        self.log.info(
-            f"Restraints generated succesfully for dtag {dtag}, launching PanDDA2"
-        )
+        attachments = []
 
         # -------------------------------------------------------
         # PanDDA2
@@ -123,7 +87,7 @@ class PanDDAWrapper(Wrapper):
         pandda2_log = dataset_pdir / "pandda2.log"
         attachments.extend([pandda2_log, ligand_cif])
 
-        if reprocessing and dataset_pdir.exists():
+        if overwrite and dataset_pdir.exists():
             shutil.rmtree(dataset_pdir)
 
         # add any user specified pandda parameters

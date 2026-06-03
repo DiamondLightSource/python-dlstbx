@@ -27,7 +27,7 @@ class PipedreamWrapper(Wrapper):
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
-        model_dir = pipedream_dir / "model_building"
+        model_dir = analysis_dir / "model_building"
         dtag = params.get("dtag")
         smiles = params.get("smiles")
 
@@ -40,7 +40,6 @@ class PipedreamWrapper(Wrapper):
 
         self.log.info(f"Processing dtag: {dtag}")
 
-        dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
 
         smiles_files = list(compound_dir.glob("*.smiles"))
@@ -59,41 +58,9 @@ class PipedreamWrapper(Wrapper):
         smiles_file = smiles_files[0]
         CompoundCode = smiles_file.stem
 
-        # -------------------------------------------------------
-        # Ligand restraint generation
-
-        restraints_log = dataset_dir / "restraints.log"
-        attachments = [restraints_log]  # synchweb attachments
-
-        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
-
-        try:
-            subprocess.run(
-                restraints_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=compound_dir,
-                check=True,
-                timeout=30 * 60,
-            )
-
-        except subprocess.CalledProcessError as e:
-            self.log.error(
-                f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
-            )
-            self.log.info(e.stdout)
-            self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments)
-            return False
-
-        restraints = compound_dir / f"{CompoundCode}.restraints.cif"
-        restraints.rename(compound_dir / f"{CompoundCode}.cif")
-        ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
-        ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
-
+        # Restraints (grade2) were generated upstream by the ligand-restraints job.
         ligand_cif = compound_dir / f"{CompoundCode}.cif"
-        self.log.info(f"Restraints generated succesfully for dtag {dtag}")
+        attachments = []
 
         self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
         self.process_pdb_file(dimple_pdb)

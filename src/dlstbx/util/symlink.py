@@ -3,6 +3,18 @@ from __future__ import annotations
 import os
 
 
+def safe_symlink(src, dst, logger=None):
+    """Create a symlink at dst pointing to src, replacing any existing file or
+    link already there."""
+    try:
+        if os.path.islink(dst) or os.path.exists(dst):
+            os.remove(dst)
+        os.symlink(src, dst)
+    except Exception as e:
+        if logger:
+            logger.error(f"Error creating symlink from {src} to {dst}: {e}")
+
+
 def create_parent_symlink(
     destination_path, symlink_name, levels=2, overwrite_symlink=False
 ):

@@ -5,10 +5,12 @@ import os
 import subprocess
 from pathlib import Path
 
-import portalocker
-
 from dlstbx.util.mvs.helpers import save_cropped_map
 from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
+from dlstbx.util.pipedream_xchem_helpers import (
+    process_pdb_file,
+    save_dataset_metadata,
+)
 from dlstbx.wrapper import Wrapper
 
 
@@ -63,7 +65,7 @@ class PipedreamWrapper(Wrapper):
         attachments = []
 
         self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
-        self.process_pdb_file(dimple_pdb)
+        process_pdb_file(dimple_pdb, self.log)
         self.log.info(f"Launching pipedream for {dtag}")
 
         # -------------------------------------------------------
@@ -122,7 +124,7 @@ class PipedreamWrapper(Wrapper):
         buster_report = report_dir / "report.pdf"
 
         pipedream_summary = out_dir / "pipedream_summary.json"
-        self.save_dataset_metadata(
+        save_dataset_metadata(
             str(pipedream_dir),
             str(compound_dir),
             str(out_dir),
@@ -130,6 +132,7 @@ class PipedreamWrapper(Wrapper):
             smiles,
             pipedream_command,
             dtag,
+            self.log,
         )
 
         pictures_dir = report_dir / "ligand/pictures"
@@ -227,94 +230,6 @@ class PipedreamWrapper(Wrapper):
         self.send_attachments_to_ispyb(attachments)
         return True
 
-    def process_pdb_file(self, dimple_pdb: Path):
-        if dimple_pdb.exists():
-            with open(dimple_pdb, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            # Count removals by component type
-            original_count = len(lines)
-            components_to_remove = ["DMS", "EDO", "GOL", "SO4", "PO4", "PEG"]
-            removed_counts = dict.fromkeys(components_to_remove, 0)
-
-            kept_lines = []
-            for line in lines:
-                if any(res in line for res in components_to_remove):
-                    # Count which component was found
-                    for comp in components_to_remove:
-                        if comp in line:
-                            removed_counts[comp] += 1
-                            break
-                else:
-                    kept_lines.append(line)
-
-            # Write cleaned file
-            with open(dimple_pdb, "w", encoding="utf-8") as f:
-                f.writelines(kept_lines)
-
-            removed_total = original_count - len(kept_lines)
-            if removed_total > 0:
-                component_summary = ", ".join(
-                    [
-                        f"{comp}: {count}"
-                        for comp, count in removed_counts.items()
-                        if count > 0
-                    ]
-                )
-                self.log.debug(f"Removed {removed_total} lines. ({component_summary})")
-
-        else:
-            self.log.debug(f"Dimple pdb {dimple_pdb} does not exist")
-            return True
-
-    def save_dataset_metadata(
-        self,
-        pipedream_dir,
-        input_dir,
-        output_dir,
-        compound_code,
-        smiles_string,
-        pipedream_cmd,
-        dtag,
-    ):
-        metadata = {
-            "Input_dir": input_dir,
-            "CompoundCode": compound_code,
-            "PipedreamDirectory": output_dir,
-            "ReportHTML": f"{output_dir}/report-{compound_code}/index.html",
-            "LigandReportHTML": f"{output_dir}/report-{compound_code}/ligand/index.html",
-            "ExpectedSummary": f"{output_dir}/pipedream_summary.json",
-            "PipedreamCommand": pipedream_cmd,
-            "ExpectedCIF": os.path.join(input_dir, f"{compound_code}.cif"),
-            "ExpectedPDB": os.path.join(input_dir, f"{compound_code}.pdb"),
-            "InputSMILES": smiles_string,
-        }
-
-        output_yaml = {}
-        output_yaml[dtag] = metadata
-        json_file = f"{pipedream_dir}/Pipedream_output.json"
-        if not os.path.exists(json_file):
-            open(json_file, "w").close()
-
-        # Acquire a lock
-        with portalocker.Lock(json_file, timeout=5):
-            if os.path.exists(json_file) and os.path.getsize(json_file) > 0:
-                with open(json_file, "r", encoding="utf-8") as f:
-                    try:
-                        data = json.load(f)
-                    except Exception as e:
-                        self.log.debug(
-                            f"Cannot continue with pipedream postprocessing: {e}"
-                        )
-                        return
-            else:
-                data = {}
-
-            data.update(output_yaml)
-
-            with open(json_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-
     def send_attachments_to_ispyb(self, attachments):
         for f in attachments:
             if f.exists():
@@ -341,12 +256,3 @@ class PipedreamWrapper(Wrapper):
                     self.log.warning(
                         f"Could not attach {f.name} to ISPyB", exc_info=True
                     )
-
-    def get_rscc_rhofit(self, rhofit_dir) -> float:
-        RHOFIT_HIT_LOG = "Hit_corr.log"
-        # Actually gets the best RSCC of any fit, not -strictly- the one rhofit chose
-        with open(rhofit_dir / RHOFIT_HIT_LOG, "r") as f:
-            lines = f.readlines()
-
-        rscc = max(float(line.split()[1]) for line in lines if line.strip())
-        return rscc

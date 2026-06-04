@@ -69,7 +69,7 @@ class ModelBuildingParameters(pydantic.BaseModel):
 class HitIndentificationParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     xchem_visit_dir: str
-    comparator_threshold: int = pydantic.Field(default=350)
+    comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]

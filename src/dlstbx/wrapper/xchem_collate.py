@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from dlstbx.util.pipedream_xchem_helpers import write_pipedream_parameters
 from dlstbx.util.soakdb import prepare_auto_db, updatable_crystals
 from dlstbx.util.xchem_collate_helpers import (
     symlink_score_buckets,
@@ -88,9 +89,9 @@ class XChemCollateWrapper(Wrapper):
         # Perform Pipedream collate --> html output
         if pipedream:
             pipedream_command = f"module load mamba;  mamba activate /dls/science/groups/i04-1/software/micromamba/envs/xchem; \
-            python /dls/science/groups/i04-1/software/pipedream_xchem/collate_pipedream_results.py --input {pipedream_dir / 'Pipedream_output.json'} --no-browser --no-plots -v"
+            python /dls/science/groups/i04-1/software/pipedream_xchem/collate_pipedream_results.py --input {pipedream_dir / 'Pipedream_output.json'}  --output-dir {pipedream_dir / 'Pipedream_results'} --no-browser --no-plots -v"
 
-            self.log.info(f"Running XChemCollate command: {pipedream_command}")
+            self.log.info(f"Running Collate command: {pipedream_command}")
 
             try:
                 subprocess.run(
@@ -107,6 +108,16 @@ class XChemCollateWrapper(Wrapper):
                 self.log.error(f"XChemCollate command: '{pipedream_command}' failed")
                 self.log.info(e.stdout)
                 self.log.error(e.stderr)
+
+            try:
+                write_pipedream_parameters(
+                    processing_dir, pipedream_dir, logger=self.log
+                )
+            except Exception as e:
+                self.log.error(
+                    f"Could not write pipedream parameters for {pipedream_dir}: {e}"
+                )
+
         else:
             self.log.info(
                 f"Skipping collation of Pipedream results for {pipedream_dir}"

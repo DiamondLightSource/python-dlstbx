@@ -263,6 +263,9 @@ class PanDDAWrapper(Wrapper):
 
         self.log.info(f"Best ligand score for {dtag} = {best_score}: {best_build_path}")
 
+        # Persist the best score so xchem_collate can bucket datasets by score
+        (dataset_pdir / "best_score.txt").write_text(str(best_score))
+
         # -------------------------------------------------------
         # Merge the protein structure with best fitted ligand -> pandda model
 

@@ -9,6 +9,8 @@ from datetime import datetime
 from itertools import groupby
 from pathlib import Path
 
+import pandas as pd
+
 from dlstbx.wrapper import Wrapper
 
 
@@ -64,12 +66,28 @@ class XChemCollateWrapper(Wrapper):
         # -------------------------------------------------------
         # Perform model selection (PanDDA2/Pipedream) & re-integrate into XChem environment
 
+        # Capture the not-yet-processed crystals BEFORE the db update writes their
+        # RefinementOutcome - this same set gates both the score bucketing and the
+        # db update.
         try:
-            self.update_xchem_database(
-                processing_dir, model_dir, pipedream_dir, panddas_dir, overwrite
-            )
+            db_copy = self.prepare_auto_db(processing_dir)
+            updatable = self.updatable_crystals(db_copy, overwrite)
         except Exception as e:
-            self.log.error(f"Exception updating database for {processing_dir}: {e}")
+            self.log.error(f"Could not prepare auto db for {processing_dir}: {e}")
+            db_copy, updatable = None, None
+
+        if updatable is not None:
+            try:
+                self.symlink_score_buckets(panddas_dir, pandda_dir, updatable)
+            except Exception as e:
+                self.log.error(f"Exception bucketing scores for {panddas_dir}: {e}")
+
+            try:
+                self.update_xchem_database(
+                    model_dir, pipedream_dir, panddas_dir, db_copy, updatable
+                )
+            except Exception as e:
+                self.log.error(f"Exception updating database for {processing_dir}: {e}")
 
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
@@ -101,7 +119,7 @@ class XChemCollateWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Perform XChemAlign collate step
-        xca_dir = analysis_dir / "xchemalign"
+        xca_dir = processing_dir / "analysis" / "xchemalign"
         config = xca_dir / "config.yaml"
         assemblies = xca_dir / "assemblies.yaml"
 
@@ -110,7 +128,7 @@ class XChemCollateWrapper(Wrapper):
                 f"No config/assemblies .yaml in {str(xca_dir)}, skipping autoXCA"
             )
         else:
-            autoxca_dir = auto_dir / "xchemalign"  # do relative paths work from here?
+            autoxca_dir = auto_dir / "xchemalign"
             shutil.copy(config, autoxca_dir / "config.yaml")
             shutil.copy(assemblies, autoxca_dir / "assemblies.yaml")
 
@@ -173,11 +191,10 @@ class XChemCollateWrapper(Wrapper):
         model_path = pandda_model if pandda_model.exists() else None
         return model_path
 
-    def update_xchem_database(
-        self, processing_dir, model_dir, pipedream_dir, panddas_dir, overwrite=False
-    ):
-        """Performs model selection & exports results to XChem SoakDB database"""
-
+    def prepare_auto_db(self, processing_dir):
+        """Create (if needed) and sync the auto soakDB copy from the master, then
+        return its path. The copy is what updatable_crystals() and the bulk update
+        operate on."""
         db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
         db_copy = processing_dir / "auto/database" / "autosoakDBDataFile.sqlite"
 
@@ -187,9 +204,14 @@ class XChemCollateWrapper(Wrapper):
 
         self.sync_schema_from_master(db_master, db_copy, "mainTable")
         self.sync_rows_from_master(db_master, db_copy, "mainTable")
+        return db_copy
 
-        # The CrystalName rows the db update is allowed to edit
-        updatable = self.updatable_crystals(db_copy, overwrite)
+    def update_xchem_database(
+        self, model_dir, pipedream_dir, panddas_dir, db_copy, updatable
+    ):
+        """Performs model selection & exports results to XChem SoakDB database.
+        `updatable` is the CrystalName set this run is allowed to write, captured
+        before any RefinementOutcome is set."""
 
         # Build list of dicts for batch updating rows in SQLite
         db_dicts = []
@@ -376,6 +398,64 @@ class XChemCollateWrapper(Wrapper):
                 copy_conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
 
             copy_conn.commit()
+
+    def symlink_score_buckets(self, panddas_dir, pandda_dir, updatable):
+        """Build score-bucketed, symlinked copies of the PanDDA processed_datasets
+        dir so models can be browsed by ligand score. Only datasets still in
+        `updatable` (not yet processed by the autopipeline) are bucketed.
+
+        Scores come from the per-dataset best_score.txt written by pandda_xchem."""
+
+        processed_dataset_dir = panddas_dir / "processed_datasets"
+        events_csv = panddas_dir / "analyses" / "pandda_analyse_events.csv"
+        sites_csv = panddas_dir / "analyses" / "pandda_analyse_sites.csv"
+
+        if not events_csv.exists():
+            self.log.info(f"No {events_csv}, skipping score bucketing")
+            return
+
+        # scores[dtag] = best ligand score
+        scores = {}
+        for dataset in processed_dataset_dir.iterdir():
+            if dataset.name not in updatable:
+                continue
+            score_file = dataset / "best_score.txt"
+            if score_file.exists():
+                scores[dataset.name] = float(score_file.read_text().strip())
+
+        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+        df = pd.read_csv(events_csv, index_col=0)
+        buckets = [0.6, 0.8, 0.9, 1]  # boundaries
+        for j in range(len(buckets) - 1):
+            bucket_dtags = [
+                dtag
+                for dtag, score in sorted_scores
+                if buckets[j] < score <= buckets[j + 1]
+            ]
+            self.log.info(
+                f"Datasets scored {buckets[j]}-{buckets[j + 1]}: {len(bucket_dtags)}"
+            )
+            if not bucket_dtags:
+                continue
+
+            # Mirror the panddas layout: analyses/ and processed_datasets/ siblings
+            bucket_root = pandda_dir / f"score_{buckets[j]}-{buckets[j + 1]}"
+            bucket_processed = bucket_root / "processed_datasets"
+            analyses_dir = bucket_root / "analyses"
+            bucket_processed.mkdir(parents=True, exist_ok=True)
+            analyses_dir.mkdir(parents=True, exist_ok=True)
+
+            # Add this batch's datasets alongside any symlinked by previous runs
+            for dtag in bucket_dtags:
+                self.safe_symlink(processed_dataset_dir / dtag, bucket_processed / dtag)
+
+            # Filter the events csv on every dataset now in the bucket (this batch
+            # plus earlier ones) so prior batches stay represented.
+            all_bucket_dtags = [p.name for p in bucket_processed.iterdir()]
+            shutil.copy(sites_csv, analyses_dir)
+            filtered = df[df["dtag"].isin(all_bucket_dtags)].reset_index(drop=True)
+            filtered.to_csv(analyses_dir / "pandda_analyse_events.csv")
 
     def safe_symlink(self, src, dst):
         try:

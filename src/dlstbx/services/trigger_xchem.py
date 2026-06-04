@@ -927,7 +927,7 @@ class DLSTriggerXChem(CommonService):
         program_id = parameters.program_id
         scaling_id = parameters.scaling_id[0]
         processing_directory = pathlib.Path(parameters.processing_directory)
-        # overwrite = parameters.overwrite
+        overwrite = parameters.overwrite
         pipedream = parameters.pipedream
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
@@ -1087,6 +1087,7 @@ class DLSTriggerXChem(CommonService):
             "processing_directory": str(processing_directory),
             "scaling_id": scaling_id,
             "pipedream": pipedream,
+            "overwrite": overwrite,
         }
         # Upsert on max dcid
         self.upsert_proc(rw, max(dcids), "XChem-Collate", recipe_parameters)

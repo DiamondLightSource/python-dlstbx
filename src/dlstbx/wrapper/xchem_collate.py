@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import datetime
 import json
 import os
 import shutil
 import sqlite3
 import subprocess
+from datetime import datetime
 from itertools import groupby
 from pathlib import Path
 
@@ -27,6 +27,7 @@ class XChemCollateWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
         pipedream = params.get("pipedream")
+        overwrite = params.get("overwrite")
         processing_dir = Path(params.get("processing_directory"))
         auto_dir = processing_dir / "auto"
         analysis_dir = auto_dir / "analysis"
@@ -65,7 +66,7 @@ class XChemCollateWrapper(Wrapper):
 
         try:
             self.update_xchem_database(
-                processing_dir, model_dir, pipedream_dir, panddas_dir
+                processing_dir, model_dir, pipedream_dir, panddas_dir, overwrite
             )
         except Exception as e:
             self.log.error(f"Exception updating database for {processing_dir}: {e}")
@@ -173,7 +174,7 @@ class XChemCollateWrapper(Wrapper):
         return model_path
 
     def update_xchem_database(
-        self, processing_dir, model_dir, pipedream_dir, panddas_dir
+        self, processing_dir, model_dir, pipedream_dir, panddas_dir, overwrite=False
     ):
         """Performs model selection & exports results to XChem SoakDB database"""
 
@@ -187,10 +188,15 @@ class XChemCollateWrapper(Wrapper):
         self.sync_schema_from_master(db_master, db_copy, "mainTable")
         self.sync_rows_from_master(db_master, db_copy, "mainTable")
 
+        # The CrystalName rows the db update is allowed to edit
+        updatable = self.updatable_crystals(db_copy, overwrite)
+
         # Build list of dicts for batch updating rows in SQLite
         db_dicts = []
         for dataset_dir in model_dir.iterdir():
             dtag = dataset_dir.name
+            if dtag not in updatable:
+                continue
             compound_dir = dataset_dir / "compound"
             cif_files = list(compound_dir.glob("*.cif"))
 
@@ -198,8 +204,8 @@ class XChemCollateWrapper(Wrapper):
                 self.log.error(f"Multiple .cif files in {compound_dir}")
 
             CompoundCode = cif_files[0].stem
+            db_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
 
-            db_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
             pipedream_model, rscc = self.find_pipedream_model(
                 pipedream_dir, dtag, rscc_thresh=0.7
             )
@@ -277,8 +283,30 @@ class XChemCollateWrapper(Wrapper):
         except Exception as e:
             self.log.debug(f"Could not bulk update {db_copy}: {e}")
 
+    def updatable_crystals(self, database_path, overwrite=False):
+        """CrystalNames this run is allowed to write — both the skip-set for
+        building db_dicts/exporting files and the gate for the bulk update.
+
+        default: rows not yet given a RefinementOutcome.
+        overwrite: also rows whose RefinementOutcome was set by a previous
+        automated run (LastUpdated_by 'gda2', or never touched), while leaving
+        manually-curated rows (any other LastUpdated_by) alone."""
+        if overwrite:
+            where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
+        else:
+            where = "RefinementOutcome IS NULL"
+        conn = sqlite3.connect(database_path, timeout=30)
+        try:
+            rows = conn.execute(
+                f"SELECT CrystalName FROM mainTable WHERE {where}"
+            ).fetchall()
+        finally:
+            conn.close()
+        return {row[0] for row in rows}
+
     def update_data_source_bulk(self, db_dicts, database_path):
-        # Group dicts that share the same columns together
+        # db_dicts is already restricted to updatable_crystals(), so the bulk
+        # update only needs to match on CrystalName.
         keyed = sorted(db_dicts, key=lambda d: tuple(sorted(d)))
 
         conn = sqlite3.connect(database_path, timeout=30)
@@ -290,7 +318,6 @@ class XChemCollateWrapper(Wrapper):
                     "UPDATE mainTable SET "
                     + ", ".join([f"{col} = :{col}" for col in columns])
                     + " WHERE CrystalName = :CrystalName"
-                    + " AND RefinementOutcome IS NULL"
                 )
                 cursor.executemany(sql, list(group))
             conn.commit()

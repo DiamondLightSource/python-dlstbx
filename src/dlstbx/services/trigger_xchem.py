@@ -235,13 +235,19 @@ class DLSTriggerXChem(CommonService):
         transaction: int,
         **kwargs,
     ):
-        """Select a dimple model to take forward, and prepare a dataset
-        for downstream hit identification pipelines.
+        """Select a dimple model to take forward and stage a dataset for the
+        downstream hit-identification pipelines.
 
-        Waits for upstream pipelines to finish, selects the 'best' dataset,
-        copies dimple files into the shared model_building directory, writes
-        the ligand .smiles file, and fires a single ligand-restraints job
-        (grade2 default) per dcid. On success, that recipe sends control to
+        Waits (with exponential backoff) for related upstream pipelines and
+        dimple jobs to finish, then picks the 'best' dataset by
+        I/sigI * completeness * #unique-reflections, preferring the user-defined
+        spacegroup and the most recent processing batch. Reads the soakDB for
+        ligand info, skipping DMSO solvent screens and crystals with no
+        CompoundSMILES.
+
+        Copies the chosen dimple files into the shared model_building directory,
+        writes the ligand .smiles file, and fires a single ligand-restraints job
+        (grade2 default) per dcid. On success that recipe sends control to
         trigger_hitidentification.
         """
 
@@ -257,17 +263,19 @@ class DLSTriggerXChem(CommonService):
         proposal_id = getattr(protein_info, "proposalId")
         acronym = getattr(protein_info, "acronym")
 
+        # TEMPORARY PROPOSAL FILTER
+        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049"]
+        PROPOSAL_ALIASES = {"mx41448": "lb42888"}
+
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
         proposal = query.first()
         proposal_code = proposal.proposalCode
         proposal_number = proposal.proposalNumber
-        proposal_string = proposal_code + proposal_number
-
-        # TEMPORARY PROPOSAL FILTER
-        allowed_proposals = ["lb42888", "sw44043", "sw44107", "lb36049"]
+        data_proposal = proposal_code + proposal_number
+        proposal_string = PROPOSAL_ALIASES.get(data_proposal, data_proposal)
 
         # 0. Check that this is an XChem expt & locate .SQLite database
-        if proposal_string not in allowed_proposals:
+        if proposal_string not in ALLOWED_PROPOSALS:
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} proposal {proposal_string}"
             )
@@ -771,14 +779,15 @@ class DLSTriggerXChem(CommonService):
     ):
         """Launch PanDDA2 / Pipedream once restraints for this dcid are ready.
 
-        Records the current dcid in model_dir/.hitidentification_dcids.json.
-        Pipedream fires for the current dcid on every call. PanDDA2 is gated
-        by the count of recorded dcids vs. comparator_threshold:
-        below threshold → skip; at threshold → fire per-dcid PanDDA2 over the
-        recorded dcids; above threshold → single PanDDA2 for the current dtag.
+        Records the current dcid and its dtag in model_dir/.batch_dcids.json as a
+        {dcid: dtag} map, so dtags can be read back at threshold without
+        re-querying ispyb. Pipedream fires for the current dcid on every call.
+        PanDDA2 is gated by the count of recorded dcids vs. comparator_threshold:
+        below threshold → skip; at threshold → fire one per-dcid PanDDA2 job for
+        each recorded dcid; above threshold → single PanDDA2 for the current dtag.
 
-        bulk_array=True keeps the previous behaviour: iterate model_dir
-        directly and fire one array job over whatever's present.
+        bulk_array=True: iterate model_dir directly, write the dataset list to
+        .bulk_array.json, and fire one array job over dtags in model_building.
         """
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
@@ -825,7 +834,7 @@ class DLSTriggerXChem(CommonService):
             )
             dataset_count = len(dataset_list)
             recipe_parameters["n_datasets"] = dataset_count
-            with open(model_dir / ".batch.json", "w") as f:
+            with open(model_dir / ".bulk_array.json", "w") as f:
                 json.dump(dataset_list, f)
             self.log.info(
                 f"bulk_array=True, launching PanDDA2 array job over {dataset_count} datasets"
@@ -836,15 +845,17 @@ class DLSTriggerXChem(CommonService):
                 self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
             return {"success": True}
 
-        # Record this dcid in the hidden gating json
+        # Record this dcid and its dtag in the hidden gating json, so the dtag
+        # can be read back at threshold without re-querying ispyb. JSON keys are
+        # strings, so dcids round-trip as str.
         dcids_file = model_dir / ".batch_dcids.json"
         if dcids_file.exists():
             with open(dcids_file, "r") as f:
                 recorded_dcids = json.load(f)
         else:
-            recorded_dcids = []
-        if dcid not in recorded_dcids:
-            recorded_dcids.append(dcid)
+            recorded_dcids = {}
+        if str(dcid) not in recorded_dcids:
+            recorded_dcids[str(dcid)] = dtag
             with open(dcids_file, "w") as f:
                 json.dump(recorded_dcids, f)
 
@@ -865,25 +876,12 @@ class DLSTriggerXChem(CommonService):
             self.log.info(
                 f"{dataset_count} = comparator dataset threshold of {comparator_threshold}, launching per-dcid PanDDA2 jobs"
             )
-            for batch_dcid in recorded_dcids:
-                batch_row = (
-                    session.query(BLSample.name)
-                    .join(
-                        DataCollection,
-                        BLSample.blSampleId == DataCollection.BLSAMPLEID,
-                    )
-                    .filter(DataCollection.dataCollectionId == batch_dcid)
-                    .first()
-                )
-                if not batch_row:
-                    self.log.warning(
-                        f"No dtag resolvable for dcid {batch_dcid}, skipping"
-                    )
-                    continue
+            for batch_dcid, batch_dtag in recorded_dcids.items():
+                batch_dcid = int(batch_dcid)
                 batch_params = {
                     **recipe_parameters,
                     "dcid": batch_dcid,
-                    "dtag": batch_row[0],
+                    "dtag": batch_dtag,
                     "n_datasets": 1,
                 }
                 self.upsert_proc(rw, batch_dcid, "PanDDA2", batch_params)
@@ -905,18 +903,29 @@ class DLSTriggerXChem(CommonService):
         transaction: int,
         **kwargs,
     ):
-        """Trigger an XChem Collate job for an XChem fragment screening experiment.
-        Recipe parameters are described below with appropriate ispyb placeholder "{}"
-        values:
+        """Trigger an XChem Collate job once a target's collection run is complete.
+
+        Gathers every dcid for this target (matched by Protein acronym) under the
+        proposal of the triggering dcid's visit, then gates on those jobs:
+        aborts if any PanDDA2/Pipedream/xia2 program newer than program_id has
+        started (a fresh batch is underway), and checkpoints with exponential
+        backoff while any of them are still running. Once processing has settled
+        and no other XChemCollate job is already in flight for the target, fires
+        a single XChemCollate job keyed on the highest dcid.
+
+        Recipe parameters (ispyb placeholders shown as "{}"):
         - target: set this to "xchem_collate"
-        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
-        - comment: a comment to be stored in the ProcessingJob.comment field
-        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
-        processing PanDDA jobs
-        - automatic: boolean value passed to ProcessingJob.automatic field
+        - dcid: the dataCollectionId i.e. "{ispyb_dcid}"
+        - program_id: the AutoProcProgramId of the triggering job
+        - scaling_id: list of scaling ids i.e. ["{scaling_id}"]
+        - processing_directory: the labxchem visit processing dir
+        - pipedream / overwrite: forwarded to the collate wrapper
+        - comment: stored in the ProcessingJob.comment field
+        - automatic: boolean passed to ProcessingJob.automatic
         Example recipe parameters:
         { "target": "xchem_collate",
             "dcid": 123456,
+            "program_id": 123456,
             "scaling_id": [123456],
             "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
             "automatic": true,

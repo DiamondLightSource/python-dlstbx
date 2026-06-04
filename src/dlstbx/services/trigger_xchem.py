@@ -17,7 +17,6 @@ import pydantic
 import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
-import yaml
 from ispyb.sqlalchemy import (
     AutoProc,
     AutoProcProgram,
@@ -37,9 +36,10 @@ from sqlalchemy import or_
 from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
-from dlstbx.crud import get_protein_for_dcid
+from dlstbx.crud import get_latest_dcid_for_dtag, get_protein_for_dcid
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
+from dlstbx.util.soakdb import find_xchem_visit_dir
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -211,19 +211,6 @@ class DLSTriggerXChem(CommonService):
 
         self.log.info(f"{procname}_id trigger: Processing job {jobid} triggered")
 
-    def _dcid_for_dtag(self, session, dtag):
-        """Return the most recent dataCollectionId for the BLSample named `dtag`, or None."""
-        query = (
-            session.query(DataCollection.dataCollectionId)
-            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
-            .filter(BLSample.name == dtag)
-            .order_by(DataCollection.dataCollectionId)
-        )
-        df = pd.read_sql(query.statement, query.session.bind)
-        if df.empty:
-            return None
-        return int(df["dataCollectionId"].tolist()[-1])
-
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_modelbuilding(
         self,
@@ -239,11 +226,11 @@ class DLSTriggerXChem(CommonService):
         downstream hit-identification pipelines.
 
         Waits (with exponential backoff) for related upstream pipelines and
-        dimple jobs to finish, then picks the 'best' dataset by
-        I/sigI * completeness * #unique-reflections, preferring the user-defined
-        spacegroup and the most recent processing batch. Reads the soakDB for
-        ligand info, skipping DMSO solvent screens and crystals with no
-        CompoundSMILES.
+        dimple jobs to finish, then selects the 'best' dataset by
+        I/sigI * completeness * #unique-reflections, preferring those cases
+        processed in the user-defined spacegroup and the most recent processing
+        batch. Reads the soakDB for ligand info, skipping DMSO solvent screens
+        and crystals with no CompoundSMILES.
 
         Copies the chosen dimple files into the shared model_building directory,
         writes the ligand .smiles file, and fires a single ligand-restraints job
@@ -295,7 +282,7 @@ class DLSTriggerXChem(CommonService):
         container_code = query.one()[2]
 
         # Check for crystal recollections
-        latest_dcid = self._dcid_for_dtag(session, dtag)
+        latest_dcid = get_latest_dcid_for_dtag(dtag, session)
         if latest_dcid and latest_dcid != dcid:
             self.log.info(
                 f"Exiting PanDDA2/Pipedream trigger: dcid {dcid} is not the latest for dtag {dtag}; Recollection underway?"
@@ -314,106 +301,20 @@ class DLSTriggerXChem(CommonService):
 
         # Find corresponding XChem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
-        yaml_files = []  # user settings
-        match_dirs = []  # labxchem visit
+        xchem_visit_dir = find_xchem_visit_dir(
+            xchem_dir, acronym, container_code, location, dtag, self.log
+        )
 
-        for subdir in xchem_dir.iterdir():
-            user_yaml = subdir / ".user.yaml"
-            if user_yaml.exists():
-                yaml_files.append(user_yaml)
-
-        for yaml_file in yaml_files:
-            with open(yaml_file, "r") as file:
-                expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
-
-            acr = expt_yaml["data"]["acronym"]
-            directory = yaml_file.parents[0]
-            if acr == acronym:
-                match_dirs.append(directory)
-                # match_yaml = expt_yaml
-                self.log.info(f"Found user yaml for dtag {dtag} at {yaml_file}")
-
-        # account for potentially multiple labxchem visits for a single target in proposal
-        if len(match_dirs) == 1:
-            match_dir = match_dirs[0]
-        elif len(match_dirs) > 1:
-            for path in match_dirs:
-                try:
-                    db_path = str(
-                        path / "processing/database" / "soakDBDataFile.sqlite"
-                    )
-                    conn = sqlite3.connect(
-                        f"file:{db_path}?mode=ro", uri=True, timeout=10
-                    )
-                    df = pd.read_sql_query(
-                        f"SELECT * from mainTable WHERE Puck = '{container_code}' AND PuckPosition = {location} AND CrystalName = '{dtag}'",
-                        conn,
-                    )
-                    conn.close()
-
-                    if not df.empty:
-                        match_dir = path
-                        self.log.info(f"labxchem visit {path} found for dtag {dtag}")
-                        break
-
-                except Exception as e:
-                    self.log.info(
-                        f"Exception whilst reading ligand information from {db_path} for dtag {dtag}, dcid {dcid}: {e}"
-                    )
-
-        if "match_dir" not in locals():
-            self.log.info(
-                f"No user yaml found in {xchem_dir}, proceeding with default settings..."
-            )
-            # Try reading from SoakDB .sqlite
-            for subdir in xchem_dir.iterdir():
-                if (subdir / ".user.yaml").exists():
-                    continue
-                try:
-                    db_path = str(
-                        subdir / "processing/database" / "soakDBDataFile.sqlite"
-                    )
-                    con = sqlite3.connect(
-                        f"file:{db_path}?mode=ro", uri=True, timeout=10
-                    )
-                    cur = con.cursor()
-                    cur.execute("SELECT Protein FROM soakDB")
-                    name = cur.fetchone()[0]
-                    con.close()
-
-                    if name is not None:
-                        # visit = dir.parts[-1]
-                        expt_yaml = {}
-                        expt_yaml["data"] = {"acronym": name}
-                        with open(subdir / ".user.yaml", "w") as f:
-                            yaml.dump(expt_yaml, f)
-
-                    if name == acronym:
-                        match_dir = subdir
-                        # match_yaml = expt_yaml
-
-                except Exception as e:
-                    self.log.info(f"Problem reading .sqlite database for {subdir}: {e}")
-
-        if "match_dir" not in locals():
+        if xchem_visit_dir is None:
             self.log.debug(
                 f"Exiting PanDDA2/Pipedream trigger: No labxchem directory found for {acronym}."
             )
             return {"success": True}
-        else:
-            xchem_visit_dir = match_dir
-            processing_dir = xchem_visit_dir / "processing"
-            # user_settings = match_yaml["autoprocessing"]
 
-        if xchem_visit_dir:
-            self.log.debug(
-                f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}."
-            )
-        else:
-            self.log.debug(
-                f"Exiting PanDDA2/Pipedream trigger: can't find .sqlite database in XChem visit {xchem_dir} for target {acronym}."
-            )
-            return {"success": True}
+        processing_dir = xchem_visit_dir / "processing"
+        self.log.debug(
+            f"Found a corresponding .sqlite database in XChem visit {xchem_visit_dir} for target {acronym}."
+        )
 
         # 1. Trigger when all upstream pipelines & related dimple jobs have finished
         program_list = [

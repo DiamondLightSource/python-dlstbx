@@ -5,6 +5,94 @@ import sqlite3
 from itertools import groupby
 from pathlib import Path
 
+import yaml
+
+
+def _soakdb_path(visit_dir: Path) -> Path:
+    return visit_dir / "processing/database" / "soakDBDataFile.sqlite"
+
+
+def _read_protein(db_path: Path) -> str | None:
+    """Return the Protein (target acronym) recorded in a soakDB database."""
+    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10) as con:
+        row = con.execute("SELECT Protein FROM soakDB").fetchone()
+    return row[0] if row else None
+
+
+def _has_crystal(db_path: Path, container_code, location, dtag) -> bool:
+    """True if mainTable holds a row for this puck/position/crystal."""
+    query = (
+        "SELECT 1 FROM mainTable WHERE Puck = ? AND PuckPosition = ? "
+        "AND CrystalName = ? LIMIT 1"
+    )
+    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10) as con:
+        return (
+            con.execute(query, (container_code, location, dtag)).fetchone() is not None
+        )
+
+
+def find_xchem_visit_dir(
+    xchem_dir: Path, acronym, container_code, location, dtag, log
+) -> Path | None:
+    """Locate the labxchem visit directory under `xchem_dir` whose target
+    matches `acronym`.
+
+    Prefers cached `.user.yaml` files (disambiguating by the crystal's
+    puck/position when several visits share a target); falls back to reading
+    the `Protein` field from each visit's soakDB database, caching the result
+    to `.user.yaml` for next time. Returns None if no visit matches."""
+    # tier 1: match via cached .user.yaml
+    candidates = []
+    for subdir in xchem_dir.iterdir():
+        user_yaml = subdir / ".user.yaml"
+        if not user_yaml.is_file():
+            continue
+        with open(user_yaml) as f:
+            expt_yaml = yaml.load(f, Loader=yaml.SafeLoader)
+        if expt_yaml["data"]["acronym"] == acronym:
+            candidates.append(subdir)
+            log.info(f"Found user yaml for dtag {dtag} at {user_yaml}")
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # several visits share this target: disambiguate by the crystal's location
+    for visit_dir in candidates:
+        db_path = _soakdb_path(visit_dir)
+        if not db_path.is_file():
+            log.info(f"No .sqlite database at {db_path} for dtag {dtag}, skipping")
+            continue
+        try:
+            if _has_crystal(db_path, container_code, location, dtag):
+                log.info(f"labxchem visit {visit_dir} found for dtag {dtag}")
+                return visit_dir
+        except Exception as e:
+            log.info(
+                f"Exception whilst reading ligand information from {db_path} "
+                f"for dtag {dtag}: {e}"
+            )
+
+    # tier 2: no cached match — read Protein from each soakDB, caching as we go
+    log.info(f"No matching user yaml in {xchem_dir}, reading soakDB databases...")
+    match_dir = None
+    for subdir in xchem_dir.iterdir():
+        if (subdir / ".user.yaml").exists():
+            continue
+        db_path = _soakdb_path(subdir)
+        if not db_path.is_file():
+            continue
+        try:
+            name = _read_protein(db_path)
+        except Exception as e:
+            log.info(f"Problem reading .sqlite database for {subdir}: {e}")
+            continue
+        if name is not None:
+            with open(subdir / ".user.yaml", "w") as f:
+                yaml.dump({"data": {"acronym": name}}, f)
+        if name == acronym:
+            match_dir = subdir
+    return match_dir
+
 
 def prepare_auto_db(processing_dir: Path) -> Path:
     """Create (if needed) and sync the auto soakDB copy from the master, then

@@ -6,8 +6,8 @@ from pathlib import Path
 from dlstbx.wrapper import Wrapper
 
 
-class RestraintsWrapper(Wrapper):
-    _logger_name = "dlstbx.wrap.restraints"
+class LigandRestraintsWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.ligandrestraints"
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"

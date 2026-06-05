@@ -265,8 +265,11 @@ def update_xchem_database(
     # Build list of dicts for batch updating rows in SQLite
     db_dicts = []
     for dataset_dir in model_dir.iterdir():
+        if not dataset_dir.is_dir():
+            continue
         dtag = dataset_dir.name
         if dtag not in updatable:
+            logger.info(f"{dtag} not in set of updatable CrystalNames")
             continue
         compound_dir = dataset_dir / "compound"
         cif_files = list(compound_dir.glob("*.cif"))

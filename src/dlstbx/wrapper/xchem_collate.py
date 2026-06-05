@@ -91,8 +91,11 @@ class XChemCollateWrapper(Wrapper):
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
         if pipedream:
-            pipedream_command = f"module load mamba;  mamba activate /dls/science/groups/i04-1/software/micromamba/envs/xchem; \
-            python /dls/science/groups/i04-1/software/pipedream_xchem/collate_pipedream_results.py --input {pipedream_dir / 'Pipedream_output.json'}  --output-dir {pipedream_dir / 'Pipedream_results'} --no-browser --no-plots -v"
+            xchem_python = (
+                "/dls/science/groups/i04-1/software/micromamba/envs/xchem/bin/python"
+            )
+            pipedream_command = f"{xchem_python} /dls/science/groups/i04-1/software/pipedream_xchem/collate_pipedream_results.py \
+            --input {pipedream_dir / 'Pipedream_output.json'}  --output-dir {pipedream_dir / 'Pipedream_results'} --no-browser --no-plots -v"
 
             self.log.info(f"Running Collate command: {pipedream_command}")
 
@@ -108,9 +111,10 @@ class XChemCollateWrapper(Wrapper):
                 )
 
             except subprocess.CalledProcessError as e:
-                self.log.error(f"XChemCollate command: '{pipedream_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
+                self.log.error(
+                    f"Pipedream collate command failed (exit {e.returncode})\n"
+                    f"--- stdout ---\n{e.stdout}\n--- stderr ---\n{e.stderr}"
+                )
 
             try:
                 write_pipedream_parameters(
@@ -142,10 +146,11 @@ class XChemCollateWrapper(Wrapper):
             shutil.copy(config, autoxca_dir / "config.yaml")
             shutil.copy(assemblies, autoxca_dir / "assemblies.yaml")
 
-            xca_command = f"source /dls/science/groups/i04-1/software/xchem-align/act; conda activate /dls/science/groups/i04-1/software/xchem-align/env_xchem_align; \
-            python -m xchemalign.collator -d {xca_dir}; python -m xchemalign.aligner -d {xca_dir}"
+            xca_python = "/dls/science/groups/i04-1/software/xchem-align/env_xchem_align/bin/python"
+            xca_command = f"{xca_python} -m xchemalign.collator -d {xca_dir} && \
+            {xca_python} -m xchemalign.aligner -d {xca_dir}"
 
-            self.log.info("Running XCA command: {xca_command}")
+            self.log.info(f"Running XCA command: {xca_command}")
 
             try:
                 subprocess.run(
@@ -159,9 +164,10 @@ class XChemCollateWrapper(Wrapper):
                 )
 
             except subprocess.CalledProcessError as e:
-                self.log.error(f"XCA command: '{xca_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
+                self.log.error(
+                    f"XCA command failed (exit {e.returncode})\n"
+                    f"--- stdout ---\n{e.stdout}\n--- stderr ---\n{e.stderr}"
+                )
 
         # Clean up orphaned autoBUSTER setvar logs left in the pipedream dir
         try:

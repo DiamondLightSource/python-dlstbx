@@ -164,3 +164,25 @@ def save_dataset_metadata(
 
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
+
+
+def cleanup_setvar_files(pipedream_dir, logger=None):
+    """Delete __<pid>.setvar.lis autoBUSTER logs left in the pipedream dir.
+
+    BUSTER drops one append-only setvar log per process into its working
+    directory (the shared pipedream dir), named after that process's PID. They
+    are diagnostic only and never read back, and accumulate over a visit. This
+    is called from collate, by which point processing for the visit has
+    finished, so any remaining logs are orphaned and safe to remove.
+    """
+    removed = 0
+    for f in Path(pipedream_dir).glob("*.setvar.lis"):
+        try:
+            f.unlink()
+            removed += 1
+        except OSError as e:
+            if logger:
+                logger.warning(f"Could not remove setvar log {f.name}: {e}")
+
+    if removed and logger:
+        logger.info(f"Removed {removed} setvar log(s) from {pipedream_dir}")

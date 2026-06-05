@@ -29,6 +29,7 @@ class PipedreamWrapper(Wrapper):
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
+        Path(pipedream_dir).mkdir(parents=True, exist_ok=True)
         model_dir = analysis_dir / "model_building"
         dtag = params.get("dtag")
         smiles = params.get("smiles")

@@ -4,7 +4,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from dlstbx.util.pipedream_xchem_helpers import write_pipedream_parameters
+from dlstbx.util.pipedream_xchem_helpers import (
+    cleanup_setvar_files,
+    write_pipedream_parameters,
+)
 from dlstbx.util.soakdb import prepare_auto_db, updatable_crystals
 from dlstbx.util.xchem_collate_helpers import (
     symlink_score_buckets,
@@ -158,6 +161,12 @@ class XChemCollateWrapper(Wrapper):
                 self.log.error(f"XCA command: '{xca_command}' failed")
                 self.log.info(e.stdout)
                 self.log.error(e.stderr)
+
+        # Clean up orphaned autoBUSTER setvar logs left in the pipedream dir
+        try:
+            cleanup_setvar_files(pipedream_dir, self.log)
+        except Exception as e:
+            self.log.error(f"Could not clean up setvar logs in {pipedream_dir}: {e}")
 
         self.log.info("Auto XChemCollate finished successfully")
         return True

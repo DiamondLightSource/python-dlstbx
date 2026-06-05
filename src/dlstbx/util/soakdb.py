@@ -14,8 +14,11 @@ def _soakdb_path(visit_dir: Path) -> Path:
 
 def _read_protein(db_path: Path) -> str | None:
     """Return the Protein (target acronym) recorded in a soakDB database."""
-    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10) as con:
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10)
+    try:
         row = con.execute("SELECT Protein FROM soakDB").fetchone()
+    finally:
+        con.close()
     return row[0] if row else None
 
 
@@ -25,10 +28,13 @@ def _has_crystal(db_path: Path, container_code, location, dtag) -> bool:
         "SELECT 1 FROM mainTable WHERE Puck = ? AND PuckPosition = ? "
         "AND CrystalName = ? LIMIT 1"
     )
-    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10) as con:
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10)
+    try:
         return (
             con.execute(query, (container_code, location, dtag)).fetchone() is not None
         )
+    finally:
+        con.close()
 
 
 def find_xchem_visit_dir(
@@ -114,12 +120,16 @@ def sync_schema_from_master(db_master, db_copy, table):
     """Add any columns present in master but missing from copy.
     Preserves column type from master."""
 
-    with sqlite3.connect(db_master) as master_conn:
+    master_conn = sqlite3.connect(db_master)
+    try:
         master_col_defs = {
             row[1]: row[2] for row in master_conn.execute(f"PRAGMA table_info({table})")
         }
+    finally:
+        master_conn.close()
 
-    with sqlite3.connect(db_copy) as copy_conn:
+    copy_conn = sqlite3.connect(db_copy)
+    try:
         copy_cols = {row[1] for row in copy_conn.execute(f"PRAGMA table_info({table})")}
 
         new_cols = set(master_col_defs.keys()) - copy_cols
@@ -128,21 +138,25 @@ def sync_schema_from_master(db_master, db_copy, table):
             copy_conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
 
         copy_conn.commit()
+    finally:
+        copy_conn.close()
 
 
 def sync_rows_from_master(master_path, copy_path, table):
     conn = sqlite3.connect(copy_path)
-    conn.execute(f"ATTACH DATABASE '{master_path}' AS master")
+    try:
+        conn.execute(f"ATTACH DATABASE '{master_path}' AS master")
 
-    # Insert only rows from master that don't already exist in the copy
-    conn.execute(f"""
-        INSERT OR IGNORE INTO {table}
-        SELECT * FROM master.{table}
-    """)
+        # Insert only rows from master that don't already exist in the copy
+        conn.execute(f"""
+            INSERT OR IGNORE INTO {table}
+            SELECT * FROM master.{table}
+        """)
 
-    conn.commit()
-    conn.execute("DETACH DATABASE master")
-    conn.close()
+        conn.commit()
+        conn.execute("DETACH DATABASE master")
+    finally:
+        conn.close()
 
 
 def updatable_crystals(database_path, overwrite=False) -> set[str]:
@@ -150,11 +164,10 @@ def updatable_crystals(database_path, overwrite=False) -> set[str]:
     building db_dicts/exporting files and the gate for the bulk update.
 
     default: rows not yet given a RefinementOutcome.
-    overwrite: also rows whose RefinementOutcome was set by a previous
-    automated run (LastUpdated_by 'gda2', or never touched), while leaving
-    manually-curated rows (any other LastUpdated_by) alone."""
+    overwrite: every crystal row, including manually-curated ones."""
     if overwrite:
-        where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
+        where = "CrystalName IS NOT NULL"
+        # where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
     else:
         where = "RefinementOutcome IS NULL"
     conn = sqlite3.connect(database_path, timeout=30)

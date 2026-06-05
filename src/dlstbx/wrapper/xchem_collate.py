@@ -102,7 +102,7 @@ class XChemCollateWrapper(Wrapper):
                     shell=True,
                     capture_output=True,
                     text=True,
-                    cwd=panddas_dir,
+                    cwd=pipedream_dir,
                     check=True,
                     timeout=params.get("timeout-minutes") * 60,
                 )
@@ -138,6 +138,7 @@ class XChemCollateWrapper(Wrapper):
             )
         else:
             autoxca_dir = auto_dir / "xchemalign"
+            autoxca_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy(config, autoxca_dir / "config.yaml")
             shutil.copy(assemblies, autoxca_dir / "assemblies.yaml")
 

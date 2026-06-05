@@ -169,7 +169,9 @@ def updatable_crystals(database_path, overwrite=False) -> set[str]:
         where = "CrystalName IS NOT NULL"
         # where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
     else:
-        where = "RefinementOutcome IS NULL"
+        where = (
+            "RefinementOutcome IS NULL OR RefinementOutcome = '1 - Analysis Pending'"
+        )
     conn = sqlite3.connect(database_path, timeout=30)
     try:
         rows = conn.execute(

@@ -185,7 +185,9 @@ def decompress_results_file(working_directory, filename, logger):
         logger.debug(result.stderr)
 
 
-def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger):
+def get_presigned_urls(
+    minio_client, bucket_name, pid, files, do_upload, logger, metrics=None
+):
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)
     else:
@@ -197,6 +199,8 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger)
         filename = f"{pid}_{Path(filepath).name}"
         file_size = Path(filepath).stat().st_size
         upload_file = True
+
+        # Record the file size metric
         if filename in store_objects:
             upload_file = False
             logger.info(
@@ -227,9 +231,21 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger)
                 raise ValueError(
                     f"Invalid size for uploaded {filename} file: Expected {file_size}, got {result.size}"
                 )
+            transfer_rate_gbps = 8e-9 * file_size / timestamp
             logger.info(
-                f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
+                f"Data transfer rate for {filename} object: {transfer_rate_gbps:.3f}Gb/s"
             )
+            if metrics:
+                metrics.record_metric(
+                    metric_name="file_upload_size",
+                    labels=[f"{bucket_name}"],
+                    value=file_size,
+                )
+                metrics.record_metric(
+                    metric_name="s3echo_upload_transfer_rate_gbps",
+                    labels=[f"{bucket_name}"],
+                    value=transfer_rate_gbps,
+                )
         if not (upload_file and not do_upload):
             s3_urls[filename] = {
                 "url": minio_client.presigned_get_object(

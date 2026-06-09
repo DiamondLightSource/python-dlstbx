@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from pprint import pformat
 
+import prometheus_client
 import workflows.recipe
 from minio.error import S3Error
 from workflows.services.common_service import CommonService
@@ -14,6 +15,25 @@ from dlstbx.util.iris import (
     retrieve_results_from_s3,
     update_dcid_info_file,
 )
+from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
+
+
+class PrometheusMetrics(BasePrometheusMetrics):
+    def create_metrics(self):
+        # Use Gauge to track current file size, or Histogram to track distribution
+        self.file_upload_size = prometheus_client.Histogram(
+            name="file_upload_size_bytes",
+            documentation="Size of files uploaded to S3Echo in GBytes",
+            labelnames=["bucket"],
+            buckets=[1, 2, 5, 10, 30, 60, 100, 200, 500, 1000],  # Buckets in GB
+            unit="GB",
+        )
+        self.upload_bandwidth = prometheus_client.Gauge(
+            name="s3echo_upload_transfer_rate_gbps",
+            documentation="Upload transfer rate to S3Echo in Gbps",
+            labelnames=["bucket"],
+            unit="Gbps",
+        )
 
 
 class S3EchoUploader(CommonService):
@@ -61,6 +81,12 @@ class S3EchoUploader(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
+
+        # Initialise metrics if requested
+        if self._environment.get("metrics"):
+            self._prom_metrics = PrometheusMetrics()
+        else:
+            self._prom_metrics = NoMetrics()
 
     def on_upload_rpid(self, rw, header, message):
         """
@@ -183,6 +209,7 @@ class S3EchoUploader(CommonService):
                         ],
                         True,
                         self.log,
+                        metrics=self._prom_metrics,
                     )
                 except S3Error as err:
                     update_dcid_info_file(

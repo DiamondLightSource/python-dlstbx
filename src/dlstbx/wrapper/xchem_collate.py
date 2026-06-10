@@ -147,8 +147,8 @@ class XChemCollateWrapper(Wrapper):
             shutil.copy(assemblies, autoxca_dir / "assemblies.yaml")
 
             xca_python = "/dls/science/groups/i04-1/software/xchem-align/env_xchem_align/bin/python"
-            xca_command = f"{xca_python} -m xchemalign.collator -d {xca_dir} && \
-            {xca_python} -m xchemalign.aligner -d {xca_dir}"
+            xca_command = f"{xca_python} -m xchemalign.collator -d {autoxca_dir} && \
+            {xca_python} -m xchemalign.aligner -d {autoxca_dir}"
 
             self.log.info(f"Running XCA command: {xca_command}")
 

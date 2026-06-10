@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from dlstbx.util.soakdb import update_data_source_bulk
 from dlstbx.util.symlink import safe_symlink
@@ -69,6 +70,41 @@ def find_pandda_model(panddas_dir, dtag) -> Path | None:
     pandda_model = panddas_dtag / "modelled_structures" / f"{dtag}-pandda-model.pdb"
     model_path = pandda_model if pandda_model.exists() else None
     return model_path
+
+
+def pandda_ligand_confidence(panddas_dir, dtag):
+    """Map the highest per-event ligand Score (from the dataset's events.yaml)
+    to a soakDB RefinementLigandConfidence band. Returns None if there are no
+    events to score."""
+    events_yaml = panddas_dir / "processed_datasets" / dtag / "events.yaml"
+    if not events_yaml.exists():
+        return None
+    data = yaml.safe_load(events_yaml.read_text()) or {}
+    if not data:
+        return None
+    best = max(event["Score"] for event in data.values())
+    if best > 0.9:
+        return "4 - High Confidence"
+    if best >= 0.7:
+        return "2 - Correct ligand, weak density"
+    return "1 - Low Confidence"
+
+
+def pandda_run_fields(panddas_dir, dtag):
+    """mainTable DimplePANDDA* columns XCE sets for every dataset PanDDA saw,
+    derived from the panddas dir rather than the (human) inspect CSV. Empty dict
+    if PanDDA didn't process this dataset."""
+    processed = panddas_dir / "processed_datasets" / dtag
+    if not processed.is_dir():
+        return {}
+    events_yaml = processed / "events.yaml"
+    is_hit = events_yaml.exists() and bool(yaml.safe_load(events_yaml.read_text()))
+    return {
+        "DimplePANDDAwasRun": "True",
+        "DimplePANDDApath": str(panddas_dir),
+        "DimplePANDDAreject": "False",
+        "DimplePANDDAhit": "True" if is_hit else "False",
+    }
 
 
 def pipedream_refinement_metrics(
@@ -285,6 +321,10 @@ def update_xchem_database(
         )
         pandda_model = find_pandda_model(panddas_dir, dtag)
 
+        # DimplePANDDA* flags XCE sets for every dataset PanDDA ran on, merged
+        # into whichever model branch is selected below.
+        pandda_fields = pandda_run_fields(panddas_dir, dtag)
+
         # Export
         if pipedream_model:
             logger.info(f"Selected Pipedream model for {dtag}")
@@ -319,6 +359,7 @@ def update_xchem_database(
                     "RefinementCIFprogram": "Grade2",
                     "LastUpdated": db_timestamp,
                     "LastUpdated_by": "gda2",
+                    **pandda_fields,
                     **metrics,
                 }
             )
@@ -329,14 +370,22 @@ def update_xchem_database(
 
         elif pandda_model:
             logger.info(f"Selected PanDDA2 model for {dtag}")
+            model_created = datetime.fromtimestamp(
+                pandda_model.stat().st_mtime
+            ).strftime("%Y-%m-%d %H:%M:%S")
             db_dicts.append(
                 {
                     "CrystalName": dtag,
                     "RefinementBoundConformation": str(pandda_model),
                     "RefinementOutcome": "2 - PANDDA model",
                     "RefinementCIFprogram": "Grade2",
+                    "RefinementLigandConfidence": pandda_ligand_confidence(
+                        panddas_dir, dtag
+                    ),
+                    "DatePanDDAModelCreated": model_created,
                     "LastUpdated": db_timestamp,
                     "LastUpdated_by": "gda2",
+                    **pandda_fields,
                 }
             )
         else:
@@ -347,6 +396,7 @@ def update_xchem_database(
                     "RefinementOutcome": "7 - Analysed & Rejected",
                     "LastUpdated": db_timestamp,
                     "LastUpdated_by": "gda2",
+                    **pandda_fields,
                 }
             )
 

@@ -68,10 +68,10 @@ class DimpleWrapper(Wrapper):
         mxmrrun = schemas.MXMRRun(
             auto_proc_scaling_id=scaling_id,
             auto_proc_program_id=program_id,
-            rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
-            rfree_end=log.getfloat("refmac5 restr", "free_r"),
-            rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
-            rwork_end=log.getfloat("refmac5 restr", "overall_r"),
+            rfree_start=log.getfloat("refmacat restr", "ini_free_r"),
+            rfree_end=log.getfloat("refmacat restr", "free_r"),
+            rwork_start=log.getfloat("refmacat restr", "ini_overall_r"),
+            rwork_end=log.getfloat("refmacat restr", "overall_r"),
         )
 
         input_mtz = pathlib.Path(dimple_args[0])
@@ -95,7 +95,7 @@ class DimpleWrapper(Wrapper):
             dict.fromkeys(
                 itertools.chain(
                     self.results_directory.glob("[0-9]*-find-blobs.log"),
-                    self.results_directory.glob("[0-9]*-refmac5_restr.log"),
+                    self.results_directory.glob("[0-9]*-refmacat_restr.log"),
                 ),
                 (schemas.AttachmentFileType.LOG, 2),
             )

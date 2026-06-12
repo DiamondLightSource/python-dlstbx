@@ -70,41 +70,18 @@ def mask_map(dmap, coord, radius=10.0):
 
 
 def remove_nearby_atoms(pdb_file, coord, radius, pandda_model):
-    """An inelegant method for removing residues near the event centroid and
-    creating a new, truncated pdb file. GEMMI doesn't have a super nice way to
-    remove residues according to a specific criteria."""
+    """Remove every residue with an atom within `radius` of `coord` and write the
+    truncated structure to `pandda_model`."""
     st = gemmi.read_structure(str(pdb_file))
-    new_st = st.clone()  # Clone to keep metadata
-
-    coord_array = np.array([coord[0], coord[1], coord[2]])
-
-    # Delete all residues for a clean chain. Yes this is an arcane way to do it.
-    chains_to_delete = []
+    target = gemmi.Position(coord[0], coord[1], coord[2])
     for model in st:
         for chain in model:
-            chains_to_delete.append((model.num, chain.name))
-
-    for model in new_st:
-        for chain in model:
-            for res in chain:
-                del chain[-1]
-
-    # Add non-rejected residues to a new structure
-    for j, model in enumerate(st):
-        for k, chain in enumerate(model):
-            for res in chain:
-                add_res = True
-                for atom in res:
-                    pos = atom.pos
-                    distance = np.linalg.norm(
-                        coord_array - np.array([pos.x, pos.y, pos.z])
-                    )
-                    if distance < radius:
-                        add_res = False
-
-                if add_res:
-                    new_st[j][k].add_residue(res)
-    new_st.write_pdb(str(pandda_model))
+            # Iterate back-to-front so deleting index i doesn't shift the
+            # indices we have yet to visit.
+            for i in reversed(range(len(chain))):
+                if any(atom.pos.dist(target) < radius for atom in chain[i]):
+                    del chain[i]
+    st.write_pdb(str(pandda_model))
 
 
 def remove_waters_from_ligand(pandda_model, logger=None):
@@ -151,22 +128,22 @@ def remove_waters_from_ligand(pandda_model, logger=None):
         for i in reversed(to_delete):  # reversed so indices stay valid
             del chain[i]
 
-    st.write_pdb(str(pandda_model.parents[0] / pandda_model.name))
+    st.write_pdb(str(pandda_model))
     if logger:
         logger.info(f"Removed {len(waters_to_remove)} waters in {pandda_model.name}")
 
 
 def get_contact_chain(protein_st, ligand_st):
-    """A simple estimation of the contact chain based on which chain has the most
-    atoms nearby."""
+    """A simple estimation of the contact chain based on which protein chain has
+    the most atoms near the ligand centroid."""
     ligand_pos_list = []
-    for model in protein_st:
+    for model in ligand_st:
         for chain in model:
             for res in chain:
                 for atom in res:
                     pos = atom.pos
                     ligand_pos_list.append([pos.x, pos.y, pos.z])
-    centroid = np.linalg.norm(np.array(ligand_pos_list), axis=0)
+    centroid = np.mean(np.array(ligand_pos_list), axis=0)
 
     chain_counts = {}
     for model in protein_st:
@@ -183,7 +160,7 @@ def get_contact_chain(protein_st, ligand_st):
                     if distance < 5.0:
                         chain_counts[chain.name] += 1
 
-    return min(chain_counts, key=lambda _x: chain_counts[_x])
+    return max(chain_counts, key=lambda _x: chain_counts[_x])
 
 
 def merge_build(receptor, ligand, contact_chain):

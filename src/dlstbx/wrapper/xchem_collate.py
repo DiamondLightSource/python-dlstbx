@@ -66,7 +66,7 @@ class XChemCollateWrapper(Wrapper):
                 self.log.error(e.stderr)
 
         # -------------------------------------------------------
-        # Perform model selection (PanDDA2/Pipedream) & re-integrate into XChem environment
+        # Perform model selection (PanDDA2 | Pipedream) & re-integrate into XChem environment
 
         try:
             db_copy = prepare_auto_db(processing_dir)

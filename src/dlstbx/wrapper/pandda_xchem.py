@@ -38,7 +38,6 @@ class PanDDAWrapper(Wrapper):
         )
 
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
-        slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
@@ -57,7 +56,8 @@ class PanDDAWrapper(Wrapper):
 
         if n_datasets > 1:  # array job case
             batch = True
-            with open(model_dir / ".batch.json", "r") as f:
+            slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
+            with open(model_dir / ".bulk_array.json", "r") as f:
                 datasets = json.load(f)
                 dtag = datasets[int(slurm_task_id) - 1]
         else:

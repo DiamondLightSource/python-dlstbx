@@ -63,7 +63,7 @@ class ModelBuildingParameters(pydantic.BaseModel):
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     pipedream: Optional[bool] = True
     overwrite: Optional[bool] = False
-    bulk_array: Optional[bool] = None
+    bulk_array: Optional[bool] = False
 
 
 class HitIndentificationParameters(pydantic.BaseModel):
@@ -847,15 +847,14 @@ class DLSTriggerXChem(CommonService):
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
         acronym = getattr(protein_info, "acronym")
+        proposal_id = getattr(protein_info, "proposalId")
 
-        # get the dcids for the protein target under the current proposal
         dcids = [
             row[0]
             for row in session.query(DataCollection.dataCollectionId)
             .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
             .join(Crystal, Crystal.crystalId == BLSample.crystalId)
             .join(Protein, Protein.proteinId == Crystal.proteinId)
-            .join(Proposal, Proposal.proposalId == Protein.proposalId)
             .join(
                 ProcessingJob,
                 ProcessingJob.dataCollectionId == DataCollection.dataCollectionId,
@@ -864,8 +863,7 @@ class DLSTriggerXChem(CommonService):
                 AutoProcProgram,
                 AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
             )
-            .filter(Proposal.proposalCode == visit_proposal[0:2])
-            .filter(Proposal.proposalNumber == visit_proposal[2::])
+            .filter(Protein.proposalId == proposal_id)
             .filter(Protein.acronym == acronym)
             .distinct()
             .all()

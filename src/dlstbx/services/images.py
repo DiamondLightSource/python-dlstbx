@@ -30,7 +30,7 @@ PluginParameter = PluginInterface  # backwards-compatibility, 20210702
 
 class DLSImages(CommonService):
     """
-    A service that generates images and thumbnails.
+    A service that generates images.
     Plugin functions can be registered under the entry point
     'zocalo.services.images.plugins'. The contract is that a plugin function
     takes a single argument of type PluginInterface, and returns a truthy value

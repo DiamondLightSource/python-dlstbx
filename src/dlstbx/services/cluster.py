@@ -110,16 +110,16 @@ def submit_to_slurm(
         "array": params.array,
     }
     if params.min_memory_per_cpu:
-        jdm_params["memory_per_cpu"] = slurm.models.Uint64NoVal(
+        jdm_params["memory_per_cpu"] = slurm.models.Uint64NoValStruct(
             number=params.min_memory_per_cpu, set=True
         )
     if params.memory_per_node:
-        jdm_params["memory_per_node"] = slurm.models.Uint64NoVal(
+        jdm_params["memory_per_node"] = slurm.models.Uint64NoValStruct(
             number=params.memory_per_node, set=True
         )
     if params.time_limit:
         time_limit_minutes = math.ceil(params.time_limit.total_seconds() / 60)
-        jdm_params["time_limit"] = slurm.models.Uint32NoVal(
+        jdm_params["time_limit"] = slurm.models.Uint32NoValStruct(
             number=time_limit_minutes, set=True
         )
     if params.gpus_per_node:
@@ -135,9 +135,11 @@ def submit_to_slurm(
     except requests.HTTPError as e:
         logger.error(f"Failed Slurm job submission: {e}\n{e.response.text}")
         return None
-    if response.error:
-        error_message = f"{response.error_code}: {response.error}"
-        logger.error(f"Failed Slurm job submission: {error_message}")
+    if response.errors and response.errors.root:
+        error_messages = []
+        for error in response.errors.root:
+            error_messages.append(f"{error.error_number}: {error.error}")
+        logger.error(f"Failed Slurm job submission: {'; '.join(error_messages)}")
         return None
     return response.job_id
 

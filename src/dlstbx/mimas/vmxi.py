@@ -28,9 +28,6 @@ def handle_vmxi_end(
     **kwargs,
 ) -> List[mimas.Invocation]:
     return [
-        mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-diffraction-preview"
-        ),
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),
     ]
 
@@ -81,6 +78,10 @@ def handle_vmxi_rotation_scan(
         ),
         # mmcif-gen
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="processing-mmcif-gen"),
+        # Diffraction preview
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
+        ),
         # fast_dp
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,

@@ -8,7 +8,6 @@ import re
 import time
 from typing import Any, Callable, Dict, NamedTuple, Protocol
 
-import PIL.Image
 import procrunner
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -31,7 +30,7 @@ PluginParameter = PluginInterface  # backwards-compatibility, 20210702
 
 class DLSImages(CommonService):
     """
-    A service that generates images and thumbnails.
+    A service that generates images.
     Plugin functions can be registered under the entry point
     'zocalo.services.images.plugins'. The contract is that a plugin function
     takes a single argument of type PluginInterface, and returns a truthy value
@@ -123,8 +122,6 @@ def diffraction(plugin: PluginInterface):
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
         return False
-    sizex = plugin.parameters("size-x", default=400)
-    sizey = plugin.parameters("size-y", default=192)
     output = plugin.parameters("output")
     if not output:
         # split off extension
@@ -140,9 +137,7 @@ def diffraction(plugin: PluginInterface):
         except OSError as e:
             if e.errno != errno.EEXIST:
                 raise
-    output_small = output[: output.rindex(".")] + ".thumb.jpeg"
 
-    start = time.perf_counter()
     result = procrunner.run(
         [
             "dials.export_bitmaps",
@@ -155,7 +150,7 @@ def diffraction(plugin: PluginInterface):
             'output.file="%s"' % output,
         ]
     )
-    export = time.perf_counter()
+
     if result.returncode:
         logger.error(
             f"Export of {filename} failed with exitcode {result.returncode}:\n"
@@ -165,45 +160,5 @@ def diffraction(plugin: PluginInterface):
     if not os.path.exists(output):
         logger.error("Output file %s not found", output)
         return False
-    with PIL.Image.open(output) as fh:
-        fh.thumbnail((sizex, sizey))
-        fh.save(output_small)
-    done = time.perf_counter()
 
-    logger.info(
-        "Created thumbnail %s -> %s (%.1f sec) -> %s (%.1f sec)",
-        filename,
-        output,
-        export - start,
-        output_small,
-        done - export,
-    )
-    return [output, output_small]
-
-
-def thumbnail(plugin: PluginInterface):
-    """Take a single file and create a smaller version of the same file."""
-    filename = plugin.parameters("file")
-    if not filename or filename == "None":
-        logger.debug("Skipping thumbnail generation: filename not specified")
-        return False
-    if not os.path.exists(filename):
-        logger.error("File %s not found", filename)
-        return False
-    sizex = plugin.parameters("size-x", default=400)
-    sizey = plugin.parameters("size-y", default=192)
-    output = plugin.parameters("output")
-    if not output:
-        # If not set add a 't' in front of the last '.' in the filename
-        output = (
-            filename[: filename.rindex(".")] + "t" + filename[filename.rindex(".") :]
-        )
-
-    start = time.perf_counter()
-    with PIL.Image.open(filename) as fh:
-        fh.thumbnail((sizex, sizey))
-        fh.save(output)
-    timing = time.perf_counter() - start
-
-    logger.info("Created thumbnail %s -> %s in %.1f seconds", filename, output, timing)
-    return [output]
+    return output

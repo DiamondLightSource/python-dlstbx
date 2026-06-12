@@ -69,7 +69,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "dozor = dlstbx.wrapper.dozor:DozorWrapper",
     "edna = dlstbx.wrapper.edna:EdnaWrapper",
     "ep_predict = dlstbx.wrapper.ep_predict:EPPredictWrapper",
-    "estimate_transmission = dlstbx.wrapper.estimate_transmission:EstimateTransmissionWrapper", 
+    "estimate_transmission = dlstbx.wrapper.estimate_transmission:EstimateTransmissionWrapper",
     "fast_dp = dlstbx.wrapper.fast_dp:FastDPWrapper",
     "fast_ep = dlstbx.wrapper.fast_ep:FastEPWrapper",
     "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
@@ -271,7 +271,6 @@ setup(
         ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
-            "thumbnail = dlstbx.services.images:thumbnail",
         ],
         "zocalo.wrappers": sorted(known_wrappers),
         "zocalo.mimas.handlers": sorted(mimas_scenario_handlers),

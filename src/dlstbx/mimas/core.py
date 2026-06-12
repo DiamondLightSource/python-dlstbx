@@ -142,16 +142,9 @@ def handle_eiger_end(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    stopped = scenario.runstatus == "DataCollection Stopped"
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),
     ]
-    if not stopped:
-        tasks.append(
-            mimas.MimasRecipeInvocation(
-                DCID=scenario.DCID, recipe="generate-diffraction-preview"
-            )
-        )
     return tasks
 
 
@@ -239,6 +232,9 @@ def handle_rotation_end(
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
             recipe=f"processing-rlv{suffix}",
+        ),
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),
     ]
 

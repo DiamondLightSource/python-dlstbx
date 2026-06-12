@@ -31,8 +31,17 @@ class PipedreamWrapper(Wrapper):
         pipedream_dir = analysis_dir / "pipedream"
         Path(pipedream_dir).mkdir(parents=True, exist_ok=True)
         model_dir = analysis_dir / "model_building"
-        dtag = params.get("dtag")
-        smiles = params.get("smiles")
+
+        n_datasets = int(params.get("n_datasets") or 1)
+        if n_datasets > 1:  # array job case
+            batch = True
+            slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
+            with open(model_dir / ".bulk_array.json", "r") as f:
+                datasets = json.load(f)
+                dtag = datasets[int(slurm_task_id) - 1]
+        else:
+            dtag = params.get("dtag")
+            batch = False
 
         dataset_dir = model_dir / dtag
         out_dir = pipedream_dir / dtag
@@ -60,6 +69,7 @@ class PipedreamWrapper(Wrapper):
 
         smiles_file = smiles_files[0]
         CompoundCode = smiles_file.stem
+        smiles = smiles_file.read_text().strip()
 
         # Restraints (grade2) were generated upstream by the ligand-restraints job.
         ligand_cif = compound_dir / f"{CompoundCode}.cif"
@@ -111,7 +121,7 @@ class PipedreamWrapper(Wrapper):
                 stderr.write(e.stderr)
 
             attachments.extend([out_dir / "stderr.out"])
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return False
 
         self.log.info(f"Pipedream finished successfully for dtag {dtag}")
@@ -158,7 +168,7 @@ class PipedreamWrapper(Wrapper):
                 )
         except Exception as e:
             self.log.info(f"Can't continue with pipedream postprocessing: {e}")
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         # Post-processing: Generate maps and run edstats
@@ -170,7 +180,7 @@ class PipedreamWrapper(Wrapper):
             os.system(f"gemmi sf2map --sample 5 {str(refine_mtz)} {map_fofc} 2>&1")
         except Exception as e:
             self.log.debug(f"Cannot continue with pipedream postprocessing: {e}")
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         try:
@@ -193,7 +203,7 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: resolution range None"
             )
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         # Run edstats if both maps exist and resolution range is found
@@ -201,7 +211,7 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: maps not found"
             )
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         edstats_out = postrefine_dir / "edstats.out"
@@ -222,16 +232,18 @@ class PipedreamWrapper(Wrapper):
             self.log.error(f"Edstats command: '{edstats_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
 
         attachments.extend([edstats_out])
-        self.send_attachments_to_ispyb(attachments)
+        self.send_attachments_to_ispyb(attachments, batch)
         return True
 
-    def send_attachments_to_ispyb(self, attachments):
+    def send_attachments_to_ispyb(self, attachments, batch):
+        if batch:  # synchweb attachments not supported for array job processing
+            return
         for f in attachments:
             if f.exists():
                 if f.suffix == ".out":

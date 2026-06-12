@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 
 import gemmi
-import numpy as np
 import yaml
 
 from dlstbx.util.mvs.helpers import (
@@ -15,6 +14,17 @@ from dlstbx.util.mvs.helpers import (
     save_cropped_map,
 )
 from dlstbx.util.mvs.viewer_pandda import gen_html_pandda
+from dlstbx.util.pandda import (
+    get_contact_chain,
+    get_pandda_settings,
+    map_sigma,
+    mask_map,
+    merge_build,
+    read_pandda_map,
+    remove_nearby_atoms,
+    remove_waters_from_ligand,
+    save_xmap,
+)
 from dlstbx.wrapper import Wrapper
 
 
@@ -28,7 +38,6 @@ class PanDDAWrapper(Wrapper):
         )
 
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
-        slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
         params = self.recwrap.recipe_step["job_parameters"]
 
         # database_path = Path(params.get("database_path"))
@@ -38,16 +47,17 @@ class PanDDAWrapper(Wrapper):
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
         pandda_dir = analysis_dir / "pandda2"
-        model_dir = pandda_dir / "model_building"
+        model_dir = analysis_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
-        Path(panddas_dir).mkdir(exist_ok=True)
+        Path(panddas_dir).mkdir(parents=True, exist_ok=True)
 
-        reprocessing = params.get("reprocessing")
-        n_datasets = int(params.get("n_datasets"))
+        overwrite = params.get("overwrite")
+        n_datasets = int(params.get("n_datasets") or 1)
 
         if n_datasets > 1:  # array job case
             batch = True
-            with open(model_dir / ".batch.json", "r") as f:
+            slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
+            with open(model_dir / ".bulk_array.json", "r") as f:
                 datasets = json.load(f)
                 dtag = datasets[int(slurm_task_id) - 1]
         else:
@@ -59,7 +69,6 @@ class PanDDAWrapper(Wrapper):
 
         self.log.info(f"Processing dtag: {dtag}")
 
-        smiles = params.get("smiles")
         smiles_files = list(compound_dir.glob("*.smiles"))
 
         if len(smiles_files) == 0:
@@ -75,46 +84,11 @@ class PanDDAWrapper(Wrapper):
 
         smiles_file = smiles_files[0]
         CompoundCode = smiles_file.stem
+        smiles = smiles_file.read_text().strip()
 
-        # -------------------------------------------------------
-        # Ligand restraint generation
-
-        restraints_log = dataset_dir / "restraints.log"
-        attachments = [restraints_log]  # synchweb attachments
-        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
-        # acedrg_command = f"module load ccp4; acedrg -i {smiles_file} -o {CompoundCode}"
-
-        try:
-            subprocess.run(
-                restraints_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=compound_dir,
-                check=True,
-                timeout=30 * 60,
-            )
-
-        except subprocess.CalledProcessError as e:
-            self.log.error(
-                f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
-            )
-
-            self.log.info(e.stdout)
-            self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, batch)
-            return False
-
-        restraints = compound_dir / f"{CompoundCode}.restraints.cif"
-        restraints.rename(compound_dir / f"{CompoundCode}.cif")
-        ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
-        ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
-
+        # Restraints (grade2) were generated upstream by the ligand-restraints job.
         ligand_cif = compound_dir / f"{CompoundCode}.cif"
-
-        self.log.info(
-            f"Restraints generated succesfully for dtag {dtag}, launching PanDDA2"
-        )
+        attachments = []
 
         # -------------------------------------------------------
         # PanDDA2
@@ -123,11 +97,11 @@ class PanDDAWrapper(Wrapper):
         pandda2_log = dataset_pdir / "pandda2.log"
         attachments.extend([pandda2_log, ligand_cif])
 
-        if reprocessing and dataset_pdir.exists():
+        if overwrite and dataset_pdir.exists():
             shutil.rmtree(dataset_pdir)
 
         # add any user specified pandda parameters
-        args_string = self.get_pandda_settings(user_yaml)
+        args_string = get_pandda_settings(user_yaml)
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=True --local_cpus=4 {args_string}"
 
@@ -212,13 +186,13 @@ class PanDDAWrapper(Wrapper):
 
         # Rhofit can be confused by hunting non-binding site density. This can be avoided
         # by truncating the map to near the binding site
-        dmap = self.read_pandda_map(event_map)
-        dmap = self.mask_map(dmap, event_coord)
-        self.save_xmap(dmap, restricted_build_dmap)
+        dmap = read_pandda_map(event_map)
+        dmap = mask_map(dmap, event_coord)
+        save_xmap(dmap, restricted_build_dmap)
 
         # Rhofit masks the protein before building. If the original protein
         # model clips the event then this results in autobuilding becoming impossible.
-        self.remove_nearby_atoms(
+        remove_nearby_atoms(
             pdb_file,
             event_coord,
             10.0,
@@ -226,7 +200,7 @@ class PanDDAWrapper(Wrapper):
         )
 
         cifs = list(ligand_dir.glob("*.cif"))
-        cut = self.map_sigma(restricted_build_dmap)
+        cut = map_sigma(restricted_build_dmap)
 
         rhofit_log = dataset_pdir / "rhofit.log"
         attachments.extend([event_map, z_map, rhofit_log])
@@ -299,6 +273,9 @@ class PanDDAWrapper(Wrapper):
 
         self.log.info(f"Best ligand score for {dtag} = {best_score}: {best_build_path}")
 
+        # Persist the best score so xchem_collate can bucket datasets by score
+        (dataset_pdir / "best_score.txt").write_text(str(best_score))
+
         # -------------------------------------------------------
         # Merge the protein structure with best fitted ligand -> pandda model
 
@@ -309,8 +286,8 @@ class PanDDAWrapper(Wrapper):
 
         protein_st = gemmi.read_structure(str(protein_st_file))
         ligand_st = gemmi.read_structure(str(ligand_st_file))
-        contact_chain = self.get_contact_chain(protein_st, ligand_st)
-        self.merge_build(protein_st, ligand_st, contact_chain)
+        contact_chain = get_contact_chain(protein_st, ligand_st)
+        merge_build(protein_st, ligand_st, contact_chain)
 
         if pandda_model.exists():  # backup previous model
             shutil.copy2(pandda_model, modelled_dir / "pandda-internal-fitted.pdb")
@@ -318,7 +295,7 @@ class PanDDAWrapper(Wrapper):
         protein_st.write_pdb(str(pandda_model))
 
         try:
-            self.remove_waters_from_ligand(pandda_model)
+            remove_waters_from_ligand(pandda_model, self.log)
         except Exception as e:
             self.log.error(f"Exception removing waters from {pandda_model}: {e}")
 
@@ -360,245 +337,6 @@ class PanDDAWrapper(Wrapper):
 
         self.log.info(f"Auto PanDDA2 pipeline finished successfully for dtag {dtag}")
         return True
-
-    def save_xmap(self, xmap, xmap_file):
-        """Convenience script for saving ccp4 files."""
-        ccp4 = gemmi.Ccp4Map()
-        ccp4.grid = xmap
-        ccp4.update_ccp4_header()
-        ccp4.write_ccp4_map(str(xmap_file))
-
-    def read_pandda_map(self, xmap_file):
-        """PanDDA 2 maps are often truncated, and PanDDA 1 maps can have misasigned spacegroups.
-        This method handles both."""
-        dmap_ccp4 = gemmi.read_ccp4_map(str(xmap_file), setup=False)
-        dmap_ccp4.grid.spacegroup = gemmi.find_spacegroup_by_name("P1")
-        dmap_ccp4.setup(0.0)
-        dmap = dmap_ccp4.grid
-        return dmap
-
-    def map_sigma(self, xmap, sigma=1):
-        ccp4 = gemmi.read_ccp4_map(str(xmap))
-        ccp4.setup(0.0)
-        grid = ccp4.grid
-        grid_array = np.array(grid, copy=False)
-        non_zero_std = np.std(grid_array[(grid_array < -0.05) | (grid_array > 0.05)])
-        return non_zero_std * sigma
-
-    def expand_event_map(self, bdc, ground_state_file, xmap_file, coord, out_file):
-        """DEPRECATED. A method for recalculating event maps over the full cell."""
-        ground_state_ccp4 = gemmi.read_ccp4_map(str(ground_state_file), setup=False)
-        ground_state_ccp4.grid.spacegroup = gemmi.find_spacegroup_by_name("P1")
-        ground_state_ccp4.setup(0.0)
-        ground_state = ground_state_ccp4.grid
-
-        xmap_ccp4 = gemmi.read_ccp4_map(str(xmap_file), setup=False)
-        xmap_ccp4.grid.spacegroup = gemmi.find_spacegroup_by_name("P1")
-        xmap_ccp4.setup(0.0)
-        xmap = xmap_ccp4.grid
-
-        mask = gemmi.FloatGrid(xmap.nu, xmap.nv, xmap.nw)
-        mask.set_unit_cell(xmap.unit_cell)
-        mask.set_points_around(
-            gemmi.Position(coord[0], coord[1], coord[2]), radius=10.0, value=1.0
-        )
-
-        event_map = gemmi.FloatGrid(xmap.nu, xmap.nv, xmap.nw)
-        event_map.set_unit_cell(xmap.unit_cell)
-        event_map_array = np.array(event_map, copy=False)
-        event_map_array[:, :, :] = np.array(xmap)[:, :, :] - (
-            bdc * np.array(ground_state)[:, :, :]
-        )
-        event_map_array[:, :, :] = event_map_array[:, :, :] * np.array(mask)[:, :, :]
-
-        event_map_non_zero = event_map_array[event_map_array != 0.0]
-        cut = np.std(event_map_non_zero)
-
-        return cut
-
-    def mask_map(self, dmap, coord, radius=10.0):
-        """Simple routine to mask density to region around a specified point."""
-        mask = gemmi.FloatGrid(dmap.nu, dmap.nv, dmap.nw)
-        mask.set_unit_cell(dmap.unit_cell)
-        mask.set_points_around(
-            gemmi.Position(coord[0], coord[1], coord[2]), radius=radius, value=1.0
-        )
-
-        dmap_array = np.array(dmap, copy=False)
-        dmap_array[:, :, :] = dmap_array[:, :, :] * np.array(mask)[:, :, :]
-
-        return dmap
-
-    def remove_nearby_atoms(self, pdb_file, coord, radius, pandda_model):
-        """An inelegant method for removing residues near the event centroid and creating
-        a new, truncated pdb file. GEMMI doesn't have a super nice way to remove
-        residues according to a specific criteria."""
-        st = gemmi.read_structure(str(pdb_file))
-        new_st = st.clone()  # Clone to keep metadata
-
-        coord_array = np.array([coord[0], coord[1], coord[2]])
-
-        # Delete all residues for a clean chain. Yes this is an arcane way to do it.
-        chains_to_delete = []
-        for model in st:
-            for chain in model:
-                chains_to_delete.append((model.num, chain.name))
-
-        for model in new_st:
-            for chain in model:
-                for res in chain:
-                    del chain[-1]
-
-        # Add non-rejected residues to a new structure
-        for j, model in enumerate(st):
-            for k, chain in enumerate(model):
-                for res in chain:
-                    add_res = True
-                    for atom in res:
-                        pos = atom.pos
-                        distance = np.linalg.norm(
-                            coord_array - np.array([pos.x, pos.y, pos.z])
-                        )
-                        if distance < radius:
-                            add_res = False
-
-                    if add_res:
-                        new_st[j][k].add_residue(res)
-        new_st.write_pdb(str(pandda_model))
-
-    def remove_waters_from_ligand(self, pandda_model):
-        st = gemmi.read_structure(str(pandda_model))
-        st.setup_entities()
-
-        LIGAND_RES_NAME = "LIG"
-
-        # Collect ligand atoms with their VdW radii
-        ligand_atoms = []  # list of (pos, vdw_radius)
-        for chain in st[0]:
-            for res in chain:
-                if res.name == LIGAND_RES_NAME:
-                    for atom in res:
-                        vdw = atom.element.vdw_r
-                        ligand_atoms.append((atom.pos, vdw))
-
-        max_vdw = max(r for _, r in ligand_atoms)
-        search_radius = max_vdw  # + O_VDW=1.5
-
-        ns = gemmi.NeighborSearch(st[0], st.cell, search_radius).populate()
-
-        # Find waters where any atom overlaps within VdW radii
-        waters_to_remove = set()
-        for lig_pos, lig_vdw in ligand_atoms:
-            for mark in ns.find_atoms(lig_pos, "\0", radius=search_radius):
-                cra = mark.to_cra(st[0])
-                if cra.residue.entity_type != gemmi.EntityType.Water:
-                    continue
-                wat_vdw = cra.atom.element.vdw_r
-                cutoff = lig_vdw + wat_vdw
-                dist = lig_pos.dist(mark.pos)
-                if dist < cutoff:
-                    waters_to_remove.add((cra.chain.name, cra.residue.seqid))
-
-        # Remove waters
-        for chain in st[0]:
-            to_delete = [
-                i
-                for i, res in enumerate(chain)
-                if res.entity_type == gemmi.EntityType.Water
-                and (chain.name, res.seqid) in waters_to_remove
-            ]
-            for i in reversed(to_delete):  # reversed so indices stay valid
-                del chain[i]
-
-        st.write_pdb(str(pandda_model.parents[0] / pandda_model.name))
-        self.log.info(f"Removed {len(waters_to_remove)} waters in {pandda_model.name}")
-
-    def get_contact_chain(self, protein_st, ligand_st):
-        """A simple estimation of the contact chain based on which chain has the most atoms
-        nearby."""
-        ligand_pos_list = []
-        for model in protein_st:
-            for chain in model:
-                for res in chain:
-                    for atom in res:
-                        pos = atom.pos
-                        ligand_pos_list.append([pos.x, pos.y, pos.z])
-        centroid = np.linalg.norm(np.array(ligand_pos_list), axis=0)
-
-        PROTEIN_RESIDUES = [
-            "ALA",
-            "ARG",
-            "ASN",
-            "ASP",
-            "CYS",
-            "GLN",
-            "GLU",
-            "HIS",
-            "ILE",
-            "LEU",
-            "LYS",
-            "MET",
-            "PHE",
-            "PRO",
-            "SER",
-            "THR",
-            "TRP",
-            "TYR",
-            "VAL",
-            "GLY",
-        ]
-
-        chain_counts = {}
-        for model in protein_st:
-            for chain in model:
-                chain_counts[chain.name] = 0
-                for res in chain:
-                    if res.name not in PROTEIN_RESIDUES:
-                        continue
-                    for atom in res:
-                        pos = atom.pos
-                        distance = np.linalg.norm(
-                            np.array([pos.x, pos.y, pos.z]) - centroid
-                        )
-                        if distance < 5.0:
-                            chain_counts[chain.name] += 1
-
-        return min(chain_counts, key=lambda _x: chain_counts[_x])
-
-    def merge_build(self, receptor, ligand, contact_chain):
-        # Get the receptor chain
-        receptor_chain = receptor[0][contact_chain]
-
-        # Get current ligand ids
-        seqid_nums = []
-        for receptor_res in receptor_chain:
-            num = receptor_res.seqid.num
-            seqid_nums.append(num)
-
-        # Assign a new, unused ligand id
-        if len(seqid_nums) == 0:
-            min_ligand_seqid = 100
-        else:
-            min_ligand_seqid = max(seqid_nums) + 100
-
-        # Update the ligand residue sequenceid
-        ligand_residue = ligand[0][0][0]
-        ligand_residue.seqid.num = min_ligand_seqid
-
-        # Add the ligand residue
-        receptor_chain.add_residue(ligand_residue, pos=-1)
-
-        return receptor
-
-    def get_pandda_settings(self, yaml_file):
-        with open(yaml_file, "r") as file:
-            expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
-        settings = expt_yaml.get("autoprocessing", {}).get("pandda", {})
-        if settings:
-            args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
-        else:
-            args_string = ""
-        return args_string
 
     def send_attachments_to_ispyb(self, attachments, batch):
         if batch:  # synchweb attachments not supported for array job processing

@@ -5,10 +5,12 @@ import os
 import subprocess
 from pathlib import Path
 
-import portalocker
-
 from dlstbx.util.mvs.helpers import save_cropped_map
 from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
+from dlstbx.util.pipedream_xchem_helpers import (
+    process_pdb_file,
+    save_dataset_metadata,
+)
 from dlstbx.wrapper import Wrapper
 
 
@@ -27,9 +29,19 @@ class PipedreamWrapper(Wrapper):
         auto_dir = processing_dir / "auto"
         analysis_dir = Path(auto_dir / "analysis")
         pipedream_dir = analysis_dir / "pipedream"
-        model_dir = pipedream_dir / "model_building"
-        dtag = params.get("dtag")
-        smiles = params.get("smiles")
+        Path(pipedream_dir).mkdir(parents=True, exist_ok=True)
+        model_dir = analysis_dir / "model_building"
+
+        n_datasets = int(params.get("n_datasets") or 1)
+        if n_datasets > 1:  # array job case
+            batch = True
+            slurm_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
+            with open(model_dir / ".bulk_array.json", "r") as f:
+                datasets = json.load(f)
+                dtag = datasets[int(slurm_task_id) - 1]
+        else:
+            dtag = params.get("dtag")
+            batch = False
 
         dataset_dir = model_dir / dtag
         out_dir = pipedream_dir / dtag
@@ -40,7 +52,6 @@ class PipedreamWrapper(Wrapper):
 
         self.log.info(f"Processing dtag: {dtag}")
 
-        dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
 
         smiles_files = list(compound_dir.glob("*.smiles"))
@@ -58,45 +69,14 @@ class PipedreamWrapper(Wrapper):
 
         smiles_file = smiles_files[0]
         CompoundCode = smiles_file.stem
+        smiles = smiles_file.read_text().strip()
 
-        # -------------------------------------------------------
-        # Ligand restraint generation
-
-        restraints_log = dataset_dir / "restraints.log"
-        attachments = [restraints_log]  # synchweb attachments
-
-        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
-
-        try:
-            subprocess.run(
-                restraints_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=compound_dir,
-                check=True,
-                timeout=30 * 60,
-            )
-
-        except subprocess.CalledProcessError as e:
-            self.log.error(
-                f"Ligand restraint generation command: '{restraints_command}' failed for dataset {dtag}"
-            )
-            self.log.info(e.stdout)
-            self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments)
-            return False
-
-        restraints = compound_dir / f"{CompoundCode}.restraints.cif"
-        restraints.rename(compound_dir / f"{CompoundCode}.cif")
-        ligand_pdb = compound_dir / f"{CompoundCode}.xyz.pdb"
-        ligand_pdb.rename(compound_dir / f"{CompoundCode}.pdb")
-
+        # Restraints (grade2) were generated upstream by the ligand-restraints job.
         ligand_cif = compound_dir / f"{CompoundCode}.cif"
-        self.log.info(f"Restraints generated succesfully for dtag {dtag}")
+        attachments = []
 
         self.log.info(f"Removing crystallisation components from pdb file for {dtag}")
-        self.process_pdb_file(dimple_pdb)
+        process_pdb_file(dimple_pdb, self.log)
         self.log.info(f"Launching pipedream for {dtag}")
 
         # -------------------------------------------------------
@@ -141,7 +121,7 @@ class PipedreamWrapper(Wrapper):
                 stderr.write(e.stderr)
 
             attachments.extend([out_dir / "stderr.out"])
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return False
 
         self.log.info(f"Pipedream finished successfully for dtag {dtag}")
@@ -155,7 +135,7 @@ class PipedreamWrapper(Wrapper):
         buster_report = report_dir / "report.pdf"
 
         pipedream_summary = out_dir / "pipedream_summary.json"
-        self.save_dataset_metadata(
+        save_dataset_metadata(
             str(pipedream_dir),
             str(compound_dir),
             str(out_dir),
@@ -163,6 +143,7 @@ class PipedreamWrapper(Wrapper):
             smiles,
             pipedream_command,
             dtag,
+            self.log,
         )
 
         pictures_dir = report_dir / "ligand/pictures"
@@ -187,7 +168,7 @@ class PipedreamWrapper(Wrapper):
                 )
         except Exception as e:
             self.log.info(f"Can't continue with pipedream postprocessing: {e}")
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         # Post-processing: Generate maps and run edstats
@@ -199,7 +180,7 @@ class PipedreamWrapper(Wrapper):
             os.system(f"gemmi sf2map --sample 5 {str(refine_mtz)} {map_fofc} 2>&1")
         except Exception as e:
             self.log.debug(f"Cannot continue with pipedream postprocessing: {e}")
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         try:
@@ -222,7 +203,7 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: resolution range None"
             )
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         # Run edstats if both maps exist and resolution range is found
@@ -230,7 +211,7 @@ class PipedreamWrapper(Wrapper):
             self.log.debug(
                 "Can't continue with pipedream postprocessing: maps not found"
             )
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         edstats_out = postrefine_dir / "edstats.out"
@@ -251,104 +232,18 @@ class PipedreamWrapper(Wrapper):
             self.log.error(f"Edstats command: '{edstats_command}' failed")
             self.log.info(e.stdout)
             self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments)
+            self.send_attachments_to_ispyb(attachments, batch)
             return True
 
         self.log.info(f"Pipedream postprocessing finished successfully for dtag {dtag}")
 
         attachments.extend([edstats_out])
-        self.send_attachments_to_ispyb(attachments)
+        self.send_attachments_to_ispyb(attachments, batch)
         return True
 
-    def process_pdb_file(self, dimple_pdb: Path):
-        if dimple_pdb.exists():
-            with open(dimple_pdb, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            # Count removals by component type
-            original_count = len(lines)
-            components_to_remove = ["DMS", "EDO", "GOL", "SO4", "PO4", "PEG"]
-            removed_counts = dict.fromkeys(components_to_remove, 0)
-
-            kept_lines = []
-            for line in lines:
-                if any(res in line for res in components_to_remove):
-                    # Count which component was found
-                    for comp in components_to_remove:
-                        if comp in line:
-                            removed_counts[comp] += 1
-                            break
-                else:
-                    kept_lines.append(line)
-
-            # Write cleaned file
-            with open(dimple_pdb, "w", encoding="utf-8") as f:
-                f.writelines(kept_lines)
-
-            removed_total = original_count - len(kept_lines)
-            if removed_total > 0:
-                component_summary = ", ".join(
-                    [
-                        f"{comp}: {count}"
-                        for comp, count in removed_counts.items()
-                        if count > 0
-                    ]
-                )
-                self.log.debug(f"Removed {removed_total} lines. ({component_summary})")
-
-        else:
-            self.log.debug(f"Dimple pdb {dimple_pdb} does not exist")
-            return True
-
-    def save_dataset_metadata(
-        self,
-        pipedream_dir,
-        input_dir,
-        output_dir,
-        compound_code,
-        smiles_string,
-        pipedream_cmd,
-        dtag,
-    ):
-        metadata = {
-            "Input_dir": input_dir,
-            "CompoundCode": compound_code,
-            "PipedreamDirectory": output_dir,
-            "ReportHTML": f"{output_dir}/report-{compound_code}/index.html",
-            "LigandReportHTML": f"{output_dir}/report-{compound_code}/ligand/index.html",
-            "ExpectedSummary": f"{output_dir}/pipedream_summary.json",
-            "PipedreamCommand": pipedream_cmd,
-            "ExpectedCIF": os.path.join(input_dir, f"{compound_code}.cif"),
-            "ExpectedPDB": os.path.join(input_dir, f"{compound_code}.pdb"),
-            "InputSMILES": smiles_string,
-        }
-
-        output_yaml = {}
-        output_yaml[dtag] = metadata
-        json_file = f"{pipedream_dir}/Pipedream_output.json"
-        if not os.path.exists(json_file):
-            open(json_file, "w").close()
-
-        # Acquire a lock
-        with portalocker.Lock(json_file, timeout=5):
-            if os.path.exists(json_file) and os.path.getsize(json_file) > 0:
-                with open(json_file, "r", encoding="utf-8") as f:
-                    try:
-                        data = json.load(f)
-                    except Exception as e:
-                        self.log.debug(
-                            f"Cannot continue with pipedream postprocessing: {e}"
-                        )
-                        return
-            else:
-                data = {}
-
-            data.update(output_yaml)
-
-            with open(json_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-
-    def send_attachments_to_ispyb(self, attachments):
+    def send_attachments_to_ispyb(self, attachments, batch):
+        if batch:  # synchweb attachments not supported for array job processing
+            return
         for f in attachments:
             if f.exists():
                 if f.suffix == ".out":
@@ -374,12 +269,3 @@ class PipedreamWrapper(Wrapper):
                     self.log.warning(
                         f"Could not attach {f.name} to ISPyB", exc_info=True
                     )
-
-    def get_rscc_rhofit(self, rhofit_dir) -> float:
-        RHOFIT_HIT_LOG = "Hit_corr.log"
-        # Actually gets the best RSCC of any fit, not -strictly- the one rhofit chose
-        with open(rhofit_dir / RHOFIT_HIT_LOG, "r") as f:
-            lines = f.readlines()
-
-        rscc = max(float(line.split()[1]) for line in lines if line.strip())
-        return rscc

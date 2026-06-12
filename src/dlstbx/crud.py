@@ -19,6 +19,24 @@ def get_data_collection(
     return query.first()
 
 
+def get_latest_dcid_for_dtag(
+    dtag: str,
+    session: sqlalchemy.orm.session.Session,
+) -> int | None:
+    """Return the most recent dataCollectionId for the BLSample named `dtag`."""
+    query = (
+        session.query(models.DataCollection.dataCollectionId)
+        .join(
+            models.BLSample,
+            models.BLSample.blSampleId == models.DataCollection.BLSAMPLEID,
+        )
+        .filter(models.BLSample.name == dtag)
+        .order_by(models.DataCollection.dataCollectionId.desc())
+    )
+    result = query.first()
+    return result.dataCollectionId if result else None
+
+
 def get_gridinfo_for_dcid(
     dcid: int,
     dcgid: int,

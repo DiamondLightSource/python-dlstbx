@@ -146,11 +146,13 @@ def sync_rows_from_master(master_path, copy_path, table):
     conn = sqlite3.connect(copy_path)
     try:
         conn.execute(f"ATTACH DATABASE '{master_path}' AS master")
+        cols = [row[1] for row in conn.execute(f"PRAGMA master.table_info({table})")]
+        collist = ", ".join(f'"{c}"' for c in cols)
 
         # Insert only rows from master that don't already exist in the copy
         conn.execute(f"""
-            INSERT OR IGNORE INTO {table}
-            SELECT * FROM master.{table}
+            INSERT OR IGNORE INTO {table} ({collist})
+            SELECT {collist} FROM master.{table}
         """)
 
         conn.commit()

@@ -310,6 +310,9 @@ def update_xchem_database(
         compound_dir = dataset_dir / "compound"
         cif_files = list(compound_dir.glob("*.cif"))
 
+        if not cif_files:
+            logger.info(f"No .cif file in {compound_dir}, skipping {dtag}")
+            continue
         if len(cif_files) > 1:
             logger.error(f"Multiple .cif files in {compound_dir}")
 
@@ -332,10 +335,10 @@ def update_xchem_database(
             # Determine ligand confidence based on overall ligandcc value
             if rscc >= 0.8:
                 RefinementLigandConfidence = "4 - High Confidence"
-                RefinementOutome = "4 - CompChem ready"
+                RefinementOutcome = "4 - CompChem ready"
             elif rscc >= 0.7:
                 RefinementLigandConfidence = "2 - Correct ligand, weak density"
-                RefinementOutome = "3 - In Refinement"
+                RefinementOutcome = "3 - In Refinement"
 
             # Full refinement/validation statistics from the Pipedream summary json
             try:
@@ -350,7 +353,7 @@ def update_xchem_database(
                 {
                     "CrystalName": dtag,
                     "RefinementBoundConformation": str(pipedream_model),
-                    "RefinementOutcome": RefinementOutome,
+                    "RefinementOutcome": RefinementOutcome,
                     "RefinementLigandConfidence": RefinementLigandConfidence,
                     "RefinementLigandCC": rscc,
                     "RefinementCIF": str(

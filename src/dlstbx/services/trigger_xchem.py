@@ -188,7 +188,7 @@ class DLSTriggerXChem(CommonService):
         jp["automatic"] = True
         # jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
-        jp["display_name"] = "procname"
+        jp["display_name"] = procname
         jp["recipe"] = f"postprocessing-{procname.lower()}"
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
@@ -277,9 +277,8 @@ class DLSTriggerXChem(CommonService):
         )
 
         query = query.with_entities(BLSample.name, BLSample.location, Container.code)
-        dtag = query.one()[0]
-        location = int(query.one()[1])
-        container_code = query.one()[2]
+        dtag, location, container_code = query.one()
+        location = int(location)
 
         # Check for crystal recollections
         latest_dcid = get_latest_dcid_for_dtag(dtag, session)
@@ -296,8 +295,11 @@ class DLSTriggerXChem(CommonService):
             .filter(BLSample.name == dtag)
         )
 
-        if query.first()[0]:
-            user_sg = gemmi.find_spacegroup_by_name(query.first()[0]).hm
+        sg_row = query.first()
+        if sg_row is not None and sg_row[0]:
+            spacegroup = gemmi.find_spacegroup_by_name(sg_row[0])
+            if spacegroup:
+                user_sg = spacegroup.hm
 
         # Find corresponding XChem visit directory and database
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
@@ -551,12 +553,13 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        chosen_dataset_path = df3["filePath"][0]
+        best = df3.iloc[0]
+        chosen_dataset_path = best["filePath"]
         self.log.debug(
             f"Chosen dataset to take forward: {chosen_dataset_path} for dcid {dcid}"
         )
-        scaling_id = int(df3["autoProcScalingId"][0])
-        environment = df3["processingEnvironment"][0]
+        scaling_id = int(best["autoProcScalingId"])
+        environment = best["processingEnvironment"]
         environment = re.search(r"data=(\[[^\]]*\])", environment)
 
         if environment:

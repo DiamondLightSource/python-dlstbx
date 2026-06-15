@@ -90,19 +90,17 @@ def process_pdb_file(dimple_pdb: Path, logger=None):
 
     # Count removals by component type
     original_count = len(lines)
-    components_to_remove = ["DMS", "EDO", "GOL", "SO4", "PO4", "PEG"]
+    components_to_remove = {"DMS", "EDO", "GOL", "SO4", "PO4", "PEG"}
     removed_counts = dict.fromkeys(components_to_remove, 0)
 
     kept_lines = []
     for line in lines:
-        if any(res in line for res in components_to_remove):
-            # Count which component was found
-            for comp in components_to_remove:
-                if comp in line:
-                    removed_counts[comp] += 1
-                    break
-        else:
-            kept_lines.append(line)
+        if line.startswith(("ATOM", "HETATM")):
+            resname = line[17:20].strip()
+            if resname in components_to_remove:
+                removed_counts[resname] += 1
+                continue
+        kept_lines.append(line)
 
     # Write cleaned file
     with open(dimple_pdb, "w", encoding="utf-8") as f:

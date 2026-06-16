@@ -271,7 +271,6 @@ setup(
         ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
-            "thumbnail = dlstbx.services.images:thumbnail",
         ],
         "zocalo.wrappers": sorted(known_wrappers),
         "zocalo.mimas.handlers": sorted(mimas_scenario_handlers),

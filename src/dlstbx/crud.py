@@ -148,6 +148,44 @@ def get_protein_for_dcid(
     return query.first()
 
 
+def get_visit_team_leader_email(
+    visit: str, session: sqlalchemy.orm.session.Session
+) -> str | None:
+    """Return ``<login>@diamond.ac.uk`` for the first Team Leader of a visit.
+
+    Returns ``None`` if the visit string cannot be parsed or no Team Leader with
+    a login is registered against the session."""
+    try:
+        proposal, visit_number = visit.split("-")
+        proposal_code, proposal_number = proposal[:2], proposal[2:]
+    except (AttributeError, ValueError):
+        return None
+
+    login = (
+        session.query(models.Person.login)
+        .join(
+            models.SessionHasPerson,
+            models.SessionHasPerson.personId == models.Person.personId,
+        )
+        .join(
+            models.BLSession,
+            models.BLSession.sessionId == models.SessionHasPerson.sessionId,
+        )
+        .join(
+            models.Proposal, models.Proposal.proposalId == models.BLSession.proposalId
+        )
+        .filter(
+            models.Proposal.proposalCode == proposal_code,
+            models.Proposal.proposalNumber == proposal_number,
+            models.BLSession.visit_number == visit_number,
+            models.SessionHasPerson.role == "Team Leader",
+            models.Person.login.isnot(None),
+        )
+        .first()
+    )
+    return f"{login[0]}@diamond.ac.uk" if login else None
+
+
 def get_priority_processing_for_sample_id(
     sample_id: int, session: sqlalchemy.orm.session.Session
 ) -> str | None:

@@ -14,11 +14,7 @@ import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import (
     PDB,
-    BLSession,
-    Person,
-    Proposal,
     ProteinHasPDB,
-    SessionHasPerson,
 )
 from workflows.services.common_service import CommonService
 
@@ -1022,70 +1018,6 @@ class DLSISPyB(EM_Mixin, CommonService):
                     exc_info=True,
                 )
             return False
-
-    def do_notify_visit_team_leader(
-        self,
-        parameters,
-        session: sqlalchemy.orm.Session,
-        rw,
-        transaction,
-        **kwargs,
-    ):
-        """Email the visit's Team Leader that XChemCollate has finished.
-
-        Looks up the Team Leader for the given visit in ISPyB and sends a simple
-        notification to the mailnotification queue (consumed by the DLS Mail
-        Notifications / zocalo Mailer service)."""
-
-        visit = parameters("visit")
-        results_directory = parameters("results_directory")
-
-        # recipients = self._lookup_visit_team_leader_emails(session, visit)
-        # if not recipients:
-        #     self.log.warning(
-        #         "No Team Leader found for visit %s; skipping collate-finished email",
-        #         visit,
-        #     )
-        #     return {"success": True}
-        recipients = ["qvu59474@diamond.ac.uk"]
-
-        message = {
-            "parameters": {
-                "recipients": recipients,
-                "subject": f"Auto pipeline finished for {visit}",
-            },
-            "content": [
-                f"Beamline visit processing has now finished for {visit}.\n",
-                f"Results are available at {results_directory}",
-            ],
-        }
-        self.log.info("Sending collate-finished email to %r", recipients)
-        rw.transport.send("mailnotification", message, transaction=transaction)
-        return {"success": True}
-
-    def _lookup_visit_team_leader_emails(self, session, visit):
-        """Return ``<login>@diamond.ac.uk`` for the Team Leader(s) of a visit."""
-        try:
-            proposal, visit_number = visit.split("-")
-            proposal_code, proposal_number = proposal[:2], proposal[2:]
-        except (AttributeError, ValueError):
-            self.log.error("Could not parse visit %r for team leader lookup", visit)
-            return []
-
-        logins = (
-            session.query(Person.login)
-            .join(SessionHasPerson, SessionHasPerson.personId == Person.personId)
-            .join(BLSession, BLSession.sessionId == SessionHasPerson.sessionId)
-            .join(Proposal, Proposal.proposalId == BLSession.proposalId)
-            .filter(
-                Proposal.proposalCode == proposal_code,
-                Proposal.proposalNumber == proposal_number,
-                BLSession.visit_number == visit_number,
-                SessionHasPerson.role == "Team Leader",
-            )
-            .all()
-        )
-        return [f"{login}@diamond.ac.uk" for (login,) in logins if login]
 
     def do_insert_phasing_analysis_results(self, parameters, **kwargs):
         """Write phasing results to ISPyB"""

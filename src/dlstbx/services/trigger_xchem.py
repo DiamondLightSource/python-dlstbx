@@ -36,7 +36,11 @@ from sqlalchemy import or_
 from workflows.services.common_service import CommonService
 
 import dlstbx.ispybtbx
-from dlstbx.crud import get_latest_dcid_for_dtag, get_protein_for_dcid
+from dlstbx.crud import (
+    get_latest_dcid_for_dtag,
+    get_protein_for_dcid,
+    get_visit_team_leader_email,
+)
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
@@ -993,12 +997,15 @@ class DLSTriggerXChem(CommonService):
 
         self.log.debug("XChemCollate trigger: Starting")
 
+        team_leader_email = get_visit_team_leader_email(visit, session) or ""
+        team_leader_email = "qvu59474@diamond.ac.uk"
         recipe_parameters = {
             "dcid": max(dcids),
             "processing_directory": str(processing_directory),
             "scaling_id": scaling_id,
             "pipedream": pipedream,
             "overwrite": overwrite,
+            "team_leader_email": team_leader_email,
         }
         # Upsert on max dcid
         self.upsert_proc(rw, max(dcids), "XChem-Collate", recipe_parameters)

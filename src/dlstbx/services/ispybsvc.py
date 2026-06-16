@@ -12,10 +12,7 @@ import mysql.connector
 import pydantic
 import sqlalchemy.orm
 import workflows.recipe
-from ispyb.sqlalchemy import (
-    PDB,
-    ProteinHasPDB,
-)
+from ispyb.sqlalchemy import PDB, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer

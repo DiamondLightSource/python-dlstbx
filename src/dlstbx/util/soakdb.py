@@ -168,8 +168,8 @@ def updatable_crystals(database_path, overwrite=False) -> set[str]:
     default: rows not yet given a RefinementOutcome.
     overwrite: every crystal row, including manually-curated ones."""
     if overwrite:
-        where = "CrystalName IS NOT NULL"
-        # where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
+        # where = "CrystalName IS NOT NULL"
+        where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
     else:
         where = (
             "RefinementOutcome IS NULL OR RefinementOutcome = '1 - Analysis Pending'"

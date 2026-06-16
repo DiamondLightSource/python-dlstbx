@@ -156,8 +156,8 @@ def handle_pilatus_end(
     return []
 
 
-@mimas.match_specification(is_eiger & is_screening & is_end & is_mx_beamline & ~is_vmxi)
-def handle_eiger_screening(
+@mimas.match_specification(is_screening & is_end & is_mx_beamline & ~is_vmxi)
+def handle_screening(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
@@ -170,6 +170,9 @@ def handle_eiger_screening(
             displayname="align_crystal",
         ),
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
+        ),
     ]
 
 
@@ -186,25 +189,9 @@ def handle_characterization(
             source="automatic",
             displayname="align_crystal",
         ),
-    ]
-
-
-@mimas.match_specification(
-    is_pilatus & is_screening & is_end & is_mx_beamline & ~is_vmxi
-)
-def handle_pilatus_screening(
-    scenario: mimas.MimasScenario,
-    **kwargs,
-) -> List[mimas.Invocation]:
-    return [
-        mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="strategy-align-crystal",
-            source="automatic",
-            displayname="align_crystal",
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 
 

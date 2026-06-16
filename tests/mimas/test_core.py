@@ -146,7 +146,6 @@ def test_eiger_gridscan(get_zocalo_commands):
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r per-image-analysis-gridscan-i03 {dcid}",
         f"zocalo.go -r archive-nexus {dcid}",
-        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }
 
 
@@ -168,8 +167,37 @@ def test_cbf_screening(get_zocalo_commands):
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r strategy-mosflm {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=strategy-align-crystal --display='align_crystal' --trigger",
     }
+
+
+def test_characterization(get_zocalo_commands):
+    dcid = 6017522
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.CHARACTERIZATION,
+        beamline="i03",
+        visit="nt28218-3",
+        runstatus="DataCollection Successful",
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=strategy-align-crystal --display='align_crystal' --trigger",
+        f"zocalo.go -r processing-rlv-eiger {dcid}",
+        f"zocalo.go -r processing-mmcif-gen {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger --display='autoPROC' --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger --add-param=resolution.cc_half_significance_level:0.1 --display='xia2 3dii' --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --display='fast_dp' --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:medium --display='xia2 dials' --trigger",
+    }
+    return
 
 
 @pytest.mark.parametrize(
@@ -204,6 +232,7 @@ def test_cbf_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --display='xia2 dials' --trigger",
         f"zocalo.go -r processing-rlv {dcid}",
         f"zocalo.go -r processing-mmcif-gen {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }
 
 
@@ -247,6 +276,7 @@ def test_cbf_rotation_multixia2(
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1 --display='xia2 3dii (multi)'",
         f"zocalo.go -r processing-rlv {dcid}",
         f"zocalo.go -r processing-mmcif-gen {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }
 
 
@@ -288,6 +318,7 @@ def test_cbf_rotation_with_spacegroup(
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212 --add-param=absorption_level:{absorption_level} --display='xia2 dials' --trigger",
         f"zocalo.go -r processing-rlv {dcid}",
         f"zocalo.go -r processing-mmcif-gen {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }
 
 
@@ -328,7 +359,6 @@ def test_vmxi_gridscan(get_zocalo_commands):
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-ssx-eiger --display='xia2.ssx' --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
-        f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"zocalo.go -r vmxi-spot-counts-per-image {dcid}",
     }
 
@@ -427,7 +457,6 @@ def test_vmxm_gridscan(get_zocalo_commands):
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r per-image-analysis-gridscan-swmr-vmxm {dcid}",
         f"zocalo.go -r archive-nexus {dcid}",
-        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }
 
 
@@ -523,9 +552,9 @@ def test_i19_rotation(
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }.union(
         {
-            f"zocalo.go -r generate-diffraction-preview {dcid}",
             f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}",
         }
         if detectorclass is MimasDetectorClass.EIGER
@@ -674,9 +703,9 @@ def test_i19_rotation_with_symmetry(
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }.union(
         {
-            f"zocalo.go -r generate-diffraction-preview {dcid}",
             f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}",
         }
         if detectorclass is MimasDetectorClass.EIGER

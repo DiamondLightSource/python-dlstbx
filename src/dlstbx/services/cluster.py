@@ -37,6 +37,8 @@ class JobSubmissionParameters(pydantic.BaseModel):
     exclusive: bool = False
     account: Optional[str] = None  # account in slurm terminology
     commands: list[str] | str
+    constraints: Optional[str] = None
+    prefer: Optional[str] = None
     qos: Optional[str] = None
     qsub_submission_parameters: Optional[str] = (
         None  # temporary support for legacy recipes
@@ -105,6 +107,8 @@ def submit_to_slurm(
         "name": params.job_name,
         "nodes": str(params.nodes) if params.nodes else params.nodes,
         "partition": params.partition,
+        "constraints": params.constraints,
+        "prefer": params.prefer,
         "qos": params.qos,
         "tasks": params.tasks,
         "array": params.array,

@@ -81,6 +81,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "pandda_xchem = dlstbx.wrapper.pandda_xchem:PanDDAWrapper",
     "pipedream_xchem = dlstbx.wrapper.pipedream_xchem:PipedreamWrapper",
     "phaser_ellg  = dlstbx.wrapper.phaser_ellg:PhasereLLGWrapper",
+    "ligandrestraints = dlstbx.wrapper.ligandrestraints:LigandRestraintsWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "scaleit = dlstbx.wrapper.scaleit:ScaleitWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",

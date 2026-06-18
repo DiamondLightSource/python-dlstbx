@@ -180,6 +180,10 @@ class Xia2MultiplexWrapper(Wrapper):
                 if param not in ignore:
                     command.append(translation.get(param, param) + "=" + value[0])
 
+            # Output cluster html for easier display in SynchWeb
+
+            command.append("output.cluster_html=True")
+
         return command
 
     def run(self):

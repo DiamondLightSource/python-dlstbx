@@ -32,8 +32,16 @@ class CloudWatcher(CommonService):
         self.log.info("Cloudwatcher starting")
 
         self.slurm_api: slurm.SlurmRestApi = (
+            slurm.SlurmRestApi.from_zocalo_configuration(self.config)
+        )
+        self.iris_api: slurm.SlurmRestApi = (
             slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
         )
+
+        self.cluster_api = {
+            "slurm": self.slurm_api,
+            "iris": self.iris_api,
+        }
 
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -88,6 +96,12 @@ class CloudWatcher(CommonService):
 
         seen_jobs = []
         scheduler = rw.recipe_step["parameters"].get("scheduler")
+        if scheduler not in self.cluster_api:
+            self.log.error(
+                f"Invalid scheduler '{scheduler}' specified in recipe step parameters."
+            )
+            rw.transport.transaction_commit(txn)
+            return
         for jobid in joblist:
             # while (
             #    status["seen-jobs"] < jobcount
@@ -95,33 +109,32 @@ class CloudWatcher(CommonService):
             #    and joblist[status["seen-jobs"]]
             # ):
             with os_stat_profiler.record():
-                if scheduler == "slurm":
-                    try:
-                        res = self.slurm_api.get_job_info(jobid)
-                        if res.job_state:
-                            if any(
-                                status in res.job_state
-                                for status in [
-                                    slurm.models.JobStateEnum.PENDING,
-                                    slurm.models.JobStateEnum.RUNNING,
-                                    slurm.models.JobStateEnum.TIMEOUT,
-                                    slurm.models.JobStateEnum.REQUEUED,
-                                    slurm.models.JobStateEnum.COMPLETING,
-                                ]
-                            ):
-                                seen_jobs.append(jobid)
-                                if slurm.models.JobStateEnum.PENDING in res.job_state:
-                                    first_seen = start_time
-                    except HTTPError as e:
-                        # Job has finished and was removed from SLURM job database
-                        # TODO: Check accessing job info using slurmdb REST API call
-                        if e.response.status_code == 404:
-                            self.log.info(
-                                f"Jobid {jobid} not found in slurm database.\n{e.response.text}"
-                            )
-                            continue
-                        else:
-                            raise
+                try:
+                    res = self.cluster_api[scheduler].get_job_info(jobid)
+                    if res.job_state:
+                        if any(
+                            status in res.job_state
+                            for status in [
+                                slurm.models.JobStateEnum.PENDING,
+                                slurm.models.JobStateEnum.RUNNING,
+                                slurm.models.JobStateEnum.TIMEOUT,
+                                slurm.models.JobStateEnum.REQUEUED,
+                                slurm.models.JobStateEnum.COMPLETING,
+                            ]
+                        ):
+                            seen_jobs.append(jobid)
+                            if slurm.models.JobStateEnum.PENDING in res.job_state:
+                                first_seen = start_time
+                except HTTPError as e:
+                    # Job has finished and was removed from SLURM job database
+                    # TODO: Check accessing job info using slurmdb REST API call
+                    if e.response.status_code == 404:
+                        self.log.info(
+                            f"Jobid {jobid} not found in slurm database.\n{e.response.text}"
+                        )
+                        continue
+                    else:
+                        raise
 
         # Are we done?
         if not seen_jobs:

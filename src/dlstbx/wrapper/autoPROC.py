@@ -649,6 +649,10 @@ class autoPROCWrapper(Wrapper):
             "report.pdf": "log",
             "iotbx-merging-stats.json": "graph",
         }
+        ignore = [
+            "summary_inlined.html",
+            "Data_*_all.cif",
+        ]
         if autoproc_xml:
             for entry in autoproc_xml.get("AutoProcProgramContainer", {}).get(
                 "AutoProcProgramAttachment", []
@@ -668,7 +672,12 @@ class autoPROCWrapper(Wrapper):
             keep[filename.name] = "result"
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
+        ignore_files: list[Path] = []
+        for ignore_pattern in ignore:
+            ignore_files.extend(working_directory.glob(ignore_pattern))
         for filename in working_directory.iterdir():
+            if filename in ignore_files:
+                continue
             keep_as = keep.get(
                 filename.name,
                 "result" if filename.suffix in copy_extensions else None,

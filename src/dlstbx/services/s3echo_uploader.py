@@ -22,27 +22,39 @@ class PrometheusMetrics(BasePrometheusMetrics):
     def create_metrics(self):
         # Use Gauge to track current file size, or Histogram to track distribution
         self.file_upload_size = prometheus_client.Histogram(
-            name="s3echo_file_upload_size_gbytes",
+            name="zocalo_s3echo_file_upload_size_gbytes",
             documentation="Size of files uploaded to S3Echo in GBytes",
             labelnames=["bucket"],
             buckets=[1, 5, 10, 20, 30, 50, 100],  # Buckets in GB
             unit="GB",
         )
         self.file_download_size = prometheus_client.Histogram(
-            name="s3echo_file_download_size_gbytes",
+            name="zocalo_s3echo_file_download_size_gbytes",
             documentation="Size of files downloaded from S3Echo in GBytes",
             labelnames=["bucket"],
             buckets=[1, 5, 10, 20, 30, 50, 100],  # Buckets in GB
             unit="GB",
         )
+        self.upload_total = prometheus_client.Counter(
+            name="zocalo_s3echo_upload_bytes_total",
+            documentation="The total amount of data uploaded to S3Echo in bytes",
+            labelnames=["bucket"],
+            unit="bytes",
+        )
+        self.download_total = prometheus_client.Counter(
+            name="zocalo_s3echo_download_bytes_total",
+            documentation="The total amount of data downloaded from S3Echo in bytes",
+            labelnames=["bucket"],
+            unit="bytes",
+        )
         self.upload_bandwidth = prometheus_client.Gauge(
-            name="s3echo_file_upload_transfer_rate_gbps",
+            name="zocalo_s3echo_file_upload_transfer_rate_gbps",
             documentation="File upload transfer rate to S3Echo in Gbps",
             labelnames=["bucket"],
             unit="Gbps",
         )
         self.download_bandwidth = prometheus_client.Gauge(
-            name="s3echo_file_download_transfer_rate_gbps",
+            name="zocalo_s3echo_file_download_transfer_rate_gbps",
             documentation="File download transfer rate from S3Echo in Gbps",
             labelnames=["bucket"],
             unit="Gbps",

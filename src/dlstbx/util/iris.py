@@ -229,19 +229,24 @@ def get_presigned_urls(
                 raise ValueError(
                     f"Invalid size for uploaded {filename} file: Expected {file_size}, got {result.size}"
                 )
-            file_size_gbytes = 8e-9 * file_size
-            transfer_rate_gbps = file_size_gbytes / timestamp
+            file_size_bytes = 8 * file_size
+            transfer_rate_gbps = 1e-9 * file_size_bytes / timestamp
             logger.info(
                 f"Data transfer rate for {filename} object: {transfer_rate_gbps:.3f}Gb/s"
             )
             if metrics:
                 metrics.record_metric(
-                    metric_name="s3echo_file_upload_size_gbytes",
+                    metric_name="zocalo_s3echo_file_upload_size_bytes",
                     labels=[f"{bucket_name}"],
-                    value=file_size_gbytes,
+                    value=file_size_bytes,
                 )
                 metrics.record_metric(
-                    metric_name="s3echo_file_upload_transfer_rate_gbps",
+                    metric_name="zocalo_s3echo_upload_bytes_total",
+                    labels=[f"{bucket_name}"],
+                    value=file_size_bytes,
+                )
+                metrics.record_metric(
+                    metric_name="zocalo_s3echo_file_upload_transfer_rate_gbps",
                     labels=[f"{bucket_name}"],
                     value=transfer_rate_gbps,
                 )
@@ -293,17 +298,22 @@ def retrieve_results_from_s3(
     timestamp = time.perf_counter() - timestamp
 
     file_size = (working_directory / s3echo_filename).stat().st_size
-    file_size_gbytes = 8e-9 * file_size
-    transfer_rate_gbps = file_size_gbytes / timestamp
+    file_size_bytes = 8 * file_size
+    transfer_rate_gbps = 1e-9 * file_size_bytes / timestamp
 
     if metrics:
         metrics.record_metric(
-            metric_name="s3echo_file_download_size_gbytes",
+            metric_name="zocalo_s3echo_file_download_size_bytes",
             labels=[f"{bucket_name}"],
-            value=file_size_gbytes,
+            value=file_size_bytes,
         )
         metrics.record_metric(
-            metric_name="s3echo_file_download_transfer_rate_gbps",
+            metric_name="zocalo_s3echo_download_bytes_total",
+            labels=[f"{bucket_name}"],
+            value=file_size_bytes,
+        )
+        metrics.record_metric(
+            metric_name="zocalo_s3echo_file_download_transfer_rate_gbps",
             labels=[f"{bucket_name}"],
             value=transfer_rate_gbps,
         )

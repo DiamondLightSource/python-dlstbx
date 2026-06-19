@@ -185,7 +185,9 @@ def decompress_results_file(working_directory, filename, logger):
         logger.debug(result.stderr)
 
 
-def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger):
+def get_presigned_urls(
+    minio_client, bucket_name, pid, files, do_upload, logger, metrics=None
+):
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)
     else:
@@ -227,9 +229,22 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, do_upload, logger)
                 raise ValueError(
                     f"Invalid size for uploaded {filename} file: Expected {file_size}, got {result.size}"
                 )
+            file_size_gbytes = 8e-9 * file_size
+            transfer_rate_gbps = file_size_gbytes / timestamp
             logger.info(
-                f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
+                f"Data transfer rate for {filename} object: {transfer_rate_gbps:.3f}Gb/s"
             )
+            if metrics:
+                metrics.record_metric(
+                    metric_name="s3echo_file_upload_size_gbytes",
+                    labels=[f"{bucket_name}"],
+                    value=file_size_gbytes,
+                )
+                metrics.record_metric(
+                    metric_name="s3echo_file_upload_transfer_rate_gbps",
+                    labels=[f"{bucket_name}"],
+                    value=transfer_rate_gbps,
+                )
         if not (upload_file and not do_upload):
             s3_urls[filename] = {
                 "url": minio_client.presigned_get_object(
@@ -262,12 +277,36 @@ def store_results_in_s3(minio_client, bucket_name, pfx, output_directory, logger
 
 
 def retrieve_results_from_s3(
-    minio_client, bucket_name, working_directory, pfx, results_filename, logger
+    minio_client,
+    bucket_name,
+    working_directory,
+    pfx,
+    results_filename,
+    logger,
+    metrics=None,
 ):
     s3echo_filename = f"{pfx}_{results_filename}.tar.gz"
+    timestamp = time.perf_counter()
     minio_client.fget_object(
         bucket_name, s3echo_filename, working_directory / s3echo_filename
     )
+    timestamp = time.perf_counter() - timestamp
+
+    file_size = (working_directory / s3echo_filename).stat().st_size
+    file_size_gbytes = 8e-9 * file_size
+    transfer_rate_gbps = file_size_gbytes / timestamp
+
+    if metrics:
+        metrics.record_metric(
+            metric_name="s3echo_file_download_size_gbytes",
+            labels=[f"{bucket_name}"],
+            value=file_size_gbytes,
+        )
+        metrics.record_metric(
+            metric_name="s3echo_file_download_transfer_rate_gbps",
+            labels=[f"{bucket_name}"],
+            value=transfer_rate_gbps,
+        )
     decompress_results_file(working_directory, s3echo_filename, logger)
     fix_acl_mask(working_directory, results_filename, logger)
 

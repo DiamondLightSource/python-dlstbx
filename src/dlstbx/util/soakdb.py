@@ -47,6 +47,13 @@ def find_xchem_visit_dir(
     puck/position when several visits share a target); falls back to reading
     the `Protein` field from each visit's soakDB database, caching the result
     to `.user.yaml` for next time. Returns None if no visit matches."""
+    if not xchem_dir.is_dir():
+        log.warning(
+            f"XChem visit parent directory {xchem_dir} not accessible "
+            f"(dtag {dtag}, acronym {acronym}); skipping trigger"
+        )
+        return None
+
     # tier 1: match via cached .user.yaml
     candidates = []
     for subdir in xchem_dir.iterdir():

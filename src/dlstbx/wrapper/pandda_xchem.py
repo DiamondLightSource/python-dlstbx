@@ -86,7 +86,7 @@ class PanDDAWrapper(Wrapper):
         CompoundCode = smiles_file.stem
         smiles = smiles_file.read_text().strip()
 
-        # Restraints (grade2) were generated upstream by the ligand-restraints job.
+        # Restraints generated upstream by the ligand-restraints job
         ligand_cif = compound_dir / f"{CompoundCode}.cif"
         attachments = []
 
@@ -225,7 +225,6 @@ class PanDDAWrapper(Wrapper):
             self.log.info(e.stdout)
             self.log.error(e.stderr)
             self.send_attachments_to_ispyb(attachments, batch)
-            return True
 
         # -------------------------------------------------------
         # Ligand scoring

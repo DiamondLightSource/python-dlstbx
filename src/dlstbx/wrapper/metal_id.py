@@ -67,10 +67,10 @@ class MetalIdWrapper(Wrapper):
             auto_proc_program_id=self.recwrap.environment.get(
                 "ispyb_autoprocprogram_id"
             ),
-            rfree_start=dimple_log.getfloat("refmac5 restr", "ini_free_r"),
-            rfree_end=dimple_log.getfloat("refmac5 restr", "free_r"),
-            rwork_start=dimple_log.getfloat("refmac5 restr", "ini_overall_r"),
-            rwork_end=dimple_log.getfloat("refmac5 restr", "overall_r"),
+            rfree_start=dimple_log.getfloat("refmacat restr", "ini_free_r"),
+            rfree_end=dimple_log.getfloat("refmacat restr", "free_r"),
+            rwork_start=dimple_log.getfloat("refmacat restr", "ini_overall_r"),
+            rwork_end=dimple_log.getfloat("refmacat restr", "overall_r"),
         )
 
         blobs = []

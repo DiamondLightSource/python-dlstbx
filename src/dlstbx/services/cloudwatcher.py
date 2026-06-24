@@ -81,6 +81,15 @@ class CloudWatcher(CommonService):
             self.log.error(f"Invalid received message type: {type(rw.payload)}.")
             rw.transport.transaction_commit(txn)
             return
+        # Get scheduler jobs to wait for
+        try:
+            scheduler = rw.payload["scheduler"]
+        except KeyError:
+            self.log.error(
+                f"Field 'scheduler' is missing from the received message. Cannot watch {joblist} job states."
+            )
+            rw.transport.transaction_commit(txn)
+            return
 
         # If the only entry in the list is 'None' then there are no jobs to
         # watch for. Bail out early and only notify on 'finally'.
@@ -95,10 +104,9 @@ class CloudWatcher(CommonService):
             return
 
         seen_jobs = []
-        scheduler = rw.recipe_step["parameters"].get("scheduler")
         if scheduler not in self.cluster_api:
             self.log.error(
-                f"Invalid scheduler '{scheduler}' specified in recipe step parameters."
+                f"Invalid scheduler '{scheduler}' specified in recipe step parameters. Cannot watch {joblist} job states."
             )
             rw.transport.transaction_commit(txn)
             return
@@ -152,7 +160,11 @@ class CloudWatcher(CommonService):
 
             rw.send_to(
                 "any",
-                {"jobs-expected": jobcount, "jobs-seen": seen_jobs},
+                {
+                    "jobs-expected": jobcount,
+                    "jobs-seen": seen_jobs,
+                    "scheduler": scheduler,
+                },
                 transaction=txn,
             )
             rw.send_to(
@@ -160,6 +172,7 @@ class CloudWatcher(CommonService):
                 {
                     "jobs-expected": jobcount,
                     "jobs-seen": seen_jobs,
+                    "scheduler": scheduler,
                     "success": True,
                 },
                 transaction=txn,
@@ -198,6 +211,7 @@ class CloudWatcher(CommonService):
                     "timeout",
                     {
                         "jobid": seen_jobs,
+                        "scheduler": scheduler,
                         "success": False,
                     },
                     transaction=txn,
@@ -208,6 +222,7 @@ class CloudWatcher(CommonService):
                         "any",
                         {
                             "jobid": seen_jobs,
+                            "scheduler": scheduler,
                             "success": False,
                         },
                         transaction=txn,
@@ -218,6 +233,7 @@ class CloudWatcher(CommonService):
                     "finally",
                     {
                         "jobid": seen_jobs,
+                        "scheduler": scheduler,
                         "success": False,
                     },
                     transaction=txn,
@@ -253,7 +269,7 @@ class CloudWatcher(CommonService):
 
         # Send results to myself for next round of processing
         rw.checkpoint(
-            {"jobid": joblist, "first-seen": first_seen},
+            {"jobid": joblist, "scheduler": scheduler, "first-seen": first_seen},
             delay=message_delay,
             transaction=txn,
         )

@@ -332,7 +332,7 @@ class DLSCluster(CommonService):
 
         # Send results onwards
         rw.set_default_channel("job_submitted")
-        rw.send({"jobid": jobnumber}, transaction=txn)
+        rw.send({"jobid": jobnumber, "scheduler": params.scheduler}, transaction=txn)
 
         # Commit transaction
         self._transport.transaction_commit(txn)

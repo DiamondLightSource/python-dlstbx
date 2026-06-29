@@ -236,9 +236,9 @@ def get_presigned_urls(
             )
             if metrics:
                 metrics.record_metric(
-                    metric_name="zocalo_s3echo_file_upload_size_bytes",
+                    metric_name="zocalo_s3echo_file_upload_size_gbytes",
                     labels=[f"{bucket_name}"],
-                    value=file_size_bytes,
+                    value=file_size_bytes / (1024**3),
                 )
                 metrics.record_metric(
                     metric_name="zocalo_s3echo_upload_bytes_total",
@@ -303,9 +303,9 @@ def retrieve_results_from_s3(
 
     if metrics:
         metrics.record_metric(
-            metric_name="zocalo_s3echo_file_download_size_bytes",
+            metric_name="zocalo_s3echo_file_download_size_gbytes",
             labels=[f"{bucket_name}"],
-            value=file_size_bytes,
+            value=file_size_bytes / (1024**3),
         )
         metrics.record_metric(
             metric_name="zocalo_s3echo_download_bytes_total",

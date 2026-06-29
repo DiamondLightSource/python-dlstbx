@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from dlstbx.util.fragalysis import upload_to_fragalysis
 from dlstbx.util.pipedream_xchem_helpers import (
     cleanup_setvar_files,
     write_pipedream_parameters,
@@ -130,6 +131,12 @@ class XChemCollateWrapper(Wrapper):
                 f"Skipping collation of Pipedream results for {pipedream_dir}"
             )
 
+        # Clean up orphaned autoBUSTER setvar logs left in the pipedream dir
+        try:
+            cleanup_setvar_files(pipedream_dir, self.log)
+        except Exception as e:
+            self.log.error(f"Could not clean up setvar logs in {pipedream_dir}: {e}")
+
         # -------------------------------------------------------
         # Perform XChemAlign collate step
         xca_dir = processing_dir / "analysis" / "xchemalign"
@@ -146,7 +153,7 @@ class XChemCollateWrapper(Wrapper):
             shutil.copy(config, autoxca_dir / "config.yaml")
             shutil.copy(assemblies, autoxca_dir / "assemblies.yaml")
 
-            xca_python = "/dls/science/groups/i04-1/software/xchem-align/env_xchem_align/bin/python"
+            xca_python = "/dls/science/groups/i04-1/software/xchem-align-staging/env_xchem_align/bin/python"  # staging
             xca_command = f"{xca_python} -m xchemalign.collator -d {autoxca_dir} && \
             {xca_python} -m xchemalign.aligner -d {autoxca_dir}"
 
@@ -169,11 +176,15 @@ class XChemCollateWrapper(Wrapper):
                     f"--- stdout ---\n{e.stdout}\n--- stderr ---\n{e.stderr}"
                 )
 
-        # Clean up orphaned autoBUSTER setvar logs left in the pipedream dir
-        try:
-            cleanup_setvar_files(pipedream_dir, self.log)
-        except Exception as e:
-            self.log.error(f"Could not clean up setvar logs in {pipedream_dir}: {e}")
+            # Push aligner tarball to Fragalysis
+            try:
+                upload_to_fragalysis(
+                    autoxca_dir,
+                    target_access_string=processing_dir.parent.name,
+                    logger=self.log,
+                )
+            except Exception as e:
+                self.log.error(f"Could not upload {autoxca_dir} to Fragalysis: {e}")
 
         self.log.info("Auto XChemCollate finished successfully")
         return True

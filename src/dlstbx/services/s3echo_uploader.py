@@ -47,13 +47,13 @@ class PrometheusMetrics(BasePrometheusMetrics):
             labelnames=["bucket"],
             unit="bytes",
         )
-        self.upload_bandwidth = prometheus_client.Gauge(
+        self.zocalo_s3echo_file_upload_transfer_rate_gbps = prometheus_client.Gauge(
             name="zocalo_s3echo_file_upload_transfer_rate_gbps",
             documentation="File upload transfer rate to S3Echo in Gbps",
             labelnames=["bucket"],
             unit="Gbps",
         )
-        self.download_bandwidth = prometheus_client.Gauge(
+        self.zocalo_s3echo_file_download_transfer_rate_gbps = prometheus_client.Gauge(
             name="zocalo_s3echo_file_download_transfer_rate_gbps",
             documentation="File download transfer rate from S3Echo in Gbps",
             labelnames=["bucket"],

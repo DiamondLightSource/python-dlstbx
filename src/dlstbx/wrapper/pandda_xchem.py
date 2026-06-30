@@ -10,14 +10,12 @@ import gemmi
 import yaml
 
 from dlstbx.util.mvs.helpers import (
-    find_residue_by_name,
     save_cropped_map,
 )
 from dlstbx.util.mvs.viewer_pandda import gen_html_pandda
 from dlstbx.util.pandda import (
     get_contact_chain,
     get_pandda_settings,
-    map_sigma,
     mask_map,
     merge_build,
     read_pandda_map,
@@ -199,38 +197,38 @@ class PanDDAWrapper(Wrapper):
             restricted_pdb_file,
         )
 
-        cifs = list(ligand_dir.glob("*.cif"))
-        cut = map_sigma(restricted_build_dmap)
+        # cifs = list(ligand_dir.glob("*.cif"))
+        # cut = map_sigma(restricted_build_dmap)
 
-        rhofit_log = dataset_pdir / "rhofit.log"
-        attachments.extend([event_map, z_map, rhofit_log])
-        rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
-        {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"
+        # rhofit_log = dataset_pdir / "rhofit.log"
+        attachments.extend([event_map, z_map])  # rhofit_log
+        # rhofit_command = f"module load buster; source {PANDDA_2_DIR}/venv/bin/activate; \
+        # {PANDDA_2_DIR}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"
 
-        self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
+        # self.log.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
-        try:
-            subprocess.run(
-                rhofit_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=panddas_dir,
-                check=True,
-                timeout=60 * 60,
-            )
+        # try:
+        #     subprocess.run(
+        #         rhofit_command,
+        #         shell=True,
+        #         capture_output=True,
+        #         text=True,
+        #         cwd=panddas_dir,
+        #         check=True,
+        #         timeout=60 * 60,
+        #     )
 
-        except subprocess.CalledProcessError as e:
-            self.log.error(f"Rhofit command: '{rhofit_command}' failed")
-            self.log.info(e.stdout)
-            self.log.error(e.stderr)
-            self.send_attachments_to_ispyb(attachments, batch)
+        # except subprocess.CalledProcessError as e:
+        #     self.log.error(f"Rhofit command: '{rhofit_command}' failed")
+        #     self.log.info(e.stdout)
+        #     self.log.error(e.stderr)
+        #     self.send_attachments_to_ispyb(attachments, batch)
 
         # -------------------------------------------------------
         # Ligand scoring
         build_scores = {}
-        build_dir = out_dir / "rhofit"
-        rhofit_builds = list(build_dir.glob("Hit*.pdb"))
+        # build_dir = out_dir / "rhofit"
+        # rhofit_builds = list(build_dir.glob("Hit*.pdb"))
 
         # Include any PanDDA2 internal autobuilds
         pandda2_build = next(
@@ -239,33 +237,33 @@ class PanDDAWrapper(Wrapper):
         if pandda2_build:
             build_scores[pandda2_build] = event_score
 
-        if not rhofit_builds and not pandda2_build:
+        if not pandda2_build:  # and not rhofit_builds
             self.log.info(f"No autobuilds for {dtag}, can't continue")
             return False
 
-        self.log.info(f"Running Ligand Score routine for {build_dir}")
+        # self.log.info(f"Running Ligand Score routine for {build_dir}")
 
         # Iterate over rhofit builds and score each one
-        for build_path in rhofit_builds:
-            ligand_score = build_dir / f"{build_path.stem}.txt"
+        # for build_path in rhofit_builds:
+        #     ligand_score = build_dir / f"{build_path.stem}.txt"
 
-            st = gemmi.read_structure(str(build_path))
-            chain, res = find_residue_by_name(st, "LIG")
-            ligand_id = chain.name + f"/{res.seqid.num}"
+        #     st = gemmi.read_structure(str(build_path))
+        #     chain, res = find_residue_by_name(st, "LIG")
+        #     ligand_id = chain.name + f"/{res.seqid.num}"
 
-            score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
-            python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={build_path} --out_path={ligand_score}"
+        #     score_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
+        #     python {PANDDA_2_DIR}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={build_path} --out_path={ligand_score}"
 
-            try:
-                os.system(score_command)
+        #     try:
+        #         os.system(score_command)
 
-            except Exception as e:
-                self.log.error(f"Ligand score command: '{score_command}' failed")
-                self.log.info(e.stdout)
-                self.log.error(e.stderr)
+        #     except Exception as e:
+        #         self.log.error(f"Ligand score command: '{score_command}' failed")
+        #         self.log.info(e.stdout)
+        #         self.log.error(e.stderr)
 
-            with open(ligand_score, "r") as file:
-                build_scores[build_path] = float(file.read().strip())
+        #     with open(ligand_score, "r") as file:
+        #         build_scores[build_path] = float(file.read().strip())
 
         best_build_path = max(build_scores, key=lambda _x: build_scores[_x])
         best_score = build_scores[best_build_path]

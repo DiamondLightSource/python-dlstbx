@@ -255,7 +255,7 @@ class DLSTriggerXChem(CommonService):
         acronym = getattr(protein_info, "acronym")
 
         # TEMPORARY PROPOSAL FILTER
-        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049"]
+        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "sw44082"]
         PROPOSAL_ALIASES = {"mx41448": "lb42888"}
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
@@ -749,7 +749,9 @@ class DLSTriggerXChem(CommonService):
             )
             self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
             if pipedream:
-                self.log.info(f"Launching Pipedream for dtag {dtag}")
+                self.log.info(
+                    f"Launching Pipedream array job over {dataset_count} datasets"
+                )
                 self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
             return {"success": True}
 

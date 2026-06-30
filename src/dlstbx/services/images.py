@@ -115,6 +115,9 @@ def diffraction(plugin: PluginInterface):
         filename = plugin.parameters("input")
         if ":" in filename:
             filename, imageset_index = filename.split(":")[0:2]
+            # cbf files can only contain one image
+            if filename.endswith(".cbf"):
+                imageset_index = 1
 
     if not filename or filename == "None":
         logger.debug("Skipping diffraction JPG generation: filename not specified")

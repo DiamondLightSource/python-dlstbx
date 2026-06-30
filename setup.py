@@ -126,6 +126,7 @@ service_list = [
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSTriggerXChem = dlstbx.services.trigger_xchem:DLSTriggerXChem",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
+    "DLSWorkflowsCluster = dlstbx.services.workflows_cluster:DLSWorkflowsCluster",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
     "CloudStats = dlstbx.services.cloudstats:CloudStats",
     "CloudWatcher = dlstbx.services.cloudwatcher:CloudWatcher",

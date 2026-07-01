@@ -17,7 +17,8 @@ class VisitInput:
             "proposalNumber": self.proposalNumber,
             "number": self.number
         }
-
+# test command: zocalo.go -n -f /dls/tmp/wdr83388/test-dc_sim.json -s scenario="workflows cluster test" -s beamline=i03 -s src_dcid=22409150 -s visitNumber=1 -s proposalCode=cm -s proposalNumber=44137 -s template_name=example-template  -e devrmq
+# verify at: https://workflows.diamond.ac.uk/workflows/cm44137-1
 class DLSWorkflowsCluster(CommonService):
     """A service to interface zocalo with functions to start new jobs on the workflows cluster"""
 

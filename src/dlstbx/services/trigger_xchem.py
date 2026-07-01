@@ -44,6 +44,7 @@ from dlstbx.crud import (
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
+from dlstbx.util.stage_reprocess import stage_legacy_model_building
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -81,6 +82,7 @@ class HitIndentificationParameters(pydantic.BaseModel):
     pipedream: Optional[bool] = True
     overwrite: Optional[bool] = False
     bulk_array: Optional[bool] = False
+    use_existing_modeldir: Optional[str] = None
 
 
 class CollateParameters(pydantic.BaseModel):
@@ -696,6 +698,9 @@ class DLSTriggerXChem(CommonService):
 
         bulk_array=True: iterate model_dir directly, write the dataset list to
         .bulk_array.json, and fire one array job over dtags in model_building.
+
+        use_existing_modeldir=<legacy model_building path>: before enumerating,
+        copy the complete datasets from that legacy model_building dir
         """
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
@@ -709,6 +714,20 @@ class DLSTriggerXChem(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         model_dir = processing_dir / "auto" / "analysis" / "model_building"
         db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
+
+        # Optionally stage a legacy model_building dir
+        if parameters.use_existing_modeldir:
+            try:
+                stage_legacy_model_building(
+                    src_model=pathlib.Path(parameters.use_existing_modeldir),
+                    dst_model=model_dir,
+                    visit_dir=xchem_visit_dir,
+                    overwrite=bool(overwrite),
+                    logger=self.log,
+                )
+            except (FileNotFoundError, PermissionError) as e:
+                self.log.error(f"Exiting hitidentification trigger: {e}")
+                return {"success": True}
 
         # Resolve dtag for the current dcid
         query = (
@@ -749,9 +768,7 @@ class DLSTriggerXChem(CommonService):
             )
             self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
             if pipedream:
-                self.log.info(
-                    f"Launching Pipedream array job over {dataset_count} datasets"
-                )
+                self.log.info(f"Launching Pipedream for dtag {dtag}")
                 self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
             return {"success": True}
 

@@ -8,8 +8,8 @@ import os, json, getpass, requests
 class VisitInput:
     def __init__(self, proposalCode, proposalNumber, number):
         self.proposalCode = proposalCode
-        self.proposalNumber = proposalNumber
-        self.number = number
+        self.proposalNumber = int(proposalNumber)
+        self.number = int(number)
     
     def to_dict(self):
         return {
@@ -73,8 +73,8 @@ class DLSWorkflowsCluster(CommonService):
         """
 
         variables = {
-                "templateName" : "example-template",
-                "visitID" : VisitInput("cm",44137,1).to_dict(),
+                "templateName" : job_params["workflow"]["template_name"],
+                "visitID" : VisitInput(job_params["workflow"]["visit"]["proposalCode"],job_params["workflow"]["visit"]["proposalNumber"],job_params["workflow"]["visit"]["number"]).to_dict(),
                 "parameters" : job_params,
             }
         payload = {
@@ -121,7 +121,7 @@ class DLSWorkflowsCluster(CommonService):
         except OSError as e:
             print(e)
             return
-        response = self.submit_to_workflows(rw.recipe_step.get("job_parameters", 'null'))
+        response = self.submit_to_workflows(job_params)
 
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
@@ -131,7 +131,7 @@ class DLSWorkflowsCluster(CommonService):
 
         self._transport.transaction_commit(txn)
         self.log.info(
-            f"Submitted job {response} to '{job_params}' on partition '{job_params}'"
+            f"Submitted job {response.text} to '{job_params}' on partition '{job_params}'"
         )
 
 

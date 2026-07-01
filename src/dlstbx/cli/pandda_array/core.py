@@ -19,8 +19,7 @@ import gemmi
 import yaml
 
 from dlstbx.cli.pandda_array import PANDDA_2_DIR
-from dlstbx.util.mvs.helpers import save_cropped_map
-from dlstbx.util.mvs.viewer_pandda import gen_html_pandda
+from dlstbx.util.mvs.helpers import find_residue_by_name
 from dlstbx.util.pandda import (
     get_contact_chain,
     map_sigma,
@@ -153,8 +152,8 @@ def process_pandda_dataset(
         logger.info(f"{events_yaml} does not exist, can't continue...")
         return False
 
-    with open(events_yaml, "r") as file:
-        data = yaml.load(file, Loader=yaml.SafeLoader)
+    with open(events_yaml, "r") as fh:
+        data = yaml.load(fh, Loader=yaml.SafeLoader)
 
     if not data:
         logger.info(f"No events in {events_yaml}, can't continue...")
@@ -176,6 +175,10 @@ def process_pandda_dataset(
     mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
     restricted_pdb_file = dataset_pdir / "build.pdb"
 
+    if event_map is None:
+        logger.error(f"No event map found for {dtag} event {event_idx}, can't continue")
+        return False
+
     # Rhofit can be confused by hunting non-binding site density. This can be
     # avoided by truncating the map to near the binding site
     dmap = read_pandda_map(event_map)
@@ -194,28 +197,28 @@ def process_pandda_dataset(
         return False
     cut = map_sigma(restricted_build_dmap)
 
-    # rhofit_log = dataset_pdir / "rhofit.log"
-    # attachments.extend([event_map, z_map, rhofit_log])
-    # rhofit_command = f"module load buster; source {pandda2_dir}/venv/bin/activate; \
-    # {pandda2_dir}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"
+    rhofit_log = dataset_pdir / "rhofit.log"
+    attachments.extend([event_map, z_map, rhofit_log])
+    rhofit_command = f"module load buster; source {pandda2_dir}/venv/bin/activate; \
+    {pandda2_dir}/scripts/pandda_rhofit.sh -pdb {restricted_pdb_file} -map {restricted_build_dmap} -mtz {mtz_file} -cif {cifs[0]} -out {out_dir} -cut {cut} > {rhofit_log};"
 
-    # logger.info(f"Running PanDDA Rhofit command: {rhofit_command}")
+    logger.info(f"Running PanDDA Rhofit command: {rhofit_command}")
 
-    # try:
-    #     subprocess.run(
-    #         rhofit_command,
-    #         shell=True,
-    #         capture_output=True,
-    #         text=True,
-    #         cwd=panddas_dir,
-    #         check=True,
-    #         timeout=60 * 60,
-    #     )
+    try:
+        subprocess.run(
+            rhofit_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=panddas_dir,
+            check=True,
+            timeout=60 * 60,
+        )
 
-    # except subprocess.CalledProcessError as e:
-    #     logger.error(f"Rhofit command: '{rhofit_command}' failed")
-    #     logger.info(e.stdout)
-    #     logger.error(e.stderr)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Rhofit command: '{rhofit_command}' failed")
+        logger.info(e.stdout)
+        logger.error(e.stderr)
 
     # -------------------------------------------------------
     # Ligand scoring
@@ -230,31 +233,31 @@ def process_pandda_dataset(
     if pandda2_build:
         build_scores[pandda2_build] = event_score
 
-    if not pandda2_build:  # and not rhofit_builds
+    if not pandda2_build and not rhofit_builds:
         logger.info(f"No autobuilds for {dtag}, can't continue")
         return False
 
-    # logger.info(f"Running Ligand Score routine for {build_dir}")
+    logger.info(f"Running Ligand Score routine for {build_dir}")
 
     # Iterate over rhofit builds and score each one
-    # for build_path in rhofit_builds:
-    #     ligand_score = build_dir / f"{build_path.stem}.txt"
+    for build_path in rhofit_builds:
+        ligand_score = build_dir / f"{build_path.stem}.txt"
 
-    #     st = gemmi.read_structure(str(build_path))
-    #     chain, res = find_residue_by_name(st, "LIG")
-    #     ligand_id = chain.name + f"/{res.seqid.num}"
+        st = gemmi.read_structure(str(build_path))
+        chain, res = find_residue_by_name(st, "LIG")
+        ligand_id = chain.name + f"/{res.seqid.num}"
 
-    #     score_command = f"source {pandda2_dir}/venv/bin/activate; \
-    #     python {pandda2_dir}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={build_path} --out_path={ligand_score}"
+        score_command = f"source {pandda2_dir}/venv/bin/activate; \
+        python {pandda2_dir}/scripts/ligand_score.py --mtz_path={mtz_file} --zmap_path={z_map} --ligand_id={ligand_id} --structure_path={build_path} --out_path={ligand_score}"
 
-    #     try:
-    #         subprocess.run(score_command, shell=True, check=True)
-    #     except subprocess.CalledProcessError as e:
-    #         logger.error(f"Ligand score command: '{score_command}' failed: {e}")
-    #         continue
+        try:
+            subprocess.run(score_command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Ligand score command: '{score_command}' failed: {e}")
+            continue
 
-    #     with open(ligand_score, "r") as file:
-    #         build_scores[build_path] = float(file.read().strip())
+        with open(ligand_score, "r") as fh:
+            build_scores[build_path] = float(fh.read().strip())
 
     if not build_scores:
         logger.info(f"No scored autobuilds for {dtag}, can't continue")
@@ -294,24 +297,24 @@ def process_pandda_dataset(
     # -------------------------------------------------------
     # Output
 
-    try:
-        cropped_event_map = save_cropped_map(
-            str(pandda_model), str(event_map), "LIG", radius=6
-        )
-        cropped_z_map = save_cropped_map(str(pandda_model), str(z_map), "LIG", radius=6)
-        mvs_html = gen_html_pandda(
-            str(pandda_model),
-            cropped_event_map,
-            cropped_z_map,
-            resname="LIG",
-            outdir=dataset_pdir,
-            dtag=dtag,
-            smiles=smiles,
-            score=best_score,
-        )
-        attachments.extend([mvs_html])
-    except Exception as e:
-        logger.debug(f"Exception generating mvs html: {e}")
+    # try:
+    #     cropped_event_map = save_cropped_map(
+    #         str(pandda_model), str(event_map), "LIG", radius=6
+    #     )
+    #     cropped_z_map = save_cropped_map(str(pandda_model), str(z_map), "LIG", radius=6)
+    #     mvs_html = gen_html_pandda(
+    #         str(pandda_model),
+    #         cropped_event_map,
+    #         cropped_z_map,
+    #         resname="LIG",
+    #         outdir=dataset_pdir,
+    #         dtag=dtag,
+    #         smiles=smiles,
+    #         score=best_score,
+    #     )
+    #     attachments.extend([mvs_html])
+    # except Exception as e:
+    #     logger.debug(f"Exception generating mvs html: {e}")
 
     results = [
         ["SMILES code", "Best autobuild", "Ligand score"],

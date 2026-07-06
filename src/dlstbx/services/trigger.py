@@ -239,7 +239,7 @@ class MultiplexParameters(pydantic.BaseModel):
     trigger_every_collection: bool
 
 
-class MultiplexReprocessingParameters(MultiplexParameters):
+class MultiplexReprocessingParameters(pydantic.BaseModel):
     rpid: Optional[int] = None
     d_min: Optional[float] = None
     apply_cchalf_filtering: Optional[int] = None
@@ -247,6 +247,16 @@ class MultiplexReprocessingParameters(MultiplexParameters):
     sd_cutoff: Optional[float] = None
     image_group_size: Optional[int] = None
     scaling_id: Optional[int] = None
+    dcid: int = pydantic.Field(gt=0)
+    wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
+    spacegroup: Optional[str] = None
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    recipe: Optional[str] = None
+    use_clustering: Optional[List[str]] = None
+    beamline: str
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -1730,6 +1740,71 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": None}
 
+    def register_multiplex_job(
+        self,
+        parameters,
+        dcids,
+        session,
+        job_parameters,
+        rw,
+    ):
+        jobids = []
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "xia2.multiplex"
+        jp["recipe"] = parameters.recipe
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        jobids.append(jobid)
+        self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
+
+        query = (
+            session.query(DataCollection)
+            .filter(DataCollection.dataCollectionId.in_(dcids))
+            .options(
+                Load(DataCollection).load_only(
+                    DataCollection.dataCollectionId,
+                    DataCollection.wavelength,
+                    DataCollection.startImageNumber,
+                    DataCollection.numberOfImages,
+                    raiseload=True,
+                )
+            )
+        )
+
+        for dc in query.all():
+            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+            jisp["datacollectionid"] = dc.dataCollectionId
+            jisp["start_image"] = dc.startImageNumber
+            jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
+
+            jisp["job_id"] = jobid
+            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                list(jisp.values())
+            )
+            self.log.debug(
+                f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
+            )
+
+        for k, v in job_parameters:
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = k
+            jpp["parameter_value"] = v
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"xia2.multiplex trigger generated JobParameterID {jppid} with {k}={v}",
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
+
+        return jobids
+
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_multiplex(
         self,
@@ -2139,44 +2214,6 @@ class DLSTrigger(CommonService):
                 continue
             multiplex_job_dcids.append(set_dcids)
 
-            jp = self.ispyb.mx_processing.get_job_params()
-            jp["automatic"] = parameters.automatic
-            jp["comments"] = parameters.comment
-            jp["datacollectionid"] = dcid
-            jp["display_name"] = "xia2.multiplex"
-            jp["recipe"] = parameters.recipe
-            self.log.info(jp)
-            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-            jobids.append(jobid)
-            self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
-
-            query = (
-                session.query(DataCollection)
-                .filter(DataCollection.dataCollectionId.in_(dcids))
-                .options(
-                    Load(DataCollection).load_only(
-                        DataCollection.dataCollectionId,
-                        DataCollection.wavelength,
-                        DataCollection.startImageNumber,
-                        DataCollection.numberOfImages,
-                        raiseload=True,
-                    )
-                )
-            )
-            for dc in query.all():
-                jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-                jisp["datacollectionid"] = dc.dataCollectionId
-                jisp["start_image"] = dc.startImageNumber
-                jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
-
-                jisp["job_id"] = jobid
-                jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
-                    list(jisp.values())
-                )
-                self.log.debug(
-                    f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
-                )
-
             job_parameters: list[tuple[str, str]] = [
                 ("data", ";".join(files)) for files in data_files
             ]
@@ -2222,22 +2259,16 @@ class DLSTrigger(CommonService):
                         ("deltacchalf.group_size", str(group_size)),
                     ]
                 )
-            for k, v in job_parameters:
-                jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                jpp["job_id"] = jobid
-                jpp["parameter_key"] = k
-                jpp["parameter_value"] = v
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                    list(jpp.values())
-                )
-                self.log.debug(
-                    f"xia2.multiplex trigger generated JobParameterID {jppid} with {k}={v}",
-                )
 
-            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-            rw.transport.send("processing_recipe", message)
-
-            self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
+            jobids.append(
+                self.register_multiplex_job(
+                    parameters,
+                    dcids,
+                    session,
+                    job_parameters,
+                    rw,
+                )
+            )
 
         return {"success": True, "return_value": jobids}
 
@@ -2252,11 +2283,55 @@ class DLSTrigger(CommonService):
         **kwargs,
     ):
         """
-        Testing a separate trigger function for multiplex reprocessing.
-        Because it is a retriggered job, DO NOT need to see if preceeding jobs have finished.
-            CHECK IF THIS IS CORRECT - CHECK SKIPPING LOGIC!!!!
-            ALSO CHECK IF NEED TO MATCH PROCESSING ID OR IF THIS MAKES NEW ONE AND THAT'S CORRECT BEHAVIOUR
-        Also, we can link back the DCIDs from the scaling ID.
+        Trigger reprocessing of an existing xia2.multiplex job for a given data collection and sample group.
+        Intended use case: reprocess an existing job with different (manually specified) phil parameters.
+        - add/change deltacchalf filtering
+        - specify resolution limit
+        - change space group
+
+        As the intended use case is to "edit" an existing job, much of the logic of trigger_multiplex is not required.
+        Trigger called via registering a new processingJobId with associated processigJobParameterIds.
+        One of these is the autoProcScalingId of the original multiplex job.
+        From the autoProcScalingId, query the database for the corresponding DCIDs and sample_id (or sample_group_id).
+        Use this to know exactly which datasets were selected out of the sample group, and which sample group it corresponds to.
+        This allows for a new job to be registered with the new processing parameters.
+        The data files input to xia2.multiplex via commandline are also found in this same query.
+        Currently not supporting any use cases where further xia2-dials jobs are added in order to maintain
+        consistency within SynchWeb (ie if the parent and reprocessed multiplex jobs have different numbers of datasets
+        then comparison tables and plots are not valid).
+
+        Recipe parameters:
+        - rpid: processingJobId input to trigger recipe (links to user defined parameters in SynchWeb)
+        - d_min: custom resolution cutoff
+        - apply_cchalf_filtering: perform deltacchalf filtering (xia2.multiplex_filtering)
+        - cchalf_filtering_method: filter by image_group or datasets
+        - sd_cutoff: STD cutoff for deltacchalf filtering
+        - image_group_size: image group size for optional deltacchalf filtering (only when cchalf_filtering_method=image_group)
+        - scaling_id: autoProcScalingId of the original multiplex job
+        - target: set this to "multiplex_reprocessing"
+        - beamline: the beamline as a string
+        - dcid: the dataCollectionId for the given data collection
+        - wavelength: wavelength of data collection
+        - spacegroup: space group for processing
+        - wavelength_tolerance: tolerance for selecting datasets with same wavelength
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - ispyb_parameters: a dictionary of ispyb_reprocessing_parameters set by user interaction in SynchWeb
+        - recipe: this will be set in this function to the name of the recipe this function triggers
+        - use_clustering: list of beamlines which allow output of clusters
+
+        Example recipe parameters:
+        {
+            "target": "multiplex_reprocessing",
+            "dcid": 1234,
+            "rpid": 4006800,
+            "wavelength": "1.03936",
+            "comment": "xia2.multiplex triggered manually",
+            "automatic": false,
+            "use_clustering": ["i02-2", "i02-1", "i24"],
+            "beamline": "i02-1",
+            "ispyb_parameters": {"spacegroup": "P1", "apply_cchalf_filtering":"1", "cchalf_filtering_method": "image_group"},
+        }
         """
 
         parameters.recipe = "postprocessing-xia2-multiplex"
@@ -2266,6 +2341,8 @@ class DLSTrigger(CommonService):
             and parameters.beamline in parameters.use_clustering
         ):
             output_clusters = True
+        else:
+            output_clusters = False
 
         # First, use the input scaling ID to find the DCIDs of all multiplex jobs as well as the sample (group) id value
 
@@ -2313,51 +2390,14 @@ class DLSTrigger(CommonService):
             elif "data" == dc_params.parameterKey:
                 found_data_files.add(dc_params.parameterValue)
 
+        # Set parameters
+
         dcids = list(found_dcids)
         data_files = list(found_data_files)
 
         self.log.info(f"Found {dcids} corresponding to {group}")
 
         self.log.debug(f"Found data files {data_files}")
-
-        jobids = []
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        jp["comments"] = parameters.comment
-        jp["datacollectionid"] = parameters.dcid
-        jp["display_name"] = "xia2.multiplex"
-        jp["recipe"] = parameters.recipe
-        self.log.info(jp)
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        jobids.append(jobid)
-        self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
-
-        query = (
-            session.query(DataCollection)
-            .filter(DataCollection.dataCollectionId.in_(dcids))
-            .options(
-                Load(DataCollection).load_only(
-                    DataCollection.dataCollectionId,
-                    DataCollection.wavelength,
-                    DataCollection.startImageNumber,
-                    DataCollection.numberOfImages,
-                    raiseload=True,
-                )
-            )
-        )
-        for dc in query.all():
-            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-            jisp["datacollectionid"] = dc.dataCollectionId
-            jisp["start_image"] = dc.startImageNumber
-            jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
-
-            jisp["job_id"] = jobid
-            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
-                list(jisp.values())
-            )
-            self.log.debug(
-                f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
-            )
 
         job_parameters: list[tuple[str, str]] = [
             ("data", files) for files in data_files
@@ -2406,20 +2446,15 @@ class DLSTrigger(CommonService):
                     ("deltacchalf.stdcutoff", str(parameters.sd_cutoff))
                 )
 
-        for k, v in job_parameters:
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = k
-            jpp["parameter_value"] = v
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"xia2.multiplex trigger generated JobParameterID {jppid} with {k}={v}",
-            )
+        # Register and trigger jobs (same as automatic multiplex)
 
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
+        jobids = self.register_multiplex_job(
+            parameters,
+            dcids,
+            session,
+            job_parameters,
+            rw,
+        )
 
         return {"success": True, "return_value": jobids}
 

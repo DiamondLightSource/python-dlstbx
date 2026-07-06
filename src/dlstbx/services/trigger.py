@@ -1748,7 +1748,6 @@ class DLSTrigger(CommonService):
         job_parameters,
         rw,
     ):
-        jobids = []
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
@@ -1757,7 +1756,6 @@ class DLSTrigger(CommonService):
         jp["recipe"] = parameters.recipe
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        jobids.append(jobid)
         self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
         query = (
@@ -1803,7 +1801,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
-        return jobids
+        return jobid
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_multiplex(
@@ -2448,7 +2446,7 @@ class DLSTrigger(CommonService):
 
         # Register and trigger jobs (same as automatic multiplex)
 
-        jobids = self.register_multiplex_job(
+        jobid = self.register_multiplex_job(
             parameters,
             dcids,
             session,
@@ -2456,7 +2454,7 @@ class DLSTrigger(CommonService):
             rw,
         )
 
-        return {"success": True, "return_value": jobids}
+        return {"success": True, "return_value": jobid}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_xia2_ssx_reduce(

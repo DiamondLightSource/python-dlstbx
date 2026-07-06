@@ -139,6 +139,8 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 "clustering.method",
                 "clustering.output_clusters",
                 "spacegroup",
+                "anomalous",
+                "absorption_level",
             }
             translation = {
                 "d_min": "resolution.d_min",

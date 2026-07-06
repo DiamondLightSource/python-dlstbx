@@ -4,6 +4,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import yaml
+
 from dlstbx.util.fragalysis import upload_to_fragalysis
 from dlstbx.util.pipedream_xchem_helpers import (
     cleanup_setvar_files,
@@ -176,15 +178,57 @@ class XChemCollateWrapper(Wrapper):
                     f"--- stdout ---\n{e.stdout}\n--- stderr ---\n{e.stderr}"
                 )
 
-            # Push aligner tarball to Fragalysis
-            try:
-                upload_to_fragalysis(
-                    autoxca_dir,
-                    target_access_string=processing_dir.parent.name,
-                    logger=self.log,
+            # Tarball the aligner's latest upload_N directory and push it to
+            # Fragalysis. The aligner nests upload_N inside
+            # upload-current -> upload-vN, so tar from there.
+            target_name = yaml.safe_load((autoxca_dir / "config.yaml").read_text())[
+                "target_name"
+            ]
+            upload_dir = (autoxca_dir / "upload-current").resolve()
+            upload_subdirs = [
+                p
+                for p in upload_dir.glob("upload_*")
+                if p.is_dir() and p.name.split("_")[-1].isdigit()
+            ]
+
+            if not upload_subdirs:
+                self.log.error(
+                    f"No upload_N directory in {upload_dir}, skipping Fragalysis upload"
                 )
-            except Exception as e:
-                self.log.error(f"Could not upload {autoxca_dir} to Fragalysis: {e}")
+            else:
+                latest_upload = max(
+                    upload_subdirs, key=lambda p: int(p.name.split("_")[-1])
+                )
+                tgz_path = autoxca_dir / f"{target_name}.tgz"
+                tar_command = f"tar cvfz {tgz_path} {latest_upload.name}"
+
+                self.log.info(f"Running tar command: {tar_command} (in {upload_dir})")
+
+                try:
+                    subprocess.run(
+                        tar_command,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        cwd=upload_dir,
+                        check=True,
+                        timeout=params.get("timeout-minutes") * 60,
+                    )
+
+                except subprocess.CalledProcessError as e:
+                    self.log.error(
+                        f"tar command failed (exit {e.returncode})\n"
+                        f"--- stdout ---\n{e.stdout}\n--- stderr ---\n{e.stderr}"
+                    )
+
+                try:
+                    upload_to_fragalysis(
+                        tgz_path,
+                        target_access_string=processing_dir.parent.name,
+                        logger=self.log,
+                    )
+                except Exception as e:
+                    self.log.error(f"Could not upload {tgz_path} to Fragalysis: {e}")
 
         self.log.info("Auto XChemCollate finished successfully")
         return True

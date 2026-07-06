@@ -68,34 +68,22 @@ def _upload_target_experiment(
 
 
 def upload_to_fragalysis(
-    autoxca_dir: Path,
+    tgz_path: Path,
     target_access_string: str,
     logger,
     *,
     credentials: str = CREDENTIALS,
     url: str = UPLOAD_URL,
 ) -> None:
-    """Upload the latest aligner-produced upload tarball to Fragalysis.
+    """Upload an XChemAlign upload tarball to Fragalysis.
 
-    ``autoxca_dir`` is the wrapper's auto/xchemalign directory; the aligner
-    writes its upload-vN directory there (pointed at by the upload-current
-    symlink) containing one or more ``*.tgz`` upload bundles.
+    ``tgz_path`` is the gzip the wrapper tarred from the aligner's upload
+    directory.
     """
-    upload_dir = (autoxca_dir / "upload-current").resolve()
-    if not upload_dir.is_dir():
-        logger.error(
-            f"No upload directory found at {autoxca_dir / 'upload-current'}, "
-            "skipping Fragalysis upload"
-        )
+    tgz_path = Path(tgz_path)
+    if not tgz_path.is_file():
+        logger.error(f"No tarball at {tgz_path}, skipping Fragalysis upload")
         return
-
-    tarballs = sorted(upload_dir.glob("*.tgz"), key=lambda p: p.stat().st_mtime)
-    if not tarballs:
-        logger.error(
-            f"No .tgz upload bundle in {upload_dir}, skipping Fragalysis upload"
-        )
-        return
-    tgz_path = tarballs[-1]
 
     logger.info(
         f"Uploading {tgz_path} to Fragalysis (access string '{target_access_string}')"

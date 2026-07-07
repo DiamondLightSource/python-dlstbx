@@ -233,8 +233,7 @@ class DLSTriggerXChem(CommonService):
         dimple jobs to finish, then selects the 'best' dataset by
         I/sigI * completeness * #unique-reflections, preferring those cases
         processed in the user-defined spacegroup and the most recent processing
-        batch. Reads the soakDB for ligand info, skipping DMSO solvent screens
-        and crystals with no CompoundSMILES.
+        batch. Reads the soakDB for ligand info, skipping DMSO solvent screens.
 
         Copies the chosen dimple files into the shared model_building directory,
         writes the ligand .smiles file, and fires a single ligand-restraints job
@@ -616,16 +615,18 @@ class DLSTriggerXChem(CommonService):
                 f"Exiting PanDDA2/Pipedream trigger: {dtag} is DMSO solvent screen, skipping..."
             )
             return {"success": True}
-        elif not CompoundSMILES or str(CompoundSMILES).strip().lower() in [
+
+        # Apo / ground-state crystals have no CompoundSMILES: they are still
+        # put in model_building (below) so PanDDA2 can use them, but get no
+        # .smiles file and no ligand-restraints job.
+        has_ligand = bool(CompoundSMILES) and str(
+            CompoundSMILES
+        ).strip().lower() not in (
             "none",
             "null",
             "nan",
             "",
-        ]:
-            self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: {dtag} has no corresponding CompoundSMILES, skipping..."
-            )
-            return {"success": True}
+        )
 
         # 3. Create dataset directory structure (single shared model_building dir)
         auto_dir = processing_dir / "auto"
@@ -651,6 +652,12 @@ class DLSTriggerXChem(CommonService):
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))
         shutil.copy(mtz, str(dataset_dir / "dimple.mtz"))
         shutil.copy(upstream_mtz, str(dataset_dir / f"{dtag}.free.mtz"))
+
+        if not has_ligand:
+            self.log.info(
+                f"{dtag} has no CompoundSMILES; moved dimple files in model_building "
+            )
+            return {"success": True}
 
         with open(compound_dir / f"{CompoundCode}.smiles", "w") as smi_file:
             smi_file.write(CompoundSMILES)
@@ -737,8 +744,11 @@ class DLSTriggerXChem(CommonService):
         }
 
         if bulk_array:
+            # Only run on datasets that have a ligand
             dataset_list = sorted(
-                [p.parts[-1] for p in model_dir.iterdir() if p.is_dir()]
+                p.parts[-1]
+                for p in model_dir.iterdir()
+                if p.is_dir() and list((p / "compound").glob("*.smiles"))
             )
             dataset_count = len(dataset_list)
             recipe_parameters["n_datasets"] = dataset_count

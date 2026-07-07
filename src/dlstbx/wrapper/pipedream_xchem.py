@@ -12,6 +12,7 @@ from dlstbx.util.pipedream_xchem_helpers import (
     save_dataset_metadata,
 )
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import fix_acl_mask
 
 
 class PipedreamWrapper(Wrapper):
@@ -46,6 +47,14 @@ class PipedreamWrapper(Wrapper):
         dataset_dir = model_dir / dtag
         out_dir = pipedream_dir / dtag
 
+        try:
+            return self.process_dataset(
+                params, batch, dtag, dataset_dir, pipedream_dir, out_dir
+            )
+        finally:
+            self.fix_output_acls(out_dir)
+
+    def process_dataset(self, params, batch, dtag, dataset_dir, pipedream_dir, out_dir):
         dimple_pdb = dataset_dir / "dimple.pdb"
         dimple_mtz = dataset_dir / "dimple.mtz"
         upstream_mtz = dataset_dir / f"{dtag}.free.mtz"
@@ -240,6 +249,14 @@ class PipedreamWrapper(Wrapper):
         attachments.extend([edstats_out])
         self.send_attachments_to_ispyb(attachments, batch)
         return True
+
+    def fix_output_acls(self, out_dir):
+        """Reset the ACL mask on pipedream output so the visit group keeps
+        write access.
+        """
+        if out_dir is None or not out_dir.is_dir():
+            return
+        fix_acl_mask(out_dir.parent, out_dir, self.log)
 
     def send_attachments_to_ispyb(self, attachments, batch):
         if batch:  # synchweb attachments not supported for array job processing

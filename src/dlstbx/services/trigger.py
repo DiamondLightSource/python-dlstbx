@@ -27,9 +27,6 @@ from ispyb.sqlalchemy import (
     ProcessingJob,
     Proposal,
     Protein,
-    Screening,
-    ScreeningOutput,
-    ScreeningStrategy,
 )
 from sqlalchemy import or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
@@ -295,6 +292,7 @@ class StrategyParameters(pydantic.BaseModel):
     experiment_type: str
     program_id: int = pydantic.Field(gt=0)
     wavelength: float = pydantic.Field(gt=0)
+    max_transmission: Optional[float] = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
     backoff_max_try: float = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
@@ -2993,26 +2991,6 @@ class DLSTrigger(CommonService):
             f"Strategy trigger: found minumum resolution {min_resolution} for dcid={parameters.dcid}"
         )
 
-        # Trigger service will be triggered by estimate_transmission therefore can se autoprocId
-        transmission = (
-            session.query(ScreeningStrategy.transmission)
-            .join(
-                ScreeningOutput,
-                ScreeningOutput.screeningOutputId
-                == ScreeningStrategy.screeningOutputId,
-            )
-            .join(Screening, Screening.screeningId == ScreeningOutput.screeningId)
-            .filter(Screening.dataCollectionId == parameters.dcid)
-            .filter(ScreeningStrategy.program == "estimate_transmission")
-            .scalar()
-        )
-
-        if not transmission:
-            self.log.info(
-                f"Skipping strategy trigger: no transmission recommendation found for dcid={parameters.dcid}"
-            )
-            return {"success": True}
-
         jp = self.ispyb.mx_processing.get_job_params()
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
@@ -3026,7 +3004,7 @@ class DLSTrigger(CommonService):
             "beamline": parameters.beamline,
             "resolution": min_resolution,
             "wavelength": parameters.wavelength,
-            "transmission_estimate": transmission,
+            "transmission_estimate": parameters.max_transmission,
         }
 
         for key, value in strategy_parameters.items():

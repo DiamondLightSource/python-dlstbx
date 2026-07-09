@@ -637,16 +637,22 @@ class DLSTriggerXChem(CommonService):
 
         self.log.info(f"Creating directory {dataset_dir}")
 
-        if not overwrite:
-            try:
-                compound_dir.mkdir(parents=True, exist_ok=False)
-            except FileExistsError:
-                self.log.info(
-                    f"Exiting model_building trigger: {dataset_dir} already exists"
-                )
-                return {"success": True}
-        else:
-            compound_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            if not overwrite:
+                try:
+                    compound_dir.mkdir(parents=True, exist_ok=False)
+                except FileExistsError:
+                    self.log.info(
+                        f"Exiting model_building trigger: {dataset_dir} already exists"
+                    )
+                    return {"success": True}
+            else:
+                compound_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError as e:
+            self.log.error(
+                f"Exiting model_building trigger: cannot create {compound_dir}: {e}. "
+            )
+            return {"success": True}
 
         # Copy the dimple files of the selected dataset
         shutil.copy(pdb, str(dataset_dir / "dimple.pdb"))

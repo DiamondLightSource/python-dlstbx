@@ -254,7 +254,7 @@ class DLSTriggerXChem(CommonService):
         acronym = getattr(protein_info, "acronym")
 
         # TEMPORARY PROPOSAL FILTER
-        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "sw44082"]
+        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "lb43133"]
         PROPOSAL_ALIASES = {"mx41448": "lb42888"}
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)

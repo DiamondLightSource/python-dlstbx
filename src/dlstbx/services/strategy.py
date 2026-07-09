@@ -192,6 +192,7 @@ class DLSStrategy(CommonService):
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
             recipe_params.get("ispyb_parameters", {}),
+            recipe_params,
             substitutions=rw.environment,
         )
         self.log.info(f"Received parameters for strategy generation:\n{parameters}")

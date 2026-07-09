@@ -2993,12 +2993,6 @@ class DLSTrigger(CommonService):
             f"Strategy trigger: found minumum resolution {min_resolution} for dcid={parameters.dcid}"
         )
 
-        if not resolution:
-            self.log.info(
-                f"Skipping strategy trigger: no resolution estimate found for dcid={parameters.dcid} auto_proc_program_id={parameters.program_id}"
-            )
-            return {"success": True}
-
         # Trigger service will be triggered by estimate_transmission therefore can se autoprocId
         transmission = (
             session.query(ScreeningStrategy.transmission)

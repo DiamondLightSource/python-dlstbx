@@ -295,15 +295,9 @@ class StrategyParameters(pydantic.BaseModel):
     experiment_type: str
     program_id: int = pydantic.Field(gt=0)
     wavelength: float = pydantic.Field(gt=0)
-    backoff_delay: Dict[str, float] = pydantic.Field(
-        default={"default": 8}, alias="backoff-delay"
-    )
-    backoff_max_try: Dict[str, int] = pydantic.Field(
-        default={"default": 10}, alias="backoff-max-try"
-    )
-    backoff_multiplier: Dict[str, float] = pydantic.Field(
-        default={"default": 2}, alias="backoff-multiplier"
-    )
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: float = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
 
 
 class DLSTrigger(CommonService):
@@ -2922,39 +2916,20 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        # Check that the processing program is from estimate_transmission, if not skip strategy trigger
-        processing_program = (
+        udc_strategy_previously_triggered = (
             session.query(AutoProcProgram.processingPrograms)
-            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
-            .scalar()
-        )
-
-        if "estimate_transmission" != processing_program:
-            self.log.info(
-                f"Skipping strategy trigger: processing program {processing_program} not supported"
+            .join(
+                ProcessingJob,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
             )
-            return {"success": True}
-
-        status = {
-            "ntry": 0,
-        }
-        backoff_delay = parameters.backoff_delay.get(
-            parameters.beamline, parameters.backoff_delay["default"]
-        )
-        backoff_multiplier = parameters.backoff_multiplier.get(
-            parameters.beamline, parameters.backoff_multiplier["default"]
-        )
-        backoff_max_try = parameters.backoff_max_try.get(
-            parameters.beamline, parameters.backoff_max_try["default"]
+            .filter(ProcessingJob.dataCollectionId == parameters.dcid)
+            .filter(AutoProcProgram.processingPrograms == "UDC strategy")
+            .one_or_none()
         )
 
-        if isinstance(message, dict):
-            status.update(message.get("trigger-status", {}))
-        status["ntry"] += 1
-        message_delay = int(backoff_delay * backoff_multiplier ** status["ntry"])
-        if status["ntry"] > backoff_max_try:
+        if udc_strategy_previously_triggered:
             self.log.info(
-                f"Skipping strategy trigger: maximum number of retries exceeded for dcid={parameters.dcid}"
+                f"Skipping strategy trigger: UDC Strategy has already been triggered for dcid={parameters.dcid}."
             )
             return {"success": True}
 
@@ -2984,9 +2959,26 @@ class DLSTrigger(CommonService):
             f"Strategy trigger: resolution estimate from ispyb for dcid={parameters.dcid} is {resolution}"
         )
         if resolution is None:
+            status = {
+                "ntry": 0,
+            }
+            backoff_delay = parameters.backoff_delay
+            backoff_multiplier = parameters.backoff_multiplier
+            backoff_max_try = parameters.backoff_max_try
+
+            if isinstance(message, dict):
+                status.update(message.get("trigger-status", {}))
+            message_delay = int(backoff_delay * backoff_multiplier ** status["ntry"])
+            status["ntry"] += 1
+
+            if status["ntry"] > backoff_max_try:
+                self.log.info(
+                    f"Skipping strategy trigger: maximum number of retries exceeded for dcid={parameters.dcid}"
+                )
+                return {"success": True}
             # Send results to myself for next round of processing
             self.log.info(
-                f"Waiting for a transmission recommendation for dcid={parameters.dcid}"
+                f"Strategy trigger: Waiting for a resolution estimate for dcid={parameters.dcid} - Checkpointing message..."
             )
             rw.checkpoint(
                 {
@@ -3000,23 +2992,6 @@ class DLSTrigger(CommonService):
         self.log.info(
             f"Strategy trigger: found minumum resolution {min_resolution} for dcid={parameters.dcid}"
         )
-
-        udc_strategy_previously_triggered = (
-            session.query(AutoProcProgram.processingPrograms)
-            .join(
-                ProcessingJob,
-                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
-            )
-            .filter(ProcessingJob.dataCollectionId == parameters.dcid)
-            .filter(AutoProcProgram.processingPrograms == "UDC strategy")
-            .all()
-        )
-
-        if udc_strategy_previously_triggered:
-            self.log.info(
-                f"Skipping strategy trigger: UDC Strategy has already been triggered for dcid={parameters.dcid}."
-            )
-            return {"success": True}
 
         if not resolution:
             self.log.info(

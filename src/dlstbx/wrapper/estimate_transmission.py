@@ -70,14 +70,6 @@ class EstimateTransmissionWrapper(Wrapper):
         }
         ispyb_command_list.append(d)
 
-        d = {
-            "ispyb_command": "update_processing_status",
-            "program_id": "$ispyb_autoprocprogram_id",
-            "message": "Processing successful",
-            "status": "success",
-        }
-        ispyb_command_list.append(d)
-
         self.log.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
@@ -152,6 +144,8 @@ class EstimateTransmissionWrapper(Wrapper):
         self.log.info(f"Scaled transmission is : {scaled_transmission}")
 
         max_pixel_count_pct = int(num_counts[-1]) / trusted_range
+        # Add transmission to environment for use later in the recipe.
+        self.recwrap.environment.update({"max_transmission": scaled_transmission})
         self.collect_ispyb_command_list(scaled_transmission, max_pixel_count_pct)
 
         results_directory.mkdir(parents=True, exist_ok=True)
@@ -183,7 +177,6 @@ class EstimateTransmissionWrapper(Wrapper):
                 }
             )
 
-        self.recwrap.send_to("trigger", {})
         self.log.info("Done.")
         return True
 

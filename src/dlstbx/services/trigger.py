@@ -2229,7 +2229,9 @@ class DLSTrigger(CommonService):
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
             rw.transport.send("processing_recipe", message)
 
-            self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
+            self.log.info(
+                f"xia2.multiplex trigger: Processing job {jobid} triggered"
+            )
 
         return {"success": True, "return_value": jobids}
 

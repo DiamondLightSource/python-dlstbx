@@ -2922,7 +2922,7 @@ class DLSTrigger(CommonService):
             )
             .filter(ProcessingJob.dataCollectionId == parameters.dcid)
             .filter(AutoProcProgram.processingPrograms == "UDC strategy")
-            .one_or_none()
+            .all()
         )
 
         if udc_strategy_previously_triggered:
@@ -3004,8 +3004,10 @@ class DLSTrigger(CommonService):
             "beamline": parameters.beamline,
             "resolution": min_resolution,
             "wavelength": parameters.wavelength,
-            "transmission_estimate": parameters.max_transmission,
         }
+
+        if parameters.max_transmission:
+            strategy_parameters["transmission_estimate"] = parameters.max_transmission
 
         for key, value in strategy_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()

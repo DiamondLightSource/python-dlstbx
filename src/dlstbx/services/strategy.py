@@ -200,6 +200,13 @@ class DLSStrategy(CommonService):
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
+        transmission_estimate = parameters.get("transmission_estimate", 100)
+        transmission_estimate = float(
+            transmission_estimate[0]
+            if isinstance(transmission_estimate, list)
+            else transmission_estimate
+        )
+
         beamline = (
             parameters["beamline"][0]
             if isinstance(parameters["beamline"], list)
@@ -215,11 +222,7 @@ class DLSStrategy(CommonService):
             if isinstance(parameters["resolution"], list)
             else float(parameters["resolution"])
         )
-        recommended_max_transmission = (
-            float(parameters["transmission_estimate"][0])
-            if isinstance(parameters["transmission_estimate"], list)
-            else float(parameters.get("transmission_estimate", 100))
-        ) / 100
+        recommended_max_transmission = transmission_estimate / 100
         dc_transmission = float(parameters.get("transmission", 100)) / 100
         resolution_offset = 0.5
         min_resolution = 0.9
@@ -350,8 +353,12 @@ class DLSStrategy(CommonService):
                     ),
                 )
                 if beamline_wants_dose_displayed:
+                    # Convert transmission to percentage for ISPyB
+                    relative_transmission_pct = (
+                        transmission_limits[1] / dc_transmission * 100
+                    )
                     screening_sub_wedge_command.update(
-                        dosetotal=dose, transmission=(transmission_limits[1] * 100)
+                        dosetotal=dose, transmission=(relative_transmission_pct)
                     )
                     ispyb_command_list.append(screening_sub_wedge_command)
                     continue

@@ -67,13 +67,6 @@ class MimasService(CommonSystemTest):
             (
                 2,
                 {
-                    "recipes": ["generate-diffraction-preview"],
-                    "parameters": {"ispyb_dcid": 8257178},
-                },
-            ),
-            (
-                2,
-                {
                     "recipes": ["per-image-analysis-gridscan-i03-no-really"],
                     "parameters": {"ispyb_dcid": 8257178},
                 },

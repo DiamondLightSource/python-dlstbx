@@ -144,9 +144,34 @@ class EstimateTransmissionWrapper(Wrapper):
         self.log.info(f"Scaled transmission is : {scaled_transmission}")
 
         max_pixel_count_pct = int(num_counts[-1]) / trusted_range
-        # Add transmission to environment for use later in the recipe.
-        self.recwrap.environment.update({"max_transmission": scaled_transmission})
-        self.collect_ispyb_command_list(scaled_transmission, max_pixel_count_pct)
+        if max_pixel_count_pct < 0.7:
+            warning_level = 0
+        elif max_pixel_count_pct < 0.85:
+            warning_level = 1
+        else:
+            warning_level = 2
+
+        warning_message = {
+            0: "Diffraction spots are unlikely to have detector count rate issues",
+            1: "Some diffraction spots may have detector count rate issues",
+            2: "Some diffraction spots are likely to have detector count rate issues",
+        }.get(warning_level)
+
+        warning_description = f"The most intense pixel is {max_pixel_count_pct * 100}% of the detector's limit"
+        warning_severity = ({0: "INFO", 1: "WARNING", 2: "ERROR"}.get(warning_level),)
+
+        ispyb_command_list = [
+            {
+                "ispyb_command": "add_program_message",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": warning_message,
+                "description": warning_description,
+                "severity": warning_severity,
+            }
+        ]
+
+        self.log.info("Sending %s", str(ispyb_command_list))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
         results_directory.mkdir(parents=True, exist_ok=True)
         output_file = "dials.find_spots.log"

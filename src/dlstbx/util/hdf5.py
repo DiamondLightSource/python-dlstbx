@@ -104,14 +104,15 @@ def is_readable(filename: str) -> bool:
         return False
 
 
-def is_HDF_1_8_compatible(filename: str) -> bool:
-    """Check if a file can be read with HDF 1.8. This excludes all SWMR formatted files."""
+def is_SWMR_compatible(filename: str) -> bool:
+    """Check if a file format is SWMR compatible by checking superblock version."""
 
-    try:
-        with h5py.File(filename, "r", libver=("earliest", "v108")):
-            return True
-    except OSError:
-        return False
+    with h5py.File(filename, "r") as f:
+        fcpl = f.id.get_create_plist()
+        # returns a tuple of (superblock_version, freelist_version, symbol_table_version, shared_header_version)
+        versions = fcpl.get_version()
+        superblock_version = versions[0]
+        return superblock_version >= 3
 
 
 def validate_pixel_mask(filename: str) -> bool:

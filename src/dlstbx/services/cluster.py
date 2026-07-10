@@ -37,6 +37,8 @@ class JobSubmissionParameters(pydantic.BaseModel):
     exclusive: bool = False
     account: Optional[str] = None  # account in slurm terminology
     commands: list[str] | str
+    constraints: Optional[str] = None
+    prefer: Optional[str] = None
     qos: Optional[str] = None
     qsub_submission_parameters: Optional[str] = (
         None  # temporary support for legacy recipes
@@ -105,21 +107,23 @@ def submit_to_slurm(
         "name": params.job_name,
         "nodes": str(params.nodes) if params.nodes else params.nodes,
         "partition": params.partition,
+        "constraints": params.constraints,
+        "prefer": params.prefer,
         "qos": params.qos,
         "tasks": params.tasks,
         "array": params.array,
     }
     if params.min_memory_per_cpu:
-        jdm_params["memory_per_cpu"] = slurm.models.Uint64NoVal(
+        jdm_params["memory_per_cpu"] = slurm.models.Uint64NoValStruct(
             number=params.min_memory_per_cpu, set=True
         )
     if params.memory_per_node:
-        jdm_params["memory_per_node"] = slurm.models.Uint64NoVal(
+        jdm_params["memory_per_node"] = slurm.models.Uint64NoValStruct(
             number=params.memory_per_node, set=True
         )
     if params.time_limit:
         time_limit_minutes = math.ceil(params.time_limit.total_seconds() / 60)
-        jdm_params["time_limit"] = slurm.models.Uint32NoVal(
+        jdm_params["time_limit"] = slurm.models.Uint32NoValStruct(
             number=time_limit_minutes, set=True
         )
     if params.gpus_per_node:
@@ -135,9 +139,11 @@ def submit_to_slurm(
     except requests.HTTPError as e:
         logger.error(f"Failed Slurm job submission: {e}\n{e.response.text}")
         return None
-    if response.error:
-        error_message = f"{response.error_code}: {response.error}"
-        logger.error(f"Failed Slurm job submission: {error_message}")
+    if response.errors and response.errors.root:
+        error_messages = []
+        for error in response.errors.root:
+            error_messages.append(f"{error.error_number}: {error.error}")
+        logger.error(f"Failed Slurm job submission: {'; '.join(error_messages)}")
         return None
     return response.job_id
 
@@ -326,7 +332,7 @@ class DLSCluster(CommonService):
 
         # Send results onwards
         rw.set_default_channel("job_submitted")
-        rw.send({"jobid": jobnumber}, transaction=txn)
+        rw.send({"jobid": jobnumber, "scheduler": params.scheduler}, transaction=txn)
 
         # Commit transaction
         self._transport.transaction_commit(txn)

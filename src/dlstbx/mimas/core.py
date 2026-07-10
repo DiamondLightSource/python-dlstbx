@@ -142,16 +142,9 @@ def handle_eiger_end(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    stopped = scenario.runstatus == "DataCollection Stopped"
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),
     ]
-    if not stopped:
-        tasks.append(
-            mimas.MimasRecipeInvocation(
-                DCID=scenario.DCID, recipe="generate-diffraction-preview"
-            )
-        )
     return tasks
 
 
@@ -163,8 +156,8 @@ def handle_pilatus_end(
     return []
 
 
-@mimas.match_specification(is_eiger & is_screening & is_end & is_mx_beamline & ~is_vmxi)
-def handle_eiger_screening(
+@mimas.match_specification(is_screening & is_end & is_mx_beamline & ~is_vmxi)
+def handle_screening(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
@@ -177,6 +170,9 @@ def handle_eiger_screening(
             displayname="align_crystal",
         ),
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
+        ),
     ]
 
 
@@ -200,25 +196,9 @@ def handle_characterization(
             source="automatic",
             displayname="estimate_transmission",
         ),
-    ]
-
-
-@mimas.match_specification(
-    is_pilatus & is_screening & is_end & is_mx_beamline & ~is_vmxi
-)
-def handle_pilatus_screening(
-    scenario: mimas.MimasScenario,
-    **kwargs,
-) -> List[mimas.Invocation]:
-    return [
-        mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="strategy-align-crystal",
-            source="automatic",
-            displayname="align_crystal",
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
     ]
 
 
@@ -246,6 +226,9 @@ def handle_rotation_end(
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
             recipe=f"processing-rlv{suffix}",
+        ),
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),
     ]
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from pprint import pformat
 
+import prometheus_client
 import workflows.recipe
 from minio.error import S3Error
 from workflows.services.common_service import CommonService
@@ -14,6 +15,50 @@ from dlstbx.util.iris import (
     retrieve_results_from_s3,
     update_dcid_info_file,
 )
+from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
+
+
+class PrometheusMetrics(BasePrometheusMetrics):
+    def create_metrics(self):
+        # Use Gauge to track current file size, or Histogram to track distribution
+        self.zocalo_s3echo_file_upload_size_gbytes = prometheus_client.Histogram(
+            name="zocalo_s3echo_file_upload_size_gbytes",
+            documentation="Size of files uploaded to S3Echo in GBytes",
+            labelnames=["bucket"],
+            buckets=[1, 5, 10, 20, 30, 50, 100],  # Buckets in GB
+            unit="GB",
+        )
+        self.zocalo_s3echo_file_download_size_gbytes = prometheus_client.Histogram(
+            name="zocalo_s3echo_file_download_size_gbytes",
+            documentation="Size of files downloaded from S3Echo in GBytes",
+            labelnames=["bucket"],
+            buckets=[1, 5, 10, 20, 30, 50, 100],  # Buckets in GB
+            unit="GB",
+        )
+        self.zocalo_s3echo_upload_bytes_total = prometheus_client.Counter(
+            name="zocalo_s3echo_upload_bytes_total",
+            documentation="The total amount of data uploaded to S3Echo in bytes",
+            labelnames=["bucket"],
+            unit="bytes",
+        )
+        self.zocalo_s3echo_download_bytes_total = prometheus_client.Counter(
+            name="zocalo_s3echo_download_bytes_total",
+            documentation="The total amount of data downloaded from S3Echo in bytes",
+            labelnames=["bucket"],
+            unit="bytes",
+        )
+        self.zocalo_s3echo_file_upload_transfer_rate_gbps = prometheus_client.Gauge(
+            name="zocalo_s3echo_file_upload_transfer_rate_gbps",
+            documentation="File upload transfer rate to S3Echo in Gbps",
+            labelnames=["bucket"],
+            unit="Gbps",
+        )
+        self.zocalo_s3echo_file_download_transfer_rate_gbps = prometheus_client.Gauge(
+            name="zocalo_s3echo_file_download_transfer_rate_gbps",
+            documentation="File download transfer rate from S3Echo in Gbps",
+            labelnames=["bucket"],
+            unit="Gbps",
+        )
 
 
 class S3EchoUploader(CommonService):
@@ -61,6 +106,12 @@ class S3EchoUploader(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
+
+        # Initialise metrics if requested
+        if self._environment.get("metrics"):
+            self._prom_metrics = PrometheusMetrics()
+        else:
+            self._prom_metrics = NoMetrics()
 
     def on_upload_rpid(self, rw, header, message):
         """
@@ -183,6 +234,7 @@ class S3EchoUploader(CommonService):
                         ],
                         True,
                         self.log,
+                        metrics=self._prom_metrics,
                     )
                 except S3Error as err:
                     update_dcid_info_file(
@@ -234,6 +286,7 @@ class S3EchoUploader(CommonService):
                 params["rpid"],
                 params["filename"],
                 self.log,
+                metrics=self._prom_metrics,
             )
         except S3Error:
             self.log.exception(

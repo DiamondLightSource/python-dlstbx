@@ -130,7 +130,6 @@ def handle_i19_end_eiger(
         for recipe in (
             "archive-nexus",
             "processing-rlv-eiger",
-            "generate-diffraction-preview",
             "strategy-screen19-eiger",
             "per-image-analysis-rotation-swmr-i19",
         )
@@ -140,6 +139,12 @@ def handle_i19_end_eiger(
 @mimas.match_specification(is_i19 & is_end & ~is_serial)
 def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
     tasks: List[mimas.Invocation] = []
+
+    tasks.append(
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
+        )
+    )
 
     ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
     extra_params: List[ParamTuple] = [()]

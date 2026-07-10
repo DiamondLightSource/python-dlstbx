@@ -86,7 +86,7 @@ class DLSValidation(CommonService):
 
         fail = functools.partial(self.fail_validation, rw, header, output)
 
-        # Verify HDF5 file version is _not_ compatible with HDF5 1.8 format
+        # Verify HDF5 file version is SWMR compatible (doesn't require SWMR mode to be enabled)
         if filename.endswith((".h5", ".nxs")):
             if not hdf5_util.is_readable(filename):
                 return fail(f"{filename} is an invalid HDF5 file")
@@ -106,17 +106,16 @@ class DLSValidation(CommonService):
                     return fail(
                         f"HDF5 file {filename} links to invalid file(s) {', '.join(errors)}"
                     )
-                hdf_18 = [
+                hdf_swmr_incompatible = [
                     link
                     for link, image_count in hdf5_util.find_all_references(
                         filename
                     ).items()
-                    if image_count and hdf5_util.is_HDF_1_8_compatible(link)
+                    if image_count and not hdf5_util.is_SWMR_compatible(link)
                 ]
-                if hdf_18:
+                if hdf_swmr_incompatible:
                     return fail(
-                        f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
-                        % ", ".join(hdf_18)
+                        f"HDF5 file {filename} links to non-SWMR compatible file(s) {', '.join(hdf_swmr_incompatible)}"
                     )
                 try:
                     hdf5_util.validate_pixel_mask(filename)

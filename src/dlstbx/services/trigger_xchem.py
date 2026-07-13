@@ -249,6 +249,11 @@ class DLSTriggerXChem(CommonService):
         bulk_array = parameters.bulk_array
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
+        if protein_info is None:
+            self.log.info(
+                f"Exiting PanDDA2/Pipedream trigger: no Protein linked to dcid {dcid}"
+            )
+            return {"success": True}
         # protein_id = getattr(protein_info, "proteinId")
         proposal_id = getattr(protein_info, "proposalId")
         acronym = getattr(protein_info, "acronym")
@@ -871,6 +876,11 @@ class DLSTriggerXChem(CommonService):
         visit_number = visit.split("-")[1]
 
         protein_info = get_protein_for_dcid(parameters.dcid, session)
+        if protein_info is None:
+            self.log.info(
+                f"Exiting XChemCollate trigger: no Protein linked to dcid {dcid}"
+            )
+            return {"success": True}
         acronym = getattr(protein_info, "acronym")
         proposal_id = getattr(protein_info, "proposalId")
 

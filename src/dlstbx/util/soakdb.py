@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from dlstbx.util.soakdb_schema import XCE_TABLE_SCHEMA
+
 
 def _soakdb_path(visit_dir: Path) -> Path:
     return visit_dir / "processing/database" / "soakDBDataFile.sqlite"
@@ -120,7 +122,33 @@ def prepare_auto_db(processing_dir: Path) -> Path:
 
     sync_schema_from_master(db_master, db_copy, "mainTable")
     sync_rows_from_master(db_master, db_copy, "mainTable")
+    # A soakDB that XCE has never opened lacks XCE-managed columns (e.g.
+    # RefinementOutcome), so the master — and hence this copy — can be missing
+    # them. Heal the copy before updatable_crystals()/the bulk update query it.
+    create_missing_columns(db_copy)
     return db_copy
+
+
+def create_missing_columns(db_path, schema=XCE_TABLE_SCHEMA):
+    """Ensure every table in `schema` exists and holds all its columns, adding
+    any that are missing. Mirrors XChemExplorer's
+    ``XChemDB.data_source.create_missing_columns`` so soakDB databases XCE has
+    not yet opened can still be queried by the collate pipeline.
+
+    `schema` maps table name -> ordered list of column names (all created TEXT,
+    matching XCE); defaults to the vendored mainTable/panddaTable definitions.
+    The ID primary key is created with each table and never altered in."""
+    conn = sqlite3.connect(db_path, timeout=30)
+    try:
+        for table, columns in schema.items():
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {table} (ID INTEGER)")
+            existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for column in columns:
+                if column not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def sync_schema_from_master(db_master, db_copy, table):

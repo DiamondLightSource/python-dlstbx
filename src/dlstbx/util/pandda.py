@@ -190,8 +190,16 @@ def merge_build(receptor, ligand, contact_chain):
 
 
 def get_pandda_settings(yaml_file):
-    with open(yaml_file, "r") as file:
-        expt_yaml = yaml.load(file, Loader=yaml.SafeLoader)
+    """Turn a visit's .user.yaml into PanDDA2 ``--key=value`` args.
+
+    A visit need not have a .user.yaml, and one that exists may be empty. Both
+    mean "no overrides", which leaves PanDDA2 on its own defaults.
+    """
+    try:
+        with open(yaml_file, "r") as file:
+            expt_yaml = yaml.load(file, Loader=yaml.SafeLoader) or {}
+    except FileNotFoundError:
+        return ""
     settings = expt_yaml.get("autoprocessing", {}).get("pandda", {})
     if settings:
         args_string = " ".join(f"--{k}={v}" for k, v in settings.items())

@@ -290,7 +290,7 @@ class DLSTriggerXChem(CommonService):
         dtag, location, container_code = query.one()
         location = int(location)
 
-        # Check for crystal recollections
+        # Check for live crystal recollections
         latest_dcid = get_latest_dcid_for_dtag(dtag, session)
         if latest_dcid and latest_dcid != dcid:
             self.log.info(
@@ -740,10 +740,9 @@ class DLSTriggerXChem(CommonService):
                     src_model=pathlib.Path(parameters.use_existing_modeldir),
                     dst_model=model_dir,
                     visit_dir=xchem_visit_dir,
-                    overwrite=bool(overwrite),
                     logger=self.log,
                 )
-            except (FileNotFoundError, PermissionError) as e:
+            except Exception as e:
                 self.log.error(f"Exiting hitidentification trigger: {e}")
                 return {"success": True}
 
@@ -789,7 +788,9 @@ class DLSTriggerXChem(CommonService):
             )
             self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
             if pipedream:
-                self.log.info(f"Launching Pipedream for dtag {dtag}")
+                self.log.info(
+                    f"Launching Pipedream array job over {dataset_count} datasets"
+                )
                 self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
             return {"success": True}
 

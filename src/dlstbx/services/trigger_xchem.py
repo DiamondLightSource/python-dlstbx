@@ -44,7 +44,7 @@ from dlstbx.crud import (
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
-from dlstbx.util.stage_reprocess import stage_legacy_model_building
+from dlstbx.util.stage_reprocess import stage_existing_modeldir
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -736,7 +736,7 @@ class DLSTriggerXChem(CommonService):
         # Optionally stage a legacy model_building dir
         if parameters.use_existing_modeldir:
             try:
-                stage_legacy_model_building(
+                stage_existing_modeldir(
                     src_model=pathlib.Path(parameters.use_existing_modeldir),
                     dst_model=model_dir,
                     visit_dir=xchem_visit_dir,
@@ -795,8 +795,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Record this dcid and its dtag in the hidden gating json, so the dtag
-        # can be read back at threshold without re-querying ispyb. JSON keys are
-        # strings, so dcids round-trip as str.
+        # can be read back at threshold without re-querying ispyb.
         dcids_file = model_dir / ".batch_dcids.json"
         if dcids_file.exists():
             with open(dcids_file, "r") as f:

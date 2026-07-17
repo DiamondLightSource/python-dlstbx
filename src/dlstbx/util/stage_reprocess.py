@@ -110,7 +110,7 @@ def build_stage_plan(ds_dir: Path) -> tuple[dict[Path, str] | None, str]:
     if len(smiles_files) > 1:
         return plan, "multi_smiles"  # ambiguous: don't copy ligand files
     smiles = smiles_files[0]
-    cc = smiles.stem  # CompoundCode, as the wrappers derive it
+    cc = smiles.stem  # CompoundCode
     plan[smiles] = f"compound/{smiles.name}"
 
     cc_pdb = compound / f"{cc}.pdb"
@@ -124,7 +124,7 @@ def build_stage_plan(ds_dir: Path) -> tuple[dict[Path, str] | None, str]:
     return plan, "no_cif"
 
 
-def stage_legacy_model_building(
+def stage_existing_modeldir(
     src_model: Path,
     dst_model: Path,
     *,

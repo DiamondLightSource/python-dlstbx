@@ -192,8 +192,7 @@ def merge_build(receptor, ligand, contact_chain):
 def get_pandda_settings(yaml_file):
     """Turn a visit's .user.yaml into PanDDA2 ``--key=value`` args.
 
-    A visit need not have a .user.yaml, and one that exists may be empty. Both
-    mean "no overrides", which leaves PanDDA2 on its own defaults.
+    A visit need not have a .user.yaml, and one that exists may be empty.
     """
     try:
         with open(yaml_file, "r") as file:

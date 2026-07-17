@@ -1,8 +1,7 @@
-"""Stage a legacy XChemExplorer ``model_building`` tree for autoprocessing.
+"""Stage a legacy XChem ``model_building`` tree for autoprocessing.
 
-Copies the files the PanDDA2 / Pipedream pipeline needs from the **legacy**
-XChemExplorer model_building tree into the **autoprocessing** tree the new
-pipeline reads from.
+Copies the files the PanDDA2 / Pipedream pipeline needs from an existing
+XChem model_building tree into the autoprocessing tree.
 
     <visit>/processing/analysis/model_building/<dtag>/
         -> <visit>/processing/auto/analysis/model_building/<dtag>/
@@ -10,9 +9,9 @@ pipeline reads from.
 Ligand datasets are copied only when ``complete`` (a single
 ``compound/<code>.smiles`` with a matching ``<code>.cif``), so every staged dir
 holding a ``.smiles`` is runnable by a ``bulk_array`` job. Apo / ground-state
-datasets are copied without ligand files, mirroring what ``trigger_xchem`` does
-for live apo collections. DMSO/solvent soaks are excluded, as they are in the
-trigger. Everything not copied is recorded in ``staging_report.json``.
+datasets are copied without ligand files, mirroring ``trigger_xchem`` behaviour
+for live apo collections. DMSO/solvent soaks are excluded. Everything not copied
+is recorded in output ``staging_report.json``.
 """
 
 from __future__ import annotations
@@ -27,33 +26,19 @@ from pathlib import Path
 from dlstbx.util.soakdb import soakdb_path
 
 # Apo / ground-state crystals carry no ligand. They are staged with core files
-# only, because PanDDA2 uses them as ground-state comparators and trigger_xchem
-# stages live apo collections the same way. With no `.smiles` in the staged dir
-# the bulk_array dataset list passes over them, so they get no PanDDA2 /
-# Pipedream task of their own.
+# only, because PanDDA2 uses them as ground-state comparators.
 APO_STATUSES = frozenset({"no_compound", "no_smiles"})
 
-# `no_cif` and `multi_smiles` are deliberately left unstaged rather than staged
-# as apo: any dir holding a `.smiles` is picked up as a bulk_array task, which
-# would then run ligand fitting with no usable restraints. `no_cif` datasets are
-# recoverable — regenerate the grade2 restraints, then re-stage.
+# `no_cif` and `multi_smiles` are deliberately left unstaged.
 STAGED_STATUSES = APO_STATUSES | {"complete"}
 
-# DMSO / solvent soaks are screens, not real ligand experiments. Visits tag them
-# inconsistently: LibraryName is `DMSO` or `Solvent`, or is unset and only the
-# SMILES gives it away. Match all three so none slips through.
+# DMSO / solvent soaks are screens, not real ligand experiments.
 _DMSO_SMILES = "CS(=O)C"
 _SOLVENT_LIBRARIES = frozenset({"DMSO", "SOLVENT"})
 
 
 def dimple_source(ds_dir: Path, ext: str) -> Path | None:
-    """Locate a legacy dimple output, preferring the top-level symlink.
-
-    XChemExplorer usually leaves ``dimple.<ext>`` at the top of the dataset dir
-    pointing at the real dimple run, but not always, so fall back to the run
-    itself. ``.exists()`` follows symlinks, so a dangling legacy symlink falls
-    through to the fallback rather than being staged as a broken file.
-    """
+    """Locate a legacy dimple output, preferring the top-level symlink."""
     top = ds_dir / f"dimple.{ext}"
     if top.exists():
         return top
@@ -62,16 +47,7 @@ def dimple_source(ds_dir: Path, ext: str) -> Path | None:
 
 
 def solvent_soak_dtags(db_path: Path, logger: logging.Logger) -> set[str]:
-    """Return the dtags soakDB marks as DMSO/solvent soaks.
-
-    Takes the database path rather than the visit dir, so an analysis caller can
-    point this at a working copy of the soakDB while staging reads the master.
-
-    A crystal can hold several ``mainTable`` rows (recollections); the newest
-    (max ``ID``) row wins, so a re-soak is judged on its latest state. Returns
-    an empty set if there is no soakDB, leaving every dataset to be judged on
-    its disk contents alone.
-    """
+    """Return the dtags soakDB marks as DMSO/solvent soaks."""
     if not db_path.is_file():
         logger.warning(f"No soakDB at {db_path}; continuing without a solvent filter")
         return set()
@@ -100,12 +76,7 @@ def build_stage_plan(ds_dir: Path) -> tuple[dict[Path, str] | None, str]:
     Core files (dimple pdb + mtz, ``<dtag>.free.mtz``) are required: without
     them there is nothing for the pipeline to process, so the dataset is
     unstageable -> ``(None, "missing <file>")``. When present, ligand files are
-    added and a status classifies how complete the dataset is. ``.exists()``
-    follows symlinks, so a legacy symlink whose target is gone is correctly
-    treated as missing.
-
-    ``CompoundCode`` is taken from the ``.smiles`` stem, exactly as the wrappers
-    derive it (``pandda_xchem.py``, ``pipedream_xchem.py``).
+    added and a status classifies how complete the dataset is.
 
     Returns ``(plan, status)`` where ``plan`` maps a source ``Path`` to its dest
     path relative to the dataset dir; ``status`` is one of: ``complete``,
@@ -163,8 +134,8 @@ def stage_legacy_model_building(
     """Copy the runnable legacy datasets from ``src_model`` into ``dst_model``.
 
     Ligand datasets are copied only when they hold a single
-    ``compound/<code>.smiles`` with a matching ``<code>.cif``, so every staged
-    dir carrying a ``.smiles`` is runnable by a downstream ``bulk_array`` job.
+    ``compound/<code>.smiles`` with a matching ``<code>.cif``.
+
     Apo datasets are copied without ligand files, and DMSO/solvent soaks are
     skipped entirely — both matching what ``trigger_xchem`` does live. Copies
     follow symlinks, so legacy symlinked ``dimple`` files become real files
@@ -173,9 +144,6 @@ def stage_legacy_model_building(
 
     Writes a ``staging_report.json`` next to ``dst_model`` so incomplete /
     unstageable datasets can be triaged later.
-
-    Raises ``FileNotFoundError`` if ``src_model`` is missing and
-    ``PermissionError`` if ``dst_model`` is not writable by the caller.
     """
     if logger is None:
         logger = logging.getLogger(__name__)

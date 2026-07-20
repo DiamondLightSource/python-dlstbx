@@ -345,7 +345,7 @@ def update_xchem_database(
             logger.error(f"Multiple .cif files in {compound_dir}")
 
         CompoundCode = cif_files[0].stem
-        db_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
+        db_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         pipedream_model, rscc = find_pipedream_model(
             pipedream_dir, dtag, rscc_thresh=0.7

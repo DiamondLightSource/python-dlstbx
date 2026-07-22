@@ -245,8 +245,7 @@ def symlink_score_buckets(
     Bucketing is per EVENT, not per dataset, so a dataset with events in more
     than one band is browsable under each. Every run rebuilds the view from the
     whole events csv, which is the complete picture of what PanDDA has
-    processed, so no dataset filter or cross-run accumulation is needed:
-    symlinks a re-analysis has moved to another band are pruned."""
+    processed."""
 
     processed_dataset_dir = panddas_dir / "processed_datasets"
     events_csv = panddas_dir / "analyses" / "pandda_analyse_events.csv"
@@ -259,8 +258,6 @@ def symlink_score_buckets(
     df = pd.read_csv(events_csv, index_col=0)
 
     for lo, hi in zip(buckets, buckets[1:]):
-        # `> lo` / `<= hi` keeps the bands contiguous across (0, 1]: an event
-        # landing exactly on a boundary goes to the lower band, not to neither.
         bucket_events = df[(df["z_mean"] > lo) & (df["z_mean"] <= hi)].copy()
         bucket_dtags = set(bucket_events["dtag"])
         logger.info(
@@ -274,11 +271,6 @@ def symlink_score_buckets(
 
         # Drop links left by an earlier run whose dataset no longer scores into
         # this band, so the links cannot drift out of step with the events csv
-        # written below, and a dataset dropped from the PanDDA output does not
-        # leave a dangling link behind. Runs before the empty-bucket check so a
-        # band that has emptied is cleared rather than left stale. Only unlinks
-        # symlinks: that removes the link, never the processed_datasets dir it
-        # points at, and leaves any real file alone.
         if bucket_processed.is_dir():
             pruned = [
                 link.name

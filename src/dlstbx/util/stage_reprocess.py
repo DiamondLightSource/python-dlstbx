@@ -151,7 +151,6 @@ def stage_existing_modeldir(
     if not src_model.is_dir():
         raise FileNotFoundError(f"source model_building not found: {src_model}")
 
-    # Writability guard: walk up to the first existing ancestor of dst_model.
     parent = dst_model
     while not parent.exists():
         parent = parent.parent

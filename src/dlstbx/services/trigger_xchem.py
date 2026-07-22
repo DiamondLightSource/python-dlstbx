@@ -261,7 +261,7 @@ class DLSTriggerXChem(CommonService):
         acronym = getattr(protein_info, "acronym")
 
         # TEMPORARY PROPOSAL FILTER
-        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "lb43133"]
+        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "lb43133", "lb42944"]
         PROPOSAL_ALIASES = {"mx41448": "lb42888"}
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
@@ -857,7 +857,7 @@ class DLSTriggerXChem(CommonService):
         proposal of the triggering dcid's visit, then gates on those jobs:
         aborts if any PanDDA2/Pipedream/xia2 program newer than program_id has
         started, and checkpoints with exponential backoff while any of them are still
-        running. Once processing has settled, firesa single XChemCollate job keyed
+        running. Once processing has settled, fires a single XChemCollate job keyed
         on the highest dcid.
 
         Recipe parameters (ispyb placeholders shown as "{}"):

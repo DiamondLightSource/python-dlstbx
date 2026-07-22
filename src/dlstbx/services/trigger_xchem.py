@@ -80,6 +80,7 @@ class HitIndentificationParameters(pydantic.BaseModel):
     scaling_id: list[int]
     timeout: float = pydantic.Field(default=180, alias="timeout-minutes")
     pipedream: Optional[bool] = True
+    pandda: Optional[bool] = True
     overwrite: Optional[bool] = False
     bulk_array: Optional[bool] = False
     use_existing_modeldir: Optional[str] = None
@@ -261,7 +262,14 @@ class DLSTriggerXChem(CommonService):
         acronym = getattr(protein_info, "acronym")
 
         # TEMPORARY PROPOSAL FILTER
-        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "lb43133", "lb42944"]
+        ALLOWED_PROPOSALS = [
+            "lb42888",
+            "sw44043",
+            "sw44107",
+            "lb36049",
+            "lb43133",
+            "lb42944",
+        ]
         PROPOSAL_ALIASES = {"mx41448": "lb42888"}
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
@@ -724,8 +732,15 @@ class DLSTriggerXChem(CommonService):
         scaling_id = parameters.scaling_id[0]
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
+        pandda = parameters.pandda
         overwrite = parameters.overwrite
         bulk_array = parameters.bulk_array
+
+        if not pipedream and not pandda:
+            self.log.info(
+                "Exiting hitidentification trigger: both Pipedream and PanDDA2 are disabled"
+            )
+            return {"success": True}
 
         # Re-derive paths from labxchem visit parameter
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_dir)
@@ -769,6 +784,7 @@ class DLSTriggerXChem(CommonService):
             "comparator_threshold": comparator_threshold,
             "database_path": str(db_master),
             "pipedream": pipedream,
+            "pandda": pandda,
             "overwrite": overwrite,
         }
 
@@ -783,15 +799,24 @@ class DLSTriggerXChem(CommonService):
             recipe_parameters["n_datasets"] = dataset_count
             with open(model_dir / ".bulk_array.json", "w") as f:
                 json.dump(dataset_list, f)
-            self.log.info(
-                f"bulk_array=True, launching PanDDA2 array job over {dataset_count} datasets"
-            )
-            self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
+            if pandda:
+                self.log.info(
+                    f"bulk_array=True, launching PanDDA2 array job over {dataset_count} datasets"
+                )
+                self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
             if pipedream:
                 self.log.info(
                     f"bulk_array=True, launching Pipedream array job over {dataset_count} datasets"
                 )
                 self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
+            return {"success": True}
+
+        if pipedream:
+            self.log.info(f"Launching Pipedream for dtag {dtag}")
+            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
+
+        if not pandda:
+            self.log.info(f"pandda=False, skipping PanDDA2 for dtag {dtag}")
             return {"success": True}
 
         # Record this dcid and its dtag in the hidden gating json for PanDDA2
@@ -809,11 +834,7 @@ class DLSTriggerXChem(CommonService):
         dataset_count = len(recorded_dcids)
         self.log.info(f"Recorded waiting dcid count is: {dataset_count}")
 
-        # Job launch logic
-        if pipedream:
-            self.log.info(f"Launching Pipedream for dtag {dtag}")
-            self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
-
+        # PanDDA2 launch logic
         if dataset_count < comparator_threshold:
             self.log.info(
                 f"{dataset_count} < comparator dataset threshold of {comparator_threshold}, skipping PanDDA2 for now..."

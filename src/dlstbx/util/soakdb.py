@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 
-def _soakdb_path(visit_dir: Path) -> Path:
+def soakdb_path(visit_dir: Path) -> Path:
     return visit_dir / "processing/database" / "soakDBDataFile.sqlite"
 
 
@@ -71,7 +71,7 @@ def find_xchem_visit_dir(
 
     # several visits share this target: disambiguate by the crystal's location
     for visit_dir in candidates:
-        db_path = _soakdb_path(visit_dir)
+        db_path = soakdb_path(visit_dir)
         if not db_path.is_file():
             log.info(f"No .sqlite database at {db_path} for dtag {dtag}, skipping")
             continue
@@ -91,7 +91,7 @@ def find_xchem_visit_dir(
     for subdir in xchem_dir.iterdir():
         if (subdir / ".user.yaml").exists():
             continue
-        db_path = _soakdb_path(subdir)
+        db_path = soakdb_path(subdir)
         if not db_path.is_file():
             continue
         try:

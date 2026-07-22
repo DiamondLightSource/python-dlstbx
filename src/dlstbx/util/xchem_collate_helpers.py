@@ -232,12 +232,20 @@ def export_pipedream_files(
     )
 
 
-def symlink_score_buckets(panddas_dir, pandda_dir, updatable, logger):
-    """Build score-bucketed, symlinked copies of the PanDDA processed_datasets
-    dir so models can be browsed by ligand score. Only datasets still in
-    `updatable` (not yet processed by the autopipeline) are bucketed.
+def symlink_score_buckets(
+    panddas_dir, pandda_dir, logger, buckets=(0, 0.4, 0.6, 0.8, 0.9, 1)
+):
+    """Build score-bucketed, symlinked views of the PanDDA processed_datasets
+    dir so models can be browsed by event score.
 
-    Scores come from the per-dataset best_score.txt written by pandda_xchem."""
+    Scores are the `z_mean` column of pandda_analyse_events.csv, which is the
+    events.yaml `Score`. (`z_peak` is the nested Build/Score, a different
+    quantity -- don't score on it.)
+
+    Bucketing is per EVENT, not per dataset, so a dataset with events in more
+    than one band is browsable under each. Every run rebuilds the view from the
+    whole events csv, which is the complete picture of what PanDDA has
+    processed."""
 
     processed_dataset_dir = panddas_dir / "processed_datasets"
     events_csv = panddas_dir / "analyses" / "pandda_analyse_events.csv"
@@ -247,48 +255,60 @@ def symlink_score_buckets(panddas_dir, pandda_dir, updatable, logger):
         logger.info(f"No {events_csv}, skipping score bucketing")
         return
 
-    # scores[dtag] = best ligand score
-    scores = {}
-    for dataset in processed_dataset_dir.iterdir():
-        if dataset.name not in updatable:
-            continue
-        score_file = dataset / "best_score.txt"
-        if score_file.exists():
-            scores[dataset.name] = float(score_file.read_text().strip())
-
-    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
     df = pd.read_csv(events_csv, index_col=0)
-    buckets = [0.6, 0.8, 0.9, 1]  # boundaries
-    for j in range(len(buckets) - 1):
-        bucket_dtags = [
-            dtag
-            for dtag, score in sorted_scores
-            if buckets[j] < score <= buckets[j + 1]
-        ]
+
+    for lo, hi in zip(buckets, buckets[1:]):
+        bucket_events = df[(df["z_mean"] > lo) & (df["z_mean"] <= hi)].copy()
+        bucket_dtags = set(bucket_events["dtag"])
         logger.info(
-            f"Datasets scored {buckets[j]}-{buckets[j + 1]}: {len(bucket_dtags)}"
+            f"Events scoring {lo}-{hi}: {len(bucket_events)} across "
+            f"{len(bucket_dtags)} datasets"
         )
+
+        bucket_root = pandda_dir / f"score_{lo}-{hi}"
+        bucket_processed = bucket_root / "processed_datasets"
+        analyses_dir = bucket_root / "analyses"
+
+        # Drop links left by an earlier run whose dataset no longer scores into
+        # this band, so the links cannot drift out of step with the events csv
+        if bucket_processed.is_dir():
+            pruned = [
+                link.name
+                for link in bucket_processed.iterdir()
+                if link.name not in bucket_dtags and link.is_symlink()
+            ]
+            for name in pruned:
+                (bucket_processed / name).unlink()
+            if pruned:
+                logger.info(
+                    f"Pruned {len(pruned)} stale symlink(s) from {bucket_root.name}, "
+                    f"e.g. {sorted(pruned)[:5]}"
+                )
+
         if not bucket_dtags:
             continue
 
+        # Rank by score but keep a dtag's events together: order dtags by their
+        # best event in this bucket, then each dtag's own events by score.
+        bucket_events["dtag_best"] = bucket_events.groupby("dtag")["z_mean"].transform(
+            "max"
+        )
+        bucket_events = bucket_events.sort_values(
+            ["dtag_best", "dtag", "z_mean"], ascending=[False, True, False]
+        ).drop(columns="dtag_best")
+
         # Mirror the panddas layout: analyses/ and processed_datasets/ siblings
-        bucket_root = pandda_dir / f"score_{buckets[j]}-{buckets[j + 1]}"
-        bucket_processed = bucket_root / "processed_datasets"
-        analyses_dir = bucket_root / "analyses"
         bucket_processed.mkdir(parents=True, exist_ok=True)
         analyses_dir.mkdir(parents=True, exist_ok=True)
 
-        # Add this batch's datasets alongside any symlinked by previous runs
-        for dtag in bucket_dtags:
+        for dtag in sorted(bucket_dtags):
             safe_symlink(processed_dataset_dir / dtag, bucket_processed / dtag, logger)
 
-        # Filter the events csv on every dataset now in the bucket (this batch
-        # plus earlier ones) so prior batches stay represented.
-        all_bucket_dtags = [p.name for p in bucket_processed.iterdir()]
-        shutil.copy(sites_csv, analyses_dir)
-        filtered = df[df["dtag"].isin(all_bucket_dtags)].reset_index(drop=True)
-        filtered.to_csv(analyses_dir / "pandda_analyse_events.csv")
+        if sites_csv.exists():
+            shutil.copy(sites_csv, analyses_dir)
+        bucket_events.reset_index(drop=True).to_csv(
+            analyses_dir / "pandda_analyse_events.csv"
+        )
 
 
 def update_xchem_database(
@@ -317,7 +337,7 @@ def update_xchem_database(
             logger.error(f"Multiple .cif files in {compound_dir}")
 
         CompoundCode = cif_files[0].stem
-        db_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
+        db_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         pipedream_model, rscc = find_pipedream_model(
             pipedream_dir, dtag, rscc_thresh=0.7

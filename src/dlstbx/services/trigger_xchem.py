@@ -44,6 +44,7 @@ from dlstbx.crud import (
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
+from dlstbx.util.stage_reprocess import stage_existing_modeldir
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -81,6 +82,7 @@ class HitIndentificationParameters(pydantic.BaseModel):
     pipedream: Optional[bool] = True
     overwrite: Optional[bool] = False
     bulk_array: Optional[bool] = False
+    use_existing_modeldir: Optional[str] = None
 
 
 class CollateParameters(pydantic.BaseModel):
@@ -259,7 +261,7 @@ class DLSTriggerXChem(CommonService):
         acronym = getattr(protein_info, "acronym")
 
         # TEMPORARY PROPOSAL FILTER
-        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "lb43133"]
+        ALLOWED_PROPOSALS = ["lb42888", "sw44043", "sw44107", "lb36049", "lb43133", "lb42944"]
         PROPOSAL_ALIASES = {"mx41448": "lb42888"}
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
@@ -288,11 +290,11 @@ class DLSTriggerXChem(CommonService):
         dtag, location, container_code = query.one()
         location = int(location)
 
-        # Check for crystal recollections
+        # Check for live crystal recollections
         latest_dcid = get_latest_dcid_for_dtag(dtag, session)
         if latest_dcid and latest_dcid != dcid:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: dcid {dcid} is not the latest for dtag {dtag}; Recollection underway?"
+                f"Exiting PanDDA2/Pipedream trigger: dcid {dcid} is not the latest for dtag {dtag}, recollection underway"
             )
             return {"success": True}
 
@@ -333,7 +335,7 @@ class DLSTriggerXChem(CommonService):
             "autoPROC",
             "autoPROC+STARANISO",
             "xia2.multiplex",
-        ]  # will consider dimple output from these jobs to take forward
+        ]  # consider dimple output from these jobs to take forward
 
         query = (
             session.query(AutoProcProgram.processingPrograms)
@@ -353,7 +355,8 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # If other dimple/PanDDA2 job is running, quit, dimple will trigger PanDDA2 even if it fails
+        # If another dimple/PanDDA2 job is running then quit,
+        # dimple set to trigger PanDDA2 even if it fails
         min_start_time = datetime.now() - timedelta(hours=6)
 
         query = (
@@ -442,8 +445,8 @@ class DLSTriggerXChem(CommonService):
 
                 return {"success": True}
 
-        # Select the 'best' dataset to take forward based on criteria,
-        # default is I/sigI*completeness*#unique reflections
+        # Select the 'best' dataset to take forward based on some criteria,
+        # default is I/sigI * completeness * #unique reflections
         query = (
             (
                 session.query(
@@ -485,7 +488,7 @@ class DLSTriggerXChem(CommonService):
                 df = df_filteredbysg
                 n_success_upstream = len(df)
                 self.log.info(
-                    f"There are {n_success_upstream} successful upstream jobs (excl fast-dp) in the user-defined spacegroup {user_sg} \
+                    f"There are {n_success_upstream} successful upstream jobs (excluding fast-dp) in the user-defined spacegroup {user_sg} \
                     selecting the best one based on I/sigI*completeness * #unique reflections, from the most recent processing batch"
                 )
 
@@ -499,7 +502,7 @@ class DLSTriggerXChem(CommonService):
         df = df[["autoProcScalingId", "heuristic"]].copy()
         scaling_ids = df["autoProcScalingId"].tolist()
 
-        # find associated dimple jobs from scaling_ids, take most recent batch if reprocessing
+        # find associated dimple jobs from scaling_ids
         query = (
             (
                 session.query(
@@ -557,7 +560,7 @@ class DLSTriggerXChem(CommonService):
 
         if df3.empty:
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: Issue selecting dataset to take forward for dcid {dcid}"
+                f"Exiting PanDDA2/Pipedream trigger: issue selecting dataset to take forward for dcid {dcid}"
             )
             return {"success": True}
 
@@ -584,7 +587,7 @@ class DLSTriggerXChem(CommonService):
 
         self.log.debug("PanDDA2/Pipedream trigger: Starting")
 
-        # 2. Read XChem SQLite database for ligand info
+        # 2. Read XChem SQLite database for ligand information
 
         db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
 
@@ -622,7 +625,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Apo / ground-state crystals have no CompoundSMILES: they are still
-        # put in model_building (below) so PanDDA2 can use them, but get no
+        # put in model_building directory so PanDDA2 can use them, but get no
         # .smiles file and no ligand-restraints job.
         has_ligand = bool(CompoundSMILES) and str(
             CompoundSMILES
@@ -703,17 +706,19 @@ class DLSTriggerXChem(CommonService):
         transaction: int,
         **kwargs,
     ):
-        """Launch PanDDA2 / Pipedream once restraints for this dcid are ready.
+        """Launches PanDDA2 / Pipedream hit identification pipelines for XChem.
 
         Records the current dcid and its dtag in model_dir/.batch_dcids.json as a
-        {dcid: dtag} map, so dtags can be read back at threshold without
-        re-querying ispyb. Pipedream fires for the current dcid on every call.
+        {dcid: dtag} map. Pipedream fires for the current dcid on every call.
         PanDDA2 is gated by the count of recorded dcids vs. comparator_threshold:
         below threshold → skip; at threshold → fire one per-dcid PanDDA2 job for
         each recorded dcid; above threshold → single PanDDA2 for the current dtag.
 
         bulk_array=True: iterate model_dir directly, write the dataset list to
         .bulk_array.json, and fire one array job over dtags in model_building.
+
+        use_existing_modeldir=<existing model_building path>: before enumerating,
+        copy the complete datasets from that legacy model_building dir
         """
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0]
@@ -727,6 +732,19 @@ class DLSTriggerXChem(CommonService):
         processing_dir = xchem_visit_dir / "processing"
         model_dir = processing_dir / "auto" / "analysis" / "model_building"
         db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
+
+        # Optionally stage an existing model_building directory to use
+        if parameters.use_existing_modeldir:
+            try:
+                stage_existing_modeldir(
+                    src_model=pathlib.Path(parameters.use_existing_modeldir),
+                    dst_model=model_dir,
+                    visit_dir=xchem_visit_dir,
+                    logger=self.log,
+                )
+            except Exception as e:
+                self.log.error(f"Exiting hitidentification trigger: {e}")
+                return {"success": True}
 
         # Resolve dtag for the current dcid
         query = (
@@ -771,14 +789,12 @@ class DLSTriggerXChem(CommonService):
             self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
             if pipedream:
                 self.log.info(
-                    f"Launching Pipedream array job over {dataset_count} datasets"
+                    f"bulk_array=True, launching Pipedream array job over {dataset_count} datasets"
                 )
                 self.upsert_proc(rw, dcid, "Pipedream-array", recipe_parameters)
             return {"success": True}
 
-        # Record this dcid and its dtag in the hidden gating json, so the dtag
-        # can be read back at threshold without re-querying ispyb. JSON keys are
-        # strings, so dcids round-trip as str.
+        # Record this dcid and its dtag in the hidden gating json for PanDDA2
         dcids_file = model_dir / ".batch_dcids.json"
         if dcids_file.exists():
             with open(dcids_file, "r") as f:
@@ -793,6 +809,7 @@ class DLSTriggerXChem(CommonService):
         dataset_count = len(recorded_dcids)
         self.log.info(f"Recorded waiting dcid count is: {dataset_count}")
 
+        # Job launch logic
         if pipedream:
             self.log.info(f"Launching Pipedream for dtag {dtag}")
             self.upsert_proc(rw, dcid, "Pipedream", recipe_parameters)
@@ -839,10 +856,9 @@ class DLSTriggerXChem(CommonService):
         Gathers every dcid for this target (matched by Protein acronym) under the
         proposal of the triggering dcid's visit, then gates on those jobs:
         aborts if any PanDDA2/Pipedream/xia2 program newer than program_id has
-        started (a fresh batch is underway), and checkpoints with exponential
-        backoff while any of them are still running. Once processing has settled
-        and no other XChemCollate job is already in flight for the target, fires
-        a single XChemCollate job keyed on the highest dcid.
+        started, and checkpoints with exponential backoff while any of them are still
+        running. Once processing has settled, fires a single XChemCollate job keyed
+        on the highest dcid.
 
         Recipe parameters (ispyb placeholders shown as "{}"):
         - target: set this to "xchem_collate"
@@ -904,7 +920,7 @@ class DLSTriggerXChem(CommonService):
             .all()
         ]
 
-        # trigger on the final PanDDA/Pipedream program_id from the current
+        # Trigger on the final PanDDA/Pipedream program_id from the current
         # processing batch
         query = (
             (
@@ -928,7 +944,7 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # has processing finished? checkpoint if not
+        # Has processing finished? checkpoint if not
         min_start_time = datetime.now() - timedelta(hours=8)
         query = (
             (

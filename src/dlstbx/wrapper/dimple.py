@@ -100,6 +100,38 @@ class DimpleWrapper(Wrapper):
                 (schemas.AttachmentFileType.LOG, 2),
             )
         )
+
+        blobs = []
+        find_blobs_log = next(
+            self.results_directory.glob("[0-9]*-find-blobs.log"), None
+        )
+        cell = get_cell_from_mtz(input_mtz)
+        if find_blobs_log:
+            blobs = get_blobs_from_find_blobs_log(find_blobs_log)
+            for i in range(min(len(blobs), 2)):
+                n = i + 1
+                if (self.results_directory / f"blob{n}v1.png").is_file():
+                    blob = blobs[i]
+                    blob.filepath = self.results_directory
+                    blob.view1 = f"blob{n}v1.png"
+                    blob.view2 = f"blob{n}v2.png"
+                    blob.view3 = f"blob{n}v3.png"
+                    result_files.update(
+                        {
+                            self.results_directory / f"blob{n}v1.png": (
+                                schemas.AttachmentFileType.RESULT,
+                                2,
+                            ),
+                            self.results_directory / f"blob{n}v2.png": (
+                                schemas.AttachmentFileType.RESULT,
+                                2,
+                            ),
+                            self.results_directory / f"blob{n}v3.png": (
+                                schemas.AttachmentFileType.RESULT,
+                                2,
+                            ),
+                        }
+                    )
         attachments = [
             schemas.Attachment(
                 file_type=ftype,
@@ -112,53 +144,56 @@ class DimpleWrapper(Wrapper):
             if f.is_file()
         ]
 
-        blobs = []
-        find_blobs_log = next(
-            self.results_directory.glob("[0-9]*-find-blobs.log"), None
-        )
-        cell = get_cell_from_mtz(input_mtz)
-        if find_blobs_log:
-            blobs = get_blobs_from_find_blobs_log(find_blobs_log)
-            for i in range(min(len(blobs), 2)):
-                n = i + 1
-                if (self.results_directory / f"blob{n}v1.png").is_file():
-                    blob = blobs[n - 1]
-                    blob.filepath = self.results_directory
-                    blob.view1 = f"blob{n}v1.png"
-                    blob.view2 = f"blob{n}v2.png"
-                    blob.view3 = f"blob{n}v3.png"
-
         anom_blobs = []
         anode_log = self.results_directory / "anode.lsa"
         if anode_log:
             anom_blobs = get_blobs_from_anode_log(anode_log, cell)
+            anode_result_files = {}
             for i in range(min(len(anom_blobs), 2)):
                 n = i + 1
                 if (self.results_directory / f"anom-blob{n}v1.png").is_file():
-                    blob = anom_blobs[n - 1]
+                    blob = anom_blobs[i]
                     blob.filepath = self.results_directory
                     blob.view1 = f"anom-blob{n}v1.png"
                     blob.view2 = f"anom-blob{n}v2.png"
                     blob.view3 = f"anom-blob{n}v3.png"
-            anode_result_files = {
-                self.results_directory / "anode.pha": (
-                    schemas.AttachmentFileType.RESULT,
-                    2,
-                ),
-                self.results_directory / "anode_fa.res": (
-                    schemas.AttachmentFileType.RESULT,
-                    2,
-                ),
-                anode_log: (schemas.AttachmentFileType.LOG, 2),
-                self.results_directory / "anode.map": (
-                    schemas.AttachmentFileType.RESULT,
-                    2,
-                ),
-                self.results_directory / "anode.html": (
-                    schemas.AttachmentFileType.RESULT,
-                    2,
-                ),
-            }
+                    anode_result_files.update(
+                        {
+                            self.results_directory / f"anom-blob{n}v1.png": (
+                                schemas.AttachmentFileType.RESULT,
+                                2,
+                            ),
+                            self.results_directory / f"anom-blob{n}v2.png": (
+                                schemas.AttachmentFileType.RESULT,
+                                2,
+                            ),
+                            self.results_directory / f"anom-blob{n}v3.png": (
+                                schemas.AttachmentFileType.RESULT,
+                                2,
+                            ),
+                        }
+                    )
+            anode_result_files.update(
+                {
+                    self.results_directory / "anode.pha": (
+                        schemas.AttachmentFileType.RESULT,
+                        2,
+                    ),
+                    self.results_directory / "anode_fa.res": (
+                        schemas.AttachmentFileType.RESULT,
+                        2,
+                    ),
+                    anode_log: (schemas.AttachmentFileType.LOG, 2),
+                    self.results_directory / "anode.map": (
+                        schemas.AttachmentFileType.RESULT,
+                        2,
+                    ),
+                    self.results_directory / "anode.html": (
+                        schemas.AttachmentFileType.RESULT,
+                        2,
+                    ),
+                }
+            )
             attachments.extend(
                 [
                     schemas.Attachment(

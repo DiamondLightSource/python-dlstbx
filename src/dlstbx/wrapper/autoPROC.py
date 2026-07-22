@@ -214,6 +214,7 @@ def construct_commandline(
         for d in os.environ["PATH"].split(os.pathsep):
             if os.path.exists(os.path.join(d, plugin_name)):
                 hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(d, plugin_name)
+                break
         if not hdf5_lib:
             logger.warning("Couldn't find plugin %s in PATH", plugin_name)
         if hdf5_lib:

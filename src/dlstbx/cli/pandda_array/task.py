@@ -61,8 +61,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--timeout-minutes",
         type=float,
-        default=145,
-        help="Wall-clock timeout for the PanDDA2 step (default: 145).",
+        default=295,
+        help="Wall-clock timeout for the PanDDA2 step (default: 295).",
     )
     parser.add_argument(
         "--pandda-args",

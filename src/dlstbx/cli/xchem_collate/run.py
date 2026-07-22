@@ -37,7 +37,7 @@ def collate(
     processing_dir: Path,
     pipedream: bool = True,
     overwrite: bool = False,
-    timeout_minutes: float = 60,
+    timeout_minutes: float = 180,
     pandda2_dir: str = PANDDA_2_DIR,
     logger: logging.Logger,
 ) -> bool:

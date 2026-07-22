@@ -26,11 +26,16 @@ from pathlib import Path
 import dlstbx
 from dlstbx.cli.pandda_array import PANDDA_2_DIR
 
-# Defaults mirror the live ispyb-postprocessing-pandda2-array recipe.
+# Defaults follow the live ispyb-postprocessing-pandda2-array recipe, with time
+# and memory raised and concurrency capped for standalone per-user submission.
 DEFAULT_PARTITION = "mx_low,cs04r"
 DEFAULT_MODULES = ["dials/latest", "buster/20260424"]
-DEFAULT_TIME_LIMIT = "2:30:00"
-DEFAULT_MAX_PARALLEL = 350
+DEFAULT_TIME_LIMIT = "5:00:00"
+# QOS 'normal' caps a user at cpu=160 AND node=8. At --cpus 4 the CPU cap allows
+# 40 concurrent tasks; run 39 to leave 4 CPUs free for other work. Whether we
+# actually reach 39 depends on --mem-per-cpu, since memory decides how many tasks
+# fit on each of the 8 nodes (see the --mem-per-cpu comment below).
+DEFAULT_MAX_PARALLEL = 39
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -67,8 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--timeout-minutes",
         type=float,
-        default=145,
-        help="Wall-clock timeout for the PanDDA2 step in each task (default: 145).",
+        default=295,
+        help="Wall-clock timeout for the PanDDA2 step in each task (default: 295). "
+        "Keep this ~5 minutes under --time-limit so a stuck step is killed by the "
+        "task itself, leaving a usable log, rather than by Slurm.",
     )
 
     # PanDDA2 settings
@@ -100,7 +107,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     group.add_argument("--cpus", type=int, default=4, help="--cpus-per-task")
     group.add_argument(
-        "--mem-per-cpu", type=int, default=12288, help="--mem-per-cpu in MB"
+        # Memory, not CPUs, decides how many tasks pack onto a node, and QOS
+        # 'normal' caps a user at 8 nodes. Cluster nodes are 40 CPU / 366 GB, so
+        # at 4 CPUs and 16 GB/CPU (64 GB/task) 5 tasks fit per node -> 40
+        # concurrent, which is also the cpu=160 cap. Raising this much above
+        # ~18 GB/CPU drops to 4 tasks/node and *loses* concurrency.
+        "--mem-per-cpu",
+        type=int,
+        default=16384,
+        help="--mem-per-cpu in MB",
     )
     group.add_argument("--time-limit", default=DEFAULT_TIME_LIMIT, help="--time")
     group.add_argument(

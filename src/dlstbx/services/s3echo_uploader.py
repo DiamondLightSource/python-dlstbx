@@ -161,7 +161,7 @@ class S3EchoUploader(CommonService):
                 )
             except S3Error as err:
                 self.log.exception(
-                    f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
+                    f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(s3echo_upload_files)}"
                 )
                 rw.send_to("failure", message, transaction=txn)
                 raise err
@@ -241,7 +241,7 @@ class S3EchoUploader(CommonService):
                         minio_client, params["bucket"], dcid, -1, None, self.log
                     )
                     self.log.exception(
-                        f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3echo_upload'])}"
+                        f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(s3echo_upload_files_all)}"
                     )
                     rw.send_to("failure", message, transaction=txn)
                     raise err

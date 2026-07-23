@@ -77,8 +77,9 @@ class S3EchoCollector(CommonService):
                 s3echo_upload_files.update(
                     {name: (dcid, pth) for name, pth in image_files.items()}
                 )
-            except Exception:
+            except Exception as err:
                 self.log.exception("Error uploading image files to S3 Echo")
+                raise err
             if not response_info:
                 self.log.debug("Sending message to upload endpoint")
                 rw.send_to(
@@ -106,8 +107,9 @@ class S3EchoCollector(CommonService):
                             {"s3echo_upload": {dcid: image_files}},
                             transaction=txn,
                         )
-                except Exception:
+                except Exception as err:
                     self.log.exception("Error uploading image files to S3 Echo")
+                    raise err
             rw.environment.update({"s3echo_upload": s3echo_upload_files})
             self.log.debug("Sending message to watch endpoint")
             rw.send_to("watch", message, transaction=txn)

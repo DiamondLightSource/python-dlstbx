@@ -292,6 +292,10 @@ class StrategyParameters(pydantic.BaseModel):
     experiment_type: str
     program_id: int = pydantic.Field(gt=0)
     wavelength: float = pydantic.Field(gt=0)
+    max_transmission: Optional[float] = None
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: float = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
 
 
 class DLSTrigger(CommonService):
@@ -2894,6 +2898,7 @@ class DLSTrigger(CommonService):
     def trigger_strategy(
         self,
         rw: workflows.recipe.RecipeWrapper,
+        message: Dict,
         *,
         parameters: StrategyParameters,
         session: sqlalchemy.orm.session.Session,
@@ -2941,16 +2946,52 @@ class DLSTrigger(CommonService):
                 AutoProcProgram,
                 AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
             )
-            .filter(AutoProcProgram.autoProcProgramId == parameters.program_id)
+            .join(
+                ProcessingJob,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .filter(ProcessingJob.dataCollectionId == parameters.dcid)
             .filter(AutoProcScalingStatistics.scalingStatisticsType == "overall")
-            .scalar()
+            .all()
         )
 
-        if not resolution:
+        self.log.info(
+            f"Strategy trigger: resolution estimate from ispyb for dcid={parameters.dcid} is {resolution}"
+        )
+        if resolution is None:
+            status = {
+                "ntry": 0,
+            }
+            backoff_delay = parameters.backoff_delay
+            backoff_multiplier = parameters.backoff_multiplier
+            backoff_max_try = parameters.backoff_max_try
+
+            if isinstance(message, dict):
+                status.update(message.get("trigger-status", {}))
+            message_delay = int(backoff_delay * backoff_multiplier ** status["ntry"])
+            status["ntry"] += 1
+
+            if status["ntry"] > backoff_max_try:
+                self.log.info(
+                    f"Skipping strategy trigger: maximum number of retries exceeded for dcid={parameters.dcid}"
+                )
+                return {"success": True}
+            # Send results to myself for next round of processing
             self.log.info(
-                f"Skipping strategy trigger: no resolution estimate found for dcid={parameters.dcid} auto_proc_program_id={parameters.program_id}"
+                f"Strategy trigger: Waiting for a resolution estimate for dcid={parameters.dcid} - Checkpointing message..."
+            )
+            rw.checkpoint(
+                {
+                    "trigger-status": status,
+                },
+                delay=message_delay,
             )
             return {"success": True}
+
+        min_resolution = min(resolution, key=lambda x: x[0])[0]
+        self.log.info(
+            f"Strategy trigger: found minumum resolution {min_resolution} for dcid={parameters.dcid}"
+        )
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["comments"] = parameters.comment
@@ -2963,9 +3004,12 @@ class DLSTrigger(CommonService):
 
         strategy_parameters = {
             "beamline": parameters.beamline,
-            "resolution": resolution,
+            "resolution": min_resolution,
             "wavelength": parameters.wavelength,
         }
+
+        if parameters.max_transmission:
+            strategy_parameters["transmission_estimate"] = parameters.max_transmission
 
         for key, value in strategy_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()

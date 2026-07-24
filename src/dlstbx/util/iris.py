@@ -119,10 +119,9 @@ def get_image_files(images, logger):
 
 def get_related_images_files_from_h5(h5_file, logger):
     file_list = {}
-    try:
-        related = set(find_all_references(h5_file))
-    except (ValueError, KeyError):
-        logger.error(f"Could not find files related to {h5_file}", exc_info=True)
+    related = set(find_all_references(h5_file))
+    if not related:
+        raise ValueError(f"No related image files found for {h5_file}")
     image_pattern = str(h5_file).split("master")[0] + "*"
     related.union(glob.glob(image_pattern))
     for filepath in sorted(related):

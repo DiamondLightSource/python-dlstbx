@@ -72,14 +72,10 @@ class S3EchoCollector(CommonService):
             response_info = update_dcid_info_file(
                 minio_client, bucket_name, dcid, 0, rpid, self.log
             )
-            try:
-                image_files = iris.get_image_files(images, self.log)
-                s3echo_upload_files.update(
-                    {name: (dcid, pth) for name, pth in image_files.items()}
-                )
-            except Exception as err:
-                self.log.exception("Error uploading image files to S3 Echo")
-                raise err
+            image_files = iris.get_image_files(images, self.log)
+            s3echo_upload_files.update(
+                {name: (dcid, pth) for name, pth in image_files.items()}
+            )
             if not response_info:
                 self.log.debug("Sending message to upload endpoint")
                 rw.send_to(
@@ -93,23 +89,19 @@ class S3EchoCollector(CommonService):
                 response_info = update_dcid_info_file(
                     minio_client, bucket_name, dcid, 0, rpid, self.log
                 )
-                try:
-                    image_files = iris.get_related_images_files_from_h5(
-                        image_master_file, self.log
+                image_files = iris.get_related_images_files_from_h5(
+                    image_master_file, self.log
+                )
+                s3echo_upload_files.update(
+                    {name: (dcid, pth) for name, pth in image_files.items()}
+                )
+                if not response_info:
+                    self.log.debug("Sending message to upload endpoint")
+                    rw.send_to(
+                        "upload",
+                        {"s3echo_upload": {dcid: image_files}},
+                        transaction=txn,
                     )
-                    s3echo_upload_files.update(
-                        {name: (dcid, pth) for name, pth in image_files.items()}
-                    )
-                    if not response_info:
-                        self.log.debug("Sending message to upload endpoint")
-                        rw.send_to(
-                            "upload",
-                            {"s3echo_upload": {dcid: image_files}},
-                            transaction=txn,
-                        )
-                except Exception as err:
-                    self.log.exception("Error uploading image files to S3 Echo")
-                    raise err
             rw.environment.update({"s3echo_upload": s3echo_upload_files})
             self.log.debug("Sending message to watch endpoint")
             rw.send_to("watch", message, transaction=txn)

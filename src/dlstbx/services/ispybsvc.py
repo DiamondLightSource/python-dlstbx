@@ -517,8 +517,12 @@ class DLSISPyB(EM_Mixin, CommonService):
             params["pctsaturationtop50peaks"] = 0
             params["inresolutionovrlspots"] = 0
             params["binpopcutoffmethod2res"] = 0
-        elif params["dozor_score"] is None:
-            self.log.error("Message contains neither dozor score nor spot count")
+        elif params["dozor_score"] is None and parameters("estimated_d_min") is None:
+            self.log.error(
+                "Message contains none of dozor_score, n_spots_total or estimated_d_min for image %s in DCID %s",
+                params["image_number"],
+                params["datacollectionid"],
+            )
             return False
 
         params["totalintegratedsignal"] = parameters("total_intensity")

@@ -517,9 +517,18 @@ class DLSISPyB(EM_Mixin, CommonService):
             params["pctsaturationtop50peaks"] = 0
             params["inresolutionovrlspots"] = 0
             params["binpopcutoffmethod2res"] = 0
-        elif params["dozor_score"] is None and parameters("estimated_d_min") is None:
+        elif not any(
+            parameters(val)
+            for val in [
+                "dozor_score",
+                "n_spots_total",
+                "estimated_d_min",
+                "method1_res",
+                "method2_res",
+            ]
+        ):
             self.log.error(
-                "Message contains none of dozor_score, n_spots_total or estimated_d_min for image %s in DCID %s",
+                "Message contains none of dozor_score, n_spots_total, estimated_d_min, method1_res or method2_res for image %s in DCID %s",
                 params["image_number"],
                 params["datacollectionid"],
             )
@@ -527,8 +536,10 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         params["totalintegratedsignal"] = parameters("total_intensity")
         params["good_bragg_candidates"] = parameters("n_spots_no_ice")
-        params["method1_res"] = parameters("estimated_d_min")
-        params["method2_res"] = parameters("estimated_d_min")
+        params["method1_res"] = parameters("method1_res") or parameters(
+            "estimated_d_min"
+        )
+        params["method2_res"] = parameters("method2_res")
 
         self.log.debug(
             "Writing PIA record for image %r in DCID %s",

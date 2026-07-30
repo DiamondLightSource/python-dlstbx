@@ -248,8 +248,8 @@ class Xia2MultiplexWrapper(Wrapper):
                 self.log.debug(result.stderr)
         self.log.info(f"working_directory: {working_directory}")
 
-        scaled_unmerged_mtz = working_directory / "DataFiles/scaled_unmerged.mtz"
-        multiplex_json = working_directory / "Processing/xia2.multiplex.json"
+        scaled_unmerged_mtz = working_directory / "DataFiles" / "scaled_unmerged.mtz"
+        multiplex_json = working_directory / "Processing" / "xia2.multiplex.json"
 
         # Placeholder logic to keep existing functionality - TODO - review if this is needed still
         if not (scaled_unmerged_mtz.is_file() and multiplex_json.is_file()):
@@ -309,8 +309,8 @@ class Xia2MultiplexWrapper(Wrapper):
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
         primary_log_files = [
-            working_directory / "LogFiles/xia2.multiplex.html",
-            working_directory / "LogFiles/xia2.multiplex.log",
+            working_directory / "xia2.multiplex.html",
+            working_directory / "xia2.multiplex.log",
         ]
 
         allfiles = []
@@ -336,18 +336,22 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_prefix = f"coordinate_cluster_{cluster_num}_"
                     base_dir_processing = (
                         working_directory
-                        / f"Processing/coordinate_cluster_{cluster_num}"
+                        / "Processing"
+                        / "coordinate_cluster_{cluster_num}"
                     )
                     dimple_symlink = (
                         f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
                     )
                     cluster_results = (
                         results_directory
-                        / f"Processing/coordinate_cluster_{cluster_num}"
+                        / "Processing"
+                        / "coordinate_cluster_{cluster_num}"
                     )
                     cluster_results.mkdir(parents=True, exist_ok=True)
                     cluster_final = (
-                        final_directory / f"Processing/coordinate_cluster_{cluster_num}"
+                        final_directory
+                        / "Processing"
+                        / "coordinate_cluster_{cluster_num}"
                     )
                     cluster_final.mkdir(parents=True, exist_ok=True)
                 else:
@@ -365,7 +369,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
                 merging_stats = dataset["merging_stats"]
                 merging_stats_anom = dataset["merging_stats_anom"]
-                with (base_dir_results / f"{cluster_prefix}merging-stats.json").open(
+                with (working_directory / f"{cluster_prefix}merging-stats.json").open(
                     "w"
                 ) as fh:
                     json.dump(merging_stats, fh)
@@ -454,11 +458,14 @@ class Xia2MultiplexWrapper(Wrapper):
                         allfiles.append(destination.as_posix())
 
                     if pipeline_final_params and is_final_result(destination):
-                        for i, part in enumerate(destination.parts):
-                            if part in subdirs:
-                                destination = final_directory / pathlib.Path(
-                                    *destination.parts[i:]
-                                )
+                        if any(i in destination.parts for i in subdirs):
+                            destination = (
+                                final_directory
+                                / destination.parent.name
+                                / destination.name
+                            )
+                        else:
+                            destination = final_directory / destination.name
                         if destination not in allfiles:
                             self.log.debug(f"Copying {filename} to {destination}")
                             shutil.copy(filename, destination)
@@ -511,12 +518,17 @@ class Xia2MultiplexWrapper(Wrapper):
                             and destination.parent.name == "Processing"
                         ):
                             attachments.append(file_data)
+                    else:
+                        # Anything in the parent folder (ie main logs) should be attached for clusters and non-clusters
+                        attachments.append(file_data)
 
                 # Add parameters to the environment to be picked up downstream by trigger function
                 self.recwrap.environment.update(
                     {
                         "scaled_mtz": (
-                            results_directory / f"DataFiles/{cluster_prefix}scaled.mtz"
+                            results_directory
+                            / "DataFiles"
+                            / "{cluster_prefix}scaled.mtz"
                         ).as_posix()
                     }
                 )
@@ -524,7 +536,8 @@ class Xia2MultiplexWrapper(Wrapper):
                     {
                         "scaled_unmerged_mtz": (
                             results_directory
-                            / f"DataFiles/{cluster_prefix}scaled_unmerged.mtz"
+                            / "DataFiles"
+                            / "{cluster_prefix}scaled_unmerged.mtz"
                         ).as_posix()
                     }
                 )

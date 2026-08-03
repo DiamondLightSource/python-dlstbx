@@ -300,6 +300,7 @@ def update_xchem_database(
 
     # Build list of dicts for batch updating rows in SQLite
     db_dicts = []
+    pipedream_selected = []
     for dataset_dir in model_dir.iterdir():
         if not dataset_dir.is_dir():
             continue
@@ -331,6 +332,7 @@ def update_xchem_database(
         # Export
         if pipedream_model:
             logger.info(f"Selected Pipedream model for {dtag}")
+            pipedream_selected.append(dtag)
 
             # Determine ligand confidence based on overall ligandcc value
             if rscc >= 0.8:
@@ -402,6 +404,19 @@ def update_xchem_database(
                     **pandda_fields,
                 }
             )
+
+    # Record which datasets took the Pipedream branch. Rewritten on every
+    # collate so it always reflects the latest model selection.
+    selected_file = pipedream_dir / "selected_dtags.txt"
+    try:
+        selected_file.write_text(
+            "".join(f"{dtag}\n" for dtag in sorted(pipedream_selected))
+        )
+        logger.info(
+            f"Wrote {len(pipedream_selected)} Pipedream-selected dtags to {selected_file}"
+        )
+    except Exception as e:
+        logger.error(f"Could not write {selected_file}: {e}")
 
     # Now update the database with the formed dicts
     try:

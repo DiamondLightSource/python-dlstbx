@@ -30,6 +30,9 @@ XCHEM_PYTHON = "/dls/science/groups/i04-1/software/micromamba/envs/xchem/bin/pyt
 XCA_PYTHON = (
     "/dls/science/groups/i04-1/software/xchem-align-staging/env_xchem_align/bin/python"
 )
+# Wall-clock timeout applied to each external collate step. Single source of
+# truth for both the collate() signature and the --timeout-minutes default.
+DEFAULT_TIMEOUT_MINUTES = 180
 
 
 def collate(
@@ -37,7 +40,7 @@ def collate(
     processing_dir: Path,
     pipedream: bool = True,
     overwrite: bool = False,
-    timeout_minutes: float = 180,
+    timeout_minutes: float = DEFAULT_TIMEOUT_MINUTES,
     pandda2_dir: str = PANDDA_2_DIR,
     logger: logging.Logger,
 ) -> bool:
@@ -225,8 +228,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--timeout-minutes",
         type=float,
-        default=60,
-        help="Wall-clock timeout for each external collate step (default: 60).",
+        default=DEFAULT_TIMEOUT_MINUTES,
+        help="Wall-clock timeout for each external collate step "
+        f"(default: {DEFAULT_TIMEOUT_MINUTES}).",
     )
     parser.add_argument(
         "--pandda2-dir",

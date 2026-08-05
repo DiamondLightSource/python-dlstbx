@@ -6,6 +6,7 @@ from pathlib import Path
 
 from dlstbx.util.pipedream_xchem_helpers import (
     cleanup_setvar_files,
+    write_pipedream_output,
     write_pipedream_parameters,
 )
 from dlstbx.util.soakdb import prepare_auto_db, updatable_crystals
@@ -93,6 +94,13 @@ class XChemCollateWrapper(Wrapper):
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
         if pipedream:
+            try:
+                write_pipedream_output(processing_dir, logger=self.log)
+            except Exception as e:
+                self.log.error(
+                    f"Could not build Pipedream_output.json for {pipedream_dir}: {e}"
+                )
+
             xchem_python = (
                 "/dls/science/groups/i04-1/software/micromamba/envs/xchem/bin/python"
             )

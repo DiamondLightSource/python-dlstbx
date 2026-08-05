@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-
-import portalocker
 
 # Fixed body of pipedream_parameters.yaml. Only the five path/mode keys at the
 # top vary between runs; everything from Cluster_partition down is constant.
@@ -39,7 +36,7 @@ def write_pipedream_parameters(
     processing_dir,
     pipedream_dir,
     *,
-    mode="specific_datasets",
+    mode="pending_analysis",
     logger=None,
 ):
     """Write a pipedream_parameters.yaml for manual export_pipedream.py runs.
@@ -114,54 +111,90 @@ def process_pdb_file(dimple_pdb: Path, logger=None):
         logger.debug(f"Removed {removed_total} lines. ({component_summary})")
 
 
-def save_dataset_metadata(
-    pipedream_dir,
-    input_dir,
-    output_dir,
-    compound_code,
-    smiles_string,
-    pipedream_cmd,
-    dtag,
-    logger=None,
-):
-    metadata = {
-        "Input_dir": input_dir,
+def _pipedream_command(dtag, model_dir, out_dir, ligand_cif):
+    """Reconstruct the pipedream command (mirrors pipedream_xchem.py; cosmetic --
+    recorded only for provenance, not consumed by collate)."""
+    mb = model_dir / dtag
+    return (
+        "/dls_sw/apps/GPhL/BUSTER/20260424/scripts/pipedream -nolmr "
+        f"-hklin {mb / f'{dtag}.free.mtz'} -xyzin {mb / 'dimple.pdb'} "
+        f"-hklref {mb / 'dimple.mtz'} -d {out_dir} "
+        "-mrefine TLSbasic,WaterUpdatePkmaps -keepwater -remediate "
+        "-sidechainrebuild -runpepflip -rhocommands -xclusters -nochirals "
+        f"-rhofit {ligand_cif}"
+    )
+
+
+def build_dataset_metadata(dtag, model_dir, pipedream_dir, logger=None):
+    """Return the Pipedream_output.json entry for one dtag"""
+    out_dir = pipedream_dir / dtag
+    if not (out_dir / "pipedream_summary.json").exists():
+        return None
+
+    input_dir = model_dir / dtag / "compound"
+    smiles_files = sorted(input_dir.glob("*.smiles"))
+    if not smiles_files:
+        if logger:
+            logger.warning(f"{dtag}: no .smiles in {input_dir}, skipping")
+        return None
+    if len(smiles_files) > 1 and logger:
+        logger.warning(
+            f"{dtag}: multiple .smiles in {input_dir}, using {smiles_files[0].name}"
+        )
+
+    compound_code = smiles_files[0].stem
+    smiles = smiles_files[0].read_text().strip()
+    ligand_cif = str(input_dir / f"{compound_code}.cif")
+
+    return {
+        "Input_dir": str(input_dir),
         "CompoundCode": compound_code,
-        "PipedreamDirectory": output_dir,
-        "ReportHTML": f"{output_dir}/report-{compound_code}/index.html",
-        "LigandReportHTML": f"{output_dir}/report-{compound_code}/ligand/index.html",
-        "ExpectedSummary": f"{output_dir}/pipedream_summary.json",
-        "PipedreamCommand": pipedream_cmd,
-        "ExpectedCIF": os.path.join(input_dir, f"{compound_code}.cif"),
-        "ExpectedPDB": os.path.join(input_dir, f"{compound_code}.pdb"),
-        "InputSMILES": smiles_string,
+        "PipedreamDirectory": str(out_dir),
+        "ReportHTML": f"{out_dir}/report-{compound_code}/index.html",
+        "LigandReportHTML": f"{out_dir}/report-{compound_code}/ligand/index.html",
+        "ExpectedSummary": f"{out_dir}/pipedream_summary.json",
+        "PipedreamCommand": _pipedream_command(dtag, model_dir, out_dir, ligand_cif),
+        "ExpectedCIF": ligand_cif,
+        "ExpectedPDB": str(input_dir / f"{compound_code}.pdb"),
+        "InputSMILES": smiles,
     }
 
-    output_yaml = {}
-    output_yaml[dtag] = metadata
-    json_file = f"{pipedream_dir}/Pipedream_output.json"
-    if not os.path.exists(json_file):
-        open(json_file, "w").close()
 
-    # Acquire a lock
-    with portalocker.Lock(json_file, timeout=5):
-        if os.path.exists(json_file) and os.path.getsize(json_file) > 0:
-            with open(json_file, "r", encoding="utf-8") as f:
-                try:
-                    data = json.load(f)
-                except Exception as e:
-                    if logger:
-                        logger.debug(
-                            f"Cannot continue with pipedream postprocessing: {e}"
-                        )
-                    return
-        else:
-            data = {}
+def build_pipedream_output(processing_dir, logger=None):
+    """Build the {dtag: metadata} aggregate from every completed pipedream
+    dataset under a visit's processing dir.
+    """
+    processing_dir = Path(processing_dir)
+    pipedream_dir = processing_dir / "auto" / "analysis" / "pipedream"
+    model_dir = processing_dir / "auto" / "analysis" / "model_building"
+    if not pipedream_dir.is_dir():
+        raise FileNotFoundError(f"No pipedream directory at {pipedream_dir}")
 
-        data.update(output_yaml)
+    data = {}
+    for d in sorted(pipedream_dir.iterdir()):
+        if not d.is_dir():
+            continue
+        entry = build_dataset_metadata(d.name, model_dir, pipedream_dir, logger)
+        if entry is not None:
+            data[d.name] = entry
+    return data
 
-        with open(json_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+
+def write_pipedream_output(processing_dir, logger=None):
+    """Rebuild pipedream/Pipedream_output.json"""
+    processing_dir = Path(processing_dir)
+    data = build_pipedream_output(processing_dir, logger)
+    target = (
+        processing_dir / "auto" / "analysis" / "pipedream" / "Pipedream_output.json"
+    )
+
+    tmp = target.with_name(target.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    tmp.replace(target)
+    if logger:
+        logger.info(f"Wrote {len(data)} dataset entries to {target}")
+    return target
 
 
 def cleanup_setvar_files(pipedream_dir, logger=None):

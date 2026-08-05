@@ -7,10 +7,7 @@ from pathlib import Path
 
 from dlstbx.util.mvs.helpers import save_cropped_map
 from dlstbx.util.mvs.viewer_pipedream import gen_html_pipedream
-from dlstbx.util.pipedream_xchem_helpers import (
-    process_pdb_file,
-    save_dataset_metadata,
-)
+from dlstbx.util.pipedream_xchem_helpers import process_pdb_file
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.helpers import fix_acl_mask
 
@@ -94,7 +91,7 @@ class PipedreamWrapper(Wrapper):
         pipedream_log = out_dir / "summary.out"
         attachments.extend([pipedream_log, ligand_cif])
 
-        pipedream_command = f"/dls_sw/apps/GPhL/BUSTER/20250717/scripts/pipedream \
+        pipedream_command = f"/dls_sw/apps/GPhL/BUSTER/20260424/scripts/pipedream \
             -nolmr \
             -hklin {upstream_mtz} \
             -xyzin {dimple_pdb} \
@@ -144,16 +141,6 @@ class PipedreamWrapper(Wrapper):
         buster_report = report_dir / "report.pdf"
 
         pipedream_summary = out_dir / "pipedream_summary.json"
-        save_dataset_metadata(
-            str(pipedream_dir),
-            str(compound_dir),
-            str(out_dir),
-            CompoundCode,
-            smiles,
-            pipedream_command,
-            dtag,
-            self.log,
-        )
 
         pictures_dir = report_dir / "ligand/pictures"
         ligand_gifs = list(pictures_dir.glob("*.gif"))  # multiple

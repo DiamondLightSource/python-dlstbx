@@ -6,6 +6,7 @@ import pathlib
 import re
 import shutil
 import sqlite3
+import subprocess
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 
@@ -73,7 +74,7 @@ class ModelBuildingParameters(pydantic.BaseModel):
 
 class HitIndentificationParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    xchem_visit_dir: str
+    xchem_visit_directory: str
     comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -89,10 +90,11 @@ class HitIndentificationParameters(pydantic.BaseModel):
 class CollateParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     program_id: int = pydantic.Field(gt=0)
+    xchem_visit_directory: str
+    database_path: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
-    processing_directory: str
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
@@ -217,6 +219,41 @@ class DLSTriggerXChem(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"{procname}_id trigger: Processing job {jobid} triggered")
+
+    def _resolve_analysis_dir(self, xchem_visit_dir) -> pathlib.Path:
+        """Resolve the ``auto/analysis`` results root for a visit.
+
+        Keep using ``<visit>/processing/auto`` where it already exists (legacy /
+        in-flight visits); otherwise put results in ``<visit>/processed/auto``
+        """
+        visit_dir = pathlib.Path(xchem_visit_dir)
+        auto_dir = visit_dir / "processing" / "auto"
+        if not auto_dir.exists():
+            processed = visit_dir / "processed"
+            auto_dir = processed / "auto"
+            if not auto_dir.exists():
+                processed.mkdir(parents=True, exist_ok=True)
+                gid = visit_dir.stat().st_gid
+                try:
+                    subprocess.run(
+                        [
+                            "setfacl",
+                            "-m",
+                            f"g:{gid}:rwx",
+                            "-m",
+                            f"d:g:{gid}:rwx",
+                            str(processed),
+                        ],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                except Exception as e:
+                    self.log.warning(
+                        f"Could not set visit-group ACL on {processed}: {e}"
+                    )
+                auto_dir.mkdir(parents=True, exist_ok=True)
+        return auto_dir / "analysis"
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_modelbuilding(
@@ -645,8 +682,7 @@ class DLSTriggerXChem(CommonService):
         )
 
         # 3. Create dataset directory structure (single shared model_building dir)
-        auto_dir = processing_dir / "auto"
-        analysis_dir = auto_dir / "analysis"
+        analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         model_dir = analysis_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
@@ -687,9 +723,8 @@ class DLSTriggerXChem(CommonService):
         # 4. Fire a single ligand-restraints job; it will trigger hitidentification on success
         recipe_parameters = {
             "dcid": dcid,
-            "xchem_visit_dir": str(xchem_visit_dir),
-            "processing_directory": str(processing_dir),
-            "model_directory": str(model_dir),
+            "xchem_visit_directory": str(xchem_visit_dir),
+            "analysis_directory": str(analysis_dir),
             "dtag": dtag,
             "scaling_id": scaling_id,
             "comparator_threshold": comparator_threshold,
@@ -697,6 +732,7 @@ class DLSTriggerXChem(CommonService):
             "upstream_mtz": pathlib.Path(upstream_mtz).parts[-1],
             "pipedream": pipedream,
             "overwrite": overwrite,
+            "bulk_array": bulk_array,
         }
 
         self.log.info(f"Launching ligand-restraints for dtag {dtag} (dcid {dcid})")
@@ -743,9 +779,10 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Re-derive paths from labxchem visit parameter
-        xchem_visit_dir = pathlib.Path(parameters.xchem_visit_dir)
+        xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
         processing_dir = xchem_visit_dir / "processing"
-        model_dir = processing_dir / "auto" / "analysis" / "model_building"
+        analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
+        model_dir = analysis_dir / "model_building"
         db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
 
         # Optionally stage an existing model_building directory to use
@@ -775,9 +812,8 @@ class DLSTriggerXChem(CommonService):
 
         recipe_parameters = {
             "dcid": dcid,
-            "xchem_visit_dir": str(xchem_visit_dir),
-            "processing_directory": str(processing_dir),
-            "model_directory": str(model_dir),
+            "xchem_visit_directory": str(xchem_visit_dir),
+            "analysis_directory": str(analysis_dir),
             "dtag": dtag,
             "n_datasets": 1,
             "scaling_id": scaling_id,
@@ -886,7 +922,8 @@ class DLSTriggerXChem(CommonService):
         - dcid: the dataCollectionId i.e. "{ispyb_dcid}"
         - program_id: the AutoProcProgramId of the triggering job
         - scaling_id: list of scaling ids i.e. ["{scaling_id}"]
-        - processing_directory: the labxchem visit processing dir
+        - xchem_visit_directory: the labxchem visit dir
+        - database_path: the soakDB master under the visit's processing dir
         - pipedream / overwrite: forwarded to the collate wrapper
         - comment: stored in the ProcessingJob.comment field
         - automatic: boolean passed to ProcessingJob.automatic
@@ -895,7 +932,8 @@ class DLSTriggerXChem(CommonService):
             "dcid": 123456,
             "program_id": 123456,
             "scaling_id": [123456],
-            "processing_directory": '/dls/labxchem/data/lb42888/lb42888-1/processing',
+            "xchem_visit_directory": '/dls/labxchem/data/lb42888/lb42888-1',
+            "database_path": '/dls/labxchem/data/lb42888/lb42888-1/processing/database/soakDBDataFile.sqlite',
             "automatic": true,
         }
         """
@@ -903,7 +941,6 @@ class DLSTriggerXChem(CommonService):
         dcid = parameters.dcid
         program_id = parameters.program_id
         scaling_id = parameters.scaling_id[0]
-        processing_directory = pathlib.Path(parameters.processing_directory)
         overwrite = parameters.overwrite
         pipedream = parameters.pipedream
 
@@ -1064,9 +1101,13 @@ class DLSTriggerXChem(CommonService):
 
         team_leader_email = get_visit_team_leader_email(visit, session) or ""
         team_leader_email = "qvu59474@diamond.ac.uk"
+        xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
+        analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         recipe_parameters = {
             "dcid": max(dcids),
-            "processing_directory": str(processing_directory),
+            "xchem_visit_directory": str(xchem_visit_dir),
+            "analysis_directory": str(analysis_dir),
+            "database_path": str(parameters.database_path),
             "scaling_id": scaling_id,
             "pipedream": pipedream,
             "overwrite": overwrite,

@@ -33,25 +33,24 @@ Refinement_parameters: #For more information see https://www.globalphasing.com/b
 
 
 def write_pipedream_parameters(
-    processing_dir,
-    pipedream_dir,
+    analysis_dir,
+    database_path,
     *,
     mode="pending_analysis",
     logger=None,
 ):
     """Write a pipedream_parameters.yaml for manual export_pipedream.py runs.
-
-    The refinement/cluster block is fixed; only the paths change, and they all
-    derive from the two directories the wrapper already computes:
-
-      Database_path     = processing_dir/database/soakDBDataFile.sqlite (master)
-      Output_directory  = pipedream_dir/Pipedream_results
+      Database_path     = database_path (soakDB master, threaded from the trigger)
+      Output_directory  = analysis_dir/pipedream/Pipedream_results
       Dataset_csv_path  = Output_directory/datasets.csv
 
-    The file is written into Output_directory and its path returned.
+    Processing_directory follows the results base (processing/ or processed/)
     """
-    processing_dir = Path(processing_dir)
-    output_dir = Path(pipedream_dir) / "Pipedream_results"
+    analysis_dir = Path(analysis_dir)
+    database_path = Path(database_path)
+    # results base: <visit>/processing if processing/auto exists, else <visit>/processed
+    base_dir = analysis_dir.parents[1]
+    output_dir = analysis_dir / "pipedream" / "Pipedream_results"
     params_path = output_dir / "pipedream_parameters.yaml"
     if params_path.exists():
         if logger:
@@ -62,9 +61,9 @@ def write_pipedream_parameters(
 
     text = PIPEDREAM_PARAMETERS_TEMPLATE.format(
         mode=mode,
-        processing_dir=processing_dir,
+        processing_dir=base_dir,
         output_dir=output_dir,
-        db_path=processing_dir / "database" / "soakDBDataFile.sqlite",
+        db_path=database_path,
         csv_path=output_dir / "datasets.csv",
     )
 
@@ -160,13 +159,13 @@ def build_dataset_metadata(dtag, model_dir, pipedream_dir, logger=None):
     }
 
 
-def build_pipedream_output(processing_dir, logger=None):
+def build_pipedream_output(analysis_dir, logger=None):
     """Build the {dtag: metadata} aggregate from every completed pipedream
-    dataset under a visit's processing dir.
+    dataset under a visit's analysis dir.
     """
-    processing_dir = Path(processing_dir)
-    pipedream_dir = processing_dir / "auto" / "analysis" / "pipedream"
-    model_dir = processing_dir / "auto" / "analysis" / "model_building"
+    analysis_dir = Path(analysis_dir)
+    pipedream_dir = analysis_dir / "pipedream"
+    model_dir = analysis_dir / "model_building"
     if not pipedream_dir.is_dir():
         raise FileNotFoundError(f"No pipedream directory at {pipedream_dir}")
 
@@ -180,13 +179,11 @@ def build_pipedream_output(processing_dir, logger=None):
     return data
 
 
-def write_pipedream_output(processing_dir, logger=None):
+def write_pipedream_output(analysis_dir, logger=None):
     """Rebuild pipedream/Pipedream_output.json"""
-    processing_dir = Path(processing_dir)
-    data = build_pipedream_output(processing_dir, logger)
-    target = (
-        processing_dir / "auto" / "analysis" / "pipedream" / "Pipedream_output.json"
-    )
+    analysis_dir = Path(analysis_dir)
+    data = build_pipedream_output(analysis_dir, logger)
+    target = analysis_dir / "pipedream" / "Pipedream_output.json"
 
     tmp = target.with_name(target.name + ".tmp")
     with open(tmp, "w", encoding="utf-8") as f:

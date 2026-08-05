@@ -33,9 +33,11 @@ class XChemCollateWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
         pipedream = params.get("pipedream")
         overwrite = params.get("overwrite")
-        processing_dir = Path(params.get("processing_directory"))
-        auto_dir = processing_dir / "auto"
-        analysis_dir = auto_dir / "analysis"
+        xchem_visit_dir = Path(params.get("xchem_visit_directory"))
+        processing_dir = xchem_visit_dir / "processing"
+        analysis_dir = Path(params.get("analysis_directory"))
+        auto_dir = analysis_dir.parent
+        database_path = Path(params.get("database_path"))
         pandda_dir = analysis_dir / "pandda2"
         model_dir = analysis_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")
@@ -70,10 +72,10 @@ class XChemCollateWrapper(Wrapper):
         # Perform model selection (PanDDA2 | Pipedream) & re-integrate into XChem environment
 
         try:
-            db_copy = prepare_auto_db(processing_dir)
+            db_copy = prepare_auto_db(database_path, auto_dir)
             updatable = updatable_crystals(db_copy, overwrite)
         except Exception as e:
-            self.log.error(f"Could not prepare auto db for {processing_dir}: {e}")
+            self.log.error(f"Could not prepare auto db for {database_path}: {e}")
             db_copy, updatable = None, None
 
         # Score bucketing reads only the PanDDA events csv, so it runs whether or
@@ -89,13 +91,13 @@ class XChemCollateWrapper(Wrapper):
                     model_dir, pipedream_dir, panddas_dir, db_copy, updatable, self.log
                 )
             except Exception as e:
-                self.log.error(f"Exception updating database for {processing_dir}: {e}")
+                self.log.error(f"Exception updating database for {db_copy}: {e}")
 
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
         if pipedream:
             try:
-                write_pipedream_output(processing_dir, logger=self.log)
+                write_pipedream_output(analysis_dir, logger=self.log)
             except Exception as e:
                 self.log.error(
                     f"Could not build Pipedream_output.json for {pipedream_dir}: {e}"
@@ -127,9 +129,7 @@ class XChemCollateWrapper(Wrapper):
                 )
 
             try:
-                write_pipedream_parameters(
-                    processing_dir, pipedream_dir, logger=self.log
-                )
+                write_pipedream_parameters(analysis_dir, database_path, logger=self.log)
             except Exception as e:
                 self.log.error(
                     f"Could not write pipedream parameters for {pipedream_dir}: {e}"
@@ -142,6 +142,8 @@ class XChemCollateWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Perform XChemAlign collate step
+        # The config/assemblies yaml are user-curated, so they stay under
+        # processing/analysis; only the collated output goes to auto/.
         xca_dir = processing_dir / "analysis" / "xchemalign"
         config = xca_dir / "config.yaml"
         assemblies = xca_dir / "assemblies.yaml"

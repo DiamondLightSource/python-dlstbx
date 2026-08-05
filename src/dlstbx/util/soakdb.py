@@ -107,12 +107,16 @@ def find_xchem_visit_dir(
     return match_dir
 
 
-def prepare_auto_db(processing_dir: Path) -> Path:
+def prepare_auto_db(db_master: Path, auto_dir: Path) -> Path:
     """Create (if needed) and sync the auto soakDB copy from the master, then
     return its path. The copy is what updatable_crystals() and the bulk update
-    operate on."""
-    db_master = processing_dir / "database" / "soakDBDataFile.sqlite"
-    db_copy = processing_dir / "auto/database" / "autosoakDBDataFile.sqlite"
+    operate on.
+
+    The master stays where the users curate it (``<visit>/processing/database``);
+    the copy is a pipeline result, so it follows ``auto_dir`` wherever the
+    results root has been placed."""
+    db_master = Path(db_master)
+    db_copy = Path(auto_dir) / "database" / "autosoakDBDataFile.sqlite"
 
     if not db_copy.exists():
         Path(db_copy.parents[0]).mkdir(parents=True, exist_ok=True)

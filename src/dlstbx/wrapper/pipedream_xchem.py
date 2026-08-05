@@ -23,9 +23,7 @@ class PipedreamWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        processing_dir = Path(params.get("processing_directory"))
-        auto_dir = processing_dir / "auto"
-        analysis_dir = Path(auto_dir / "analysis")
+        analysis_dir = Path(params.get("analysis_directory"))
         pipedream_dir = analysis_dir / "pipedream"
         Path(pipedream_dir).mkdir(parents=True, exist_ok=True)
         model_dir = analysis_dir / "model_building"

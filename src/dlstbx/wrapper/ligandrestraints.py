@@ -16,10 +16,10 @@ class LigandRestraintsWrapper(Wrapper):
         )
 
         params = self.recwrap.recipe_step["job_parameters"]
-        processing_dir = Path(params.get("processing_directory"))
+        analysis_dir = Path(params.get("analysis_directory"))
         dtag = params.get("dtag")
 
-        model_dir = processing_dir / "auto" / "analysis" / "model_building"
+        model_dir = analysis_dir / "model_building"
         dataset_dir = model_dir / dtag
         compound_dir = dataset_dir / "compound"
 

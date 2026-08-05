@@ -4,7 +4,11 @@ Copies the files the PanDDA2 / Pipedream pipeline needs from an existing
 XChem model_building tree into the autoprocessing tree.
 
     <visit>/processing/analysis/model_building/<dtag>/
-        -> <visit>/processing/auto/analysis/model_building/<dtag>/
+        -> <analysis_dir>/model_building/<dtag>/
+
+where ``<analysis_dir>`` is the results root the trigger resolved
+(``<visit>/processing/auto/analysis`` on legacy visits, otherwise
+``<visit>/processed/auto/analysis``).
 
 Ligand datasets are copied only when ``complete`` (a single
 ``compound/<code>.smiles`` with a matching ``<code>.cif``), so every staged dir

@@ -37,13 +37,9 @@ class PanDDAWrapper(Wrapper):
 
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         params = self.recwrap.recipe_step["job_parameters"]
-
-        # database_path = Path(params.get("database_path"))
-        xchem_visit_dir = Path(params.get("xchem_visit_dir"))
+        xchem_visit_dir = Path(params.get("xchem_visit_directory"))
         user_yaml = xchem_visit_dir / ".user.yaml"
-        processing_dir = Path(params.get("processing_directory"))
-        auto_dir = processing_dir / "auto"
-        analysis_dir = Path(auto_dir / "analysis")
+        analysis_dir = Path(params.get("analysis_directory"))
         pandda_dir = analysis_dir / "pandda2"
         model_dir = analysis_dir / "model_building"
         panddas_dir = Path(pandda_dir / "panddas")

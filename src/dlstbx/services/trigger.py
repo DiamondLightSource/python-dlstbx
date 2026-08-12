@@ -2308,7 +2308,6 @@ class DLSTrigger(CommonService):
         - image_group_size: image group size for optional deltacchalf filtering (only when cchalf_filtering_method=image_group)
         - scaling_id: autoProcScalingId of the original multiplex job
         - target: set this to "multiplex_reprocessing"
-        - beamline: the beamline as a string
         - dcid: the dataCollectionId for the given data collection
         - wavelength: wavelength of data collection
         - spacegroup: space group for processing
@@ -2317,7 +2316,6 @@ class DLSTrigger(CommonService):
         - automatic: boolean value passed to ProcessingJob.automatic field
         - ispyb_parameters: a dictionary of ispyb_reprocessing_parameters set by user interaction in SynchWeb
         - recipe: this will be set in this function to the name of the recipe this function triggers
-        - use_clustering: list of beamlines which allow output of clusters
 
         Example recipe parameters:
         {
@@ -2327,8 +2325,6 @@ class DLSTrigger(CommonService):
             "wavelength": "1.03936",
             "comment": "xia2.multiplex triggered manually",
             "automatic": false,
-            "use_clustering": ["i02-2", "i02-1", "i24"],
-            "beamline": "i02-1",
             "ispyb_parameters": {"spacegroup": "P1", "apply_cchalf_filtering":"1", "cchalf_filtering_method": "image_group"},
         }
         """

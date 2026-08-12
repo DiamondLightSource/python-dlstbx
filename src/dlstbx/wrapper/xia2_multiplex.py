@@ -167,10 +167,10 @@ class Xia2MultiplexWrapper(Wrapper):
             ignore = {
                 "sample_id",
                 "sample_group_id",
-                "filtering.method",
-                "deltacchalf.stdcutoff",
-                "deltacchalf.mode",
-                "deltacchalf.group_size",
+                "apply_cchalf_filtering",
+                "cchalf_filtering_method",
+                "image_group_size",
+                "sd_cutoff",
             }
             translation = {
                 "d_min": "resolution.d_min",

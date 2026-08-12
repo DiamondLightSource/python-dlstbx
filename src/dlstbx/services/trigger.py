@@ -246,7 +246,7 @@ class MultiplexReprocessingParameters(pydantic.BaseModel):
     cchalf_filtering_method: Optional[str] = None
     sd_cutoff: Optional[float] = None
     image_group_size: Optional[int] = None
-    scaling_id: Optional[int] = None
+    scaling_id: int
     dcid: int = pydantic.Field(gt=0)
     wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
     spacegroup: Optional[str] = None
@@ -2287,6 +2287,9 @@ class DLSTrigger(CommonService):
         - specify resolution limit
         - change space group
 
+        CURRENT CLUSTERING BEHAVIOUR: clustering will be output if the original parent job had clustering.
+        Will think how to expand this in the future for more tailorability.
+
         As the intended use case is to "edit" an existing job, much of the logic of trigger_multiplex is not required.
         Trigger called via registering a new processingJobId with associated processigJobParameterIds.
         One of these is the autoProcScalingId of the original multiplex job.
@@ -2334,18 +2337,31 @@ class DLSTrigger(CommonService):
 
         parameters.recipe = "postprocessing-xia2-multiplex"
 
-        if (
-            parameters.use_clustering
-            and parameters.beamline in parameters.use_clustering
-        ):
-            output_clusters = True
-        else:
-            output_clusters = False
+        # First, get the job parameters from the existing multiplex job
 
-        # First, use the input scaling ID to find the DCIDs of all multiplex jobs as well as the sample (group) id value
+        job_parameters: list[tuple[str, str]] = (
+            session.query(
+                ProcessingJobParameter.parameterKey,
+                ProcessingJobParameter.parameterValue,
+            )
+            .select_from(AutoProcProgram)
+            .join(
+                ProcessingJobParameter,
+                ProcessingJobParameter.processingJobId
+                == AutoProcProgram.processingJobId,
+            )
+            .join(
+                AutoProc,
+                AutoProc.autoProcProgramId == AutoProcProgram.autoProcProgramId,
+            )
+            .join(AutoProcScaling, AutoProcScaling.autoProcId == AutoProc.autoProcId)
+            .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+        ).all()
 
-        query = (
-            session.query(ProcessingJobImageSweep, ProcessingJobParameter)
+        # Second, get the DCIDs used in the existing multiplex job
+
+        parent_job_dcids: list[tuple[int]] = (
+            session.query(ProcessingJobImageSweep.dataCollectionId)
             .join(
                 AutoProcProgram,
                 AutoProcProgram.processingJobId
@@ -2362,86 +2378,37 @@ class DLSTrigger(CommonService):
             )
             .join(AutoProcScaling, AutoProcScaling.autoProcId == AutoProc.autoProcId)
             .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
-            .options(
-                Load(ProcessingJobImageSweep).load_only(
-                    ProcessingJobImageSweep.dataCollectionId,
-                    raiseload=True,
-                ),
-                Load(ProcessingJobParameter).load_only(
-                    ProcessingJobParameter.parameterKey,
-                    ProcessingJobParameter.parameterValue,
-                    raiseload=True,
-                ),
-            )
+        ).all()
+
+        dcids: list[int] = [row[0] for row in parent_job_dcids]
+
+        self.log.info(f"Found DCIDS: {dcids}")
+        self.log.info("Found parent job parameters:")
+        for param in job_parameters:
+            self.log.info(param)
+
+        extra_params = (
+            "spacegroup",
+            "d_min",
+            "apply_cchalf_filtering",
+            "cchalf_filtering_method",
+            "image_group_size",
+            "sd_cutoff",
         )
 
-        found_dcids = set()
-        group = None
-        found_data_files = set()
-
-        for dc, dc_params in query.all():
-            found_dcids.add(dc.dataCollectionId)
-            if "sample_id" == dc_params.parameterKey:
-                group = ("sample_id", dc_params.parameterValue)
-            elif "sample_group_id" == dc_params.parameterKey:
-                group = ("sample_group_id", dc_params.parameterValue)
-            elif "data" == dc_params.parameterKey:
-                found_data_files.add(dc_params.parameterValue)
-
-        # Set parameters
-
-        dcids = list(found_dcids)
-        data_files = list(found_data_files)
-
-        self.log.info(f"Found {dcids} corresponding to {group}")
-
-        self.log.debug(f"Found data files {data_files}")
-
-        job_parameters: list[tuple[str, str]] = [
-            ("data", files) for files in data_files
-        ]
-        if group:
-            job_parameters.append(group)
-
-        if parameters.spacegroup:
-            job_parameters.append(("spacegroup", parameters.spacegroup))
-
-        if parameters.d_min:
-            job_parameters.append(("d_min", str(parameters.d_min)))
-
-        if (
-            parameters.diffraction_plan_info
-            and parameters.diffraction_plan_info.anomalousScatterer
-        ):
-            job_parameters.extend(
-                [
-                    ("anomalous", "true"),
-                    ("absorption_level", "high"),
-                ]
-            )
-        if output_clusters:
-            job_parameters.extend(
-                [
-                    ("clustering.method", "coordinate"),
-                    ("clustering.output_clusters", "true"),
-                ]
-            )
-
-        # Unlike regular multiplex, filtering allowed regardless of beamline
-
-        if parameters.apply_cchalf_filtering:
-            job_parameters.append(("filtering.method", "deltacchalf"))
-            if parameters.cchalf_filtering_method:
-                job_parameters.append(
-                    ("deltacchalf.mode", parameters.cchalf_filtering_method)
-                )
-            if parameters.image_group_size:
-                job_parameters.append(
-                    ("deltacchalf.group_size", str(parameters.image_group_size))
-                )
-            if parameters.sd_cutoff:
-                job_parameters.append(
-                    ("deltacchalf.stdcutoff", str(parameters.sd_cutoff))
+        for i in parameters:
+            if i[0] in extra_params and i[1]:
+                if i[0] == "apply_cchalf_filtering":
+                    job_parameters.append((i[0], "deltacchalf"))
+                else:
+                    job_parameters.append((i[0], str(i[1])))
+            elif (
+                i[0] == "diffraction_plan_info"
+                and parameters.diffraction_plan_info
+                and parameters.diffraction_plan_info.anomalousScatterer
+            ):
+                job_parameters.extend(
+                    [("anomalous", "true"), ("absorption_level", "high")]
                 )
 
         # Register and trigger jobs (same as automatic multiplex)

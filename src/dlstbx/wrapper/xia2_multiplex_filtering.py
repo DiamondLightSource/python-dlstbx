@@ -144,6 +144,10 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             }
             translation = {
                 "d_min": "resolution.d_min",
+                "apply_cchalf_filtering": "filtering.method",
+                "cchalf_filtering_method": "deltacchalf.mode",
+                "image_group_size": "deltacchalf.group_size",
+                "sd_cutoff": "deltacchalf.stdcutoff",
             }
             for param, value in params["ispyb_parameters"].items():
                 if param not in ignore:

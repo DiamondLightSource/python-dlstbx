@@ -255,8 +255,6 @@ class MultiplexReprocessingParameters(pydantic.BaseModel):
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
-    use_clustering: Optional[List[str]] = None
-    beamline: str
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):

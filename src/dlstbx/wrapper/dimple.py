@@ -316,11 +316,12 @@ class DimpleWrapper(Wrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(self.results_directory), symlink
             )
-            mtzsymlink = mtz.parent / symlink
-            if "multiplex" in mtzsymlink.name:
-                mtzsymlink = mtzsymlink.parent / mtzsymlink.name
+            if "multiplex" in symlink:
+                # multiplex / multiplex_filtering pipelines have mtz in extra directory but this looks nicer if symlink outside of it
+                mtzsymlink = mtz.parent.parent / symlink
                 deltapath = os.path.relpath(self.results_directory, mtz.parent.parent)
             else:
+                mtzsymlink = mtz.parent / symlink
                 deltapath = os.path.relpath(self.results_directory, mtz.parent)
             if not mtzsymlink.exists():
                 os.symlink(deltapath, mtzsymlink)

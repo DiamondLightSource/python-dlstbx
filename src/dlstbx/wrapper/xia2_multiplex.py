@@ -337,7 +337,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     base_dir_processing = (
                         working_directory
                         / "Processing"
-                        / "coordinate_cluster_{cluster_num}"
+                        / f"coordinate_cluster_{cluster_num}"
                     )
                     dimple_symlink = (
                         f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
@@ -345,13 +345,13 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_results = (
                         results_directory
                         / "Processing"
-                        / "coordinate_cluster_{cluster_num}"
+                        / f"coordinate_cluster_{cluster_num}"
                     )
                     cluster_results.mkdir(parents=True, exist_ok=True)
                     cluster_final = (
                         final_directory
                         / "Processing"
-                        / "coordinate_cluster_{cluster_num}"
+                        / f"coordinate_cluster_{cluster_num}"
                     )
                     cluster_final.mkdir(parents=True, exist_ok=True)
                 else:
@@ -528,7 +528,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         "scaled_mtz": (
                             results_directory
                             / "DataFiles"
-                            / "{cluster_prefix}scaled.mtz"
+                            / f"{cluster_prefix}scaled.mtz"
                         ).as_posix()
                     }
                 )
@@ -537,7 +537,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         "scaled_unmerged_mtz": (
                             results_directory
                             / "DataFiles"
-                            / "{cluster_prefix}scaled_unmerged.mtz"
+                            / f"{cluster_prefix}scaled_unmerged.mtz"
                         ).as_posix()
                     }
                 )

@@ -318,9 +318,7 @@ class DimpleWrapper(Wrapper):
             )
             mtzsymlink = mtz.parent / symlink
             if "multiplex" in mtzsymlink.name:
-                parts = list(mtzsymlink.parts)
-                parts.remove("DataFiles")
-                mtzsymlink = pathlib.Path(*parts)
+                mtzsymlink = mtzsymlink.parent / mtzsymlink.name
                 deltapath = os.path.relpath(self.results_directory, mtz.parent.parent)
             else:
                 deltapath = os.path.relpath(self.results_directory, mtz.parent)

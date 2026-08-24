@@ -201,14 +201,22 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
 
         self.log.info(f"working_directory: {working_directory}")
 
-        filtered_unmerged_mtz = working_directory / "filtered_unmerged.mtz"
-        multiplex_filtering_json = working_directory / "xia2.multiplex_filtering.json"
+        filtered_unmerged_mtz = (
+            working_directory / "DataFiles" / "filtered_unmerged.mtz"
+        )
+        multiplex_filtering_json = (
+            working_directory / "Processing" / "xia2.multiplex_filtering.json"
+        )
 
         if not (filtered_unmerged_mtz.is_file() and multiplex_filtering_json.is_file()):
             success = False
 
         # Create results directory
         results_directory.mkdir(parents=True, exist_ok=True)
+        subdirs = ("DataFiles", "LogFiles", "Processing")
+        for subdir in subdirs:
+            new_dir = results_directory / subdir
+            new_dir.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory, params["create_symlink"]
@@ -226,6 +234,10 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                     fnmatch(str(final_file.name), patt)
                     for patt in pipeline_final_params["patterns"]
                 )
+
+        for subdir in subdirs:
+            new_dir = final_directory / subdir
+            new_dir.mkdir(parents=True, exist_ok=True)
 
         keep_ext = {
             ".png": None,
@@ -264,7 +276,9 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             dataset = d["datasets"]["Filtered"]
             dimple_symlink = "dimple-xia2.multiplex_filtering"
 
-            filtered_unmerged_mtz = working_directory / "filtered_unmerged.mtz"
+            filtered_unmerged_mtz = (
+                working_directory / "DataFiles" / "filtered_unmerged.mtz"
+            )
             i_obs = iotbx.merging_statistics.select_data(
                 filtered_unmerged_mtz.as_posix(), data_labels=None
             )
@@ -308,7 +322,17 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             xtriage_results = dataset.get("xtriage")
             attachments = []
 
-            for filename in set(primary_log_files + list(working_directory.iterdir())):
+            base_dir_processing = working_directory / "Processing"
+            base_dir_logs = working_directory / "LogFiles"
+            base_dir_results = working_directory / "DataFiles"
+
+            for filename in set(
+                primary_log_files
+                + list(working_directory.iterdir())
+                + list(base_dir_processing.iterdir())
+                + list(base_dir_logs.iterdir())
+                + list(base_dir_results.iterdir())
+            ):
                 filetype = None
                 if not filename.is_file():
                     continue
@@ -319,19 +343,29 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 if filetype is None:
                     continue
 
-                destination = results_directory / filename.name
-                if (
-                    destination.as_posix() in allfiles
-                    and filename not in primary_log_files
-                ):
+                parent_dir = None
+
+                for i in subdirs:
+                    if i in filename.parts:
+                        parent_dir = i
+
+                if not parent_dir:
                     destination = results_directory / filename.name
+                else:
+                    destination = results_directory / parent_dir / filename.name
 
                 if destination.as_posix() not in allfiles:
                     self.log.debug(f"Copying {filename} to {destination}")
                     shutil.copy(filename, destination)
                     allfiles.append(destination.as_posix())
                 if pipeline_final_params and is_final_result(destination):
-                    destination = final_directory / destination.name
+                    if any(i in destination.parts for i in subdirs):
+                        destination = (
+                            final_directory / destination.parent.name / destination.name
+                        )
+                    else:
+                        destination = final_directory / destination.name
+
                     if destination not in allfiles:
                         self.log.debug(f"Copying {filename} to {destination}")
                         shutil.copy(filename, destination)
@@ -362,12 +396,16 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             # As using the same downstream triggers, update "scaled_mtz" rather than calling it by "filtered.mtz"
 
             self.recwrap.environment.update(
-                {"scaled_mtz": (results_directory / "filtered.mtz").as_posix()}
+                {
+                    "scaled_mtz": (
+                        results_directory / "DataFiles" / "filtered.mtz"
+                    ).as_posix()
+                }
             )
             self.recwrap.environment.update(
                 {
                     "scaled_unmerged_mtz": (
-                        results_directory / "filtered_unmerged.mtz"
+                        results_directory / "DataFiles" / "filtered_unmerged.mtz"
                     ).as_posix()
                 }
             )

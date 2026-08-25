@@ -129,6 +129,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
         # xia2.multiplex_filtering uses previous multiplex job files
         #   so no specific data files to be input, just add ispyb_parameters to cmdline
         #   ignore sample id params and also clustering params from parent multiplex
+        #   ignore spacegroup from parent multiplex as well -> filtering pipeline does not accept
 
         if params.get("ispyb_parameters"):
             ignore = {
@@ -137,9 +138,16 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 "data",
                 "clustering.method",
                 "clustering.output_clusters",
+                "spacegroup",
+                "anomalous",
+                "absorption_level",
             }
             translation = {
                 "d_min": "resolution.d_min",
+                "apply_cchalf_filtering": "filtering.method",
+                "cchalf_filtering_method": "deltacchalf.mode",
+                "image_group_size": "deltacchalf.group_size",
+                "sd_cutoff": "deltacchalf.stdcutoff",
             }
             for param, value in params["ispyb_parameters"].items():
                 if param not in ignore:

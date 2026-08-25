@@ -2390,16 +2390,19 @@ class DLSTrigger(CommonService):
             "sd_cutoff",
         )
 
-        for i in parameters:
-            if i[0] in extra_params and i[1]:
-                if i[0] == "apply_cchalf_filtering":
-                    job_parameters.append((i[0], "deltacchalf"))
-                else:
-                    job_parameters.append((i[0], str(i[1])))
+        for param_name, param_value in parameters:
+            if param_name in extra_params and param_value is not None:
+                value = (
+                    "deltacchalf"
+                    if param_name == "apply_cchalf_filtering"
+                    else str(param_value)
+                )
+                job_parameters.append((param_name, value))
+
             elif (
-                i[0] == "diffraction_plan_info"
-                and parameters.diffraction_plan_info
-                and parameters.diffraction_plan_info.anomalousScatterer
+                param_name == "diffraction_plan_info"
+                and param_value
+                and param_value.anomalousScatterer
             ):
                 job_parameters.extend(
                     [("anomalous", "true"), ("absorption_level", "high")]

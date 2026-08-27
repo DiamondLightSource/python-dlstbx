@@ -293,8 +293,8 @@ class Xia2MultiplexWrapper(Wrapper):
             ".mtz": None,
             ".html": "log",
             ".sca": None,
-            ".bib": None,
-            ".phil": None,
+            ".bib": "log",
+            ".phil": "log",
         }
         keep = {
             "scaled.mtz": "result",

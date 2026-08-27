@@ -293,8 +293,8 @@ class Xia2MultiplexWrapper(Wrapper):
             ".mtz": None,
             ".html": "log",
             ".sca": None,
-            ".bib": "misc",  # want these copied, don't need in synchweb
-            ".phil": "misc",
+            ".bib": None,
+            ".phil": None,
         }
         keep = {
             "scaled.mtz": "result",
@@ -554,7 +554,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 filtering = False
 
                 if params.get("ispyb_parameters"):
-                    if ("filtering.method", ["deltacchalf"]) in params[
+                    if ("apply_cchalf_filtering", ["deltacchalf"]) in params[
                         "ispyb_parameters"
                     ].items():
                         self.log.info(

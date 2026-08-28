@@ -189,6 +189,13 @@ def handle_characterization(
             source="automatic",
             displayname="align_crystal",
         ),
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-estimate-transmission",
+            source="automatic",
+            displayname="estimate_transmission",
+        ),
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),

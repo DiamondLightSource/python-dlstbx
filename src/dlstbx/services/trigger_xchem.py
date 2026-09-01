@@ -63,6 +63,7 @@ class ModelBuildingParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: list[int]
+    program_id: Optional[int] = None
     timeout: float = pydantic.Field(default=180, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
@@ -219,6 +220,19 @@ class DLSTriggerXChem(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"{procname}_id trigger: Processing job {jobid} triggered")
+
+    def _wait_or_give_up(self, rw, status, delay, transaction, max_try, appids) -> bool:
+        """Checkpoint for another round, or give up once the retries are spent.
+
+        Returns True if the caller should stop and wait for redelivery, False to
+        carry on with whichever related results have landed so far.
+        """
+        if status["ntry"] >= max_try:
+            self.log.info(f"Max-try exceeded, giving up waiting for appids {appids}")
+            return False
+        self.log.info(f"Waiting on {len(appids)} jobs, appids {appids}")
+        rw.checkpoint({"trigger-status": status}, delay=delay, transaction=transaction)
+        return True
 
     def _resolve_analysis_dir(self, xchem_visit_dir) -> pathlib.Path:
         """Resolve the ``auto/analysis`` results root for a visit.
@@ -400,9 +414,24 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # If another dimple/PanDDA2 job is running then quit,
-        # dimple set to trigger PanDDA2 even if it fails
-        min_start_time = datetime.now() - timedelta(hours=6)
+        # Calculate message delay for exponential backoff, used when waiting for
+        # either a related dimple job or an upstream processing program to
+        # finish, in which case we checkpoint with the calculated message delay
+        status = {
+            "ntry": 0,
+        }
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        message_delay = int(
+            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
+        )
+        status["ntry"] += 1
+        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
+
+        # Wait for any related dimple job that is still running,
+        # judge stale jobs on their processingStartTime
+        earliest_record = datetime.now() - timedelta(hours=24)
+        alive_since = datetime.now() - timedelta(hours=1)
 
         query = (
             (
@@ -412,21 +441,55 @@ class DLSTriggerXChem(CommonService):
                 )
             )
             .filter(ProcessingJob.dataCollectionId == dcid)
-            .filter(AutoProcProgram.processingPrograms.in_(["dimple", "PanDDA2"]))
-            .filter(AutoProcProgram.recordTimeStamp > min_start_time)
-            .filter(
-                or_(
-                    AutoProcProgram.processingStatus == None,  # noqa E711
-                    AutoProcProgram.processingStartTime == None,  # noqa E711
-                )
-            )
+            .filter(AutoProcProgram.processingPrograms == "dimple")
+            .filter(AutoProcProgram.recordTimeStamp > earliest_record)
         )
 
-        if triggered_processing_job := query.first():
+        related_dimple_jobs = query.all()
+        running_dimple_jobs = [
+            row
+            for row in related_dimple_jobs
+            if row.AutoProcProgram.processingStatus is None
+            and (
+                row.AutoProcProgram.processingStartTime is None
+                or row.AutoProcProgram.processingStartTime > alive_since
+            )
+        ]  # the running (or queued) dimple jobs
+
+        latest_dimple_success = max(
+            (
+                row.AutoProcProgram.autoProcProgramId
+                for row in related_dimple_jobs
+                if row.AutoProcProgram.processingStatus == 1
+            ),
+            default=None,
+        )
+
+        # The latest successful dimple job owns the wait
+        if (
+            parameters.program_id is not None
+            and latest_dimple_success is not None
+            and parameters.program_id < latest_dimple_success
+        ):
             self.log.info(
-                f"Exiting PanDDA2/Pipedream trigger: another {triggered_processing_job.AutoProcProgram.processingPrograms} job has started for dcid {triggered_processing_job.dataCollectionId}"
+                f"Exiting PanDDA2/Pipedream trigger: program id {parameters.program_id} "
+                f"is not the latest successful dimple job for {dcid=}"
             )
             return {"success": True}
+
+        if running_dimple_jobs:
+            running_appids = [
+                row.AutoProcProgram.autoProcProgramId for row in running_dimple_jobs
+            ]
+            if self._wait_or_give_up(
+                rw,
+                status,
+                message_delay,
+                transaction,
+                parameters.backoff_max_try,
+                running_appids,
+            ):
+                return {"success": True}
 
         # Now check if other upstream pipeline is running and if so, checkpoint (it might fail)
         min_start_time = datetime.now() - timedelta(hours=6)
@@ -448,46 +511,20 @@ class DLSTriggerXChem(CommonService):
             )
         )
 
-        # Calculate message delay for exponential backoff in case an upstream
-        # processing program  is still running, in which case we checkpoint
-        # with the calculated message delay
-        status = {
-            "ntry": 0,
-        }
-        if isinstance(message, dict):
-            status.update(message.get("trigger-status", {}))
-        message_delay = int(
-            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
-        )
-        status["ntry"] += 1
-        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
-
         # If there are any running (or yet to start) jobs, then checkpoint with delay
         waiting_processing_jobs = query.all()
-        if n_waiting_processing_jobs := len(waiting_processing_jobs):
-            self.log.info(
-                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
-            )
+        if waiting_processing_jobs:
             waiting_appids = [
                 row.AutoProcProgram.autoProcProgramId for row in waiting_processing_jobs
             ]
-            if status["ntry"] >= parameters.backoff_max_try:
-                # Give up waiting for this program to finish and trigger
-                # pandda with remaining related results are available
-                self.log.info(
-                    f"Max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
-                )
-            else:
-                # Send results to myself for next round of processing
-                self.log.debug(f"Waiting for appids={waiting_appids}")
-                rw.checkpoint(
-                    {
-                        "trigger-status": status,
-                    },
-                    delay=message_delay,
-                    transaction=transaction,
-                )
-
+            if self._wait_or_give_up(
+                rw,
+                status,
+                message_delay,
+                transaction,
+                parameters.backoff_max_try,
+                waiting_appids,
+            ):
                 return {"success": True}
 
         # Select the 'best' dataset to take forward based on some criteria,
@@ -1041,30 +1078,18 @@ class DLSTriggerXChem(CommonService):
 
         # If there are any running (or yet to start) jobs, then checkpoint with delay
         waiting_processing_jobs = query.all()
-        if n_waiting_processing_jobs := len(waiting_processing_jobs):
-            self.log.info(
-                f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=} for XChemCollate"
-            )
+        if waiting_processing_jobs:
             waiting_appids = [
                 row.AutoProcProgram.autoProcProgramId for row in waiting_processing_jobs
             ]
-            if status["ntry"] >= parameters.backoff_max_try:
-                # Give up waiting for this program to finish and trigger
-                # collate with remaining results that are available
-                self.log.info(
-                    f"Max-try exceeded, giving up waiting for related processings for appids {waiting_appids}\n"
-                )
-            else:
-                # Send results to myself for next round of processing
-                self.log.debug(f"Waiting for appids={waiting_appids}")
-                rw.checkpoint(
-                    {
-                        "trigger-status": status,
-                    },
-                    delay=message_delay,
-                    transaction=transaction,
-                )
-
+            if self._wait_or_give_up(
+                rw,
+                status,
+                message_delay,
+                transaction,
+                parameters.backoff_max_try,
+                waiting_appids,
+            ):
                 return {"success": True}
 
         self.log.debug(

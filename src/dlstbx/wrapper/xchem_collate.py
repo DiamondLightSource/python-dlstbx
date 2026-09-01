@@ -75,12 +75,14 @@ class XChemCollateWrapper(Wrapper):
             self.log.error(f"Could not prepare auto db for {processing_dir}: {e}")
             db_copy, updatable = None, None
 
-        if updatable is not None:
-            try:
-                symlink_score_buckets(panddas_dir, pandda_dir, updatable, self.log)
-            except Exception as e:
-                self.log.error(f"Exception bucketing scores for {panddas_dir}: {e}")
+        # Score bucketing reads only the PanDDA events csv, so it runs whether or
+        # not the soakDB copy could be prepared.
+        try:
+            symlink_score_buckets(panddas_dir, pandda_dir, self.log)
+        except Exception as e:
+            self.log.error(f"Exception bucketing scores for {panddas_dir}: {e}")
 
+        if updatable is not None:
             try:
                 update_xchem_database(
                     model_dir, pipedream_dir, panddas_dir, db_copy, updatable, self.log

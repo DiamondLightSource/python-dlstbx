@@ -3,7 +3,11 @@
 #SBATCH --partition=cs04r
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=12288
-#SBATCH --time=1:00:00
+# Must exceed the sum of the per-step --timeout-minutes (default 360, applied
+# separately to PanDDA2 postrun and to the Pipedream collate) so that the
+# python-side timeout fires first and leaves a diagnosable log, rather than
+# SLURM killing the job mid-step with no error recorded.
+#SBATCH --time=13:00:00
 #SBATCH --output=xchem_collate_%j.out
 #
 # Run the XChem collate pipeline for a single labxchem visit (not an array job):

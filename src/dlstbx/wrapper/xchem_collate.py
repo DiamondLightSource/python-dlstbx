@@ -22,8 +22,7 @@ class XChemCollateWrapper(Wrapper):
 
     def run(self):
         """Performs collation of PanDDA2 & Pipedream results for a labxchem visit.
-        Runs automated model selection and re-integrates results back into soakDB,
-        and XChem evironment."""
+        Runs automated model selection and re-integrates results back into XChem evironment."""
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         self.log.info(
@@ -188,4 +187,5 @@ class XChemCollateWrapper(Wrapper):
             self.log.error(f"Could not clean up setvar logs in {pipedream_dir}: {e}")
 
         self.log.info("Auto XChemCollate finished successfully")
+        self.recwrap.send_to("email", True)
         return True

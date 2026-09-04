@@ -267,8 +267,8 @@ class DLSResonetResolution(CommonService):
                     result = {
                         "file": f,
                         "frame": frame_idx,
-                        "resolution": round(float(d), 4),
-                        "n_spots_total": round(q_val),
+                        "estimated_d_min": round(float(d), 4),
+                        "dozor_score": round(q_val),
                     }
                     self.log.debug(
                         "%s [%d]  resolution=%.3f Å  (%d/%d)",

@@ -263,12 +263,12 @@ class DLSResonetResolution(CommonService):
                 if self._kind == "reso":
                     with self._cuda_profiler.record():
                         d = self._predictor.detect_resolution()
-                        q_val = 1000.0 / float(d) ** 2 if d > 0 else 0
+                        # q_val = 1000.0 / float(d) ** 2 if d > 0 else 0
                     result = {
                         "file": f,
                         "frame": frame_idx,
                         "estimated_d_min": round(float(d), 4),
-                        "dozor_score": round(q_val),
+                        # "dozor_score": round(q_val),
                     }
                     self.log.debug(
                         "%s [%d]  resolution=%.3f Å  (%d/%d)",
@@ -287,7 +287,8 @@ class DLSResonetResolution(CommonService):
                     result = {
                         "file": f,
                         "frame": frame_idx,
-                        "multilattice_probability": round(float(pval), 6),
+                        # "multilattice_probability": round(float(pval), 4),
+                        "dozor_score": round(float(pval), 4),
                     }
                     self.log.debug(
                         "%s [%d]  multilattice_probability=%.4f  (%d/%d)",

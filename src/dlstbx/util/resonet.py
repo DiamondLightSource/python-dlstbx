@@ -20,8 +20,8 @@ def plot_detector_image(raw_image, output_path, title=None):
     Non-positive pixel values (masked/dead pixels) are excluded from the
     colour scale so they do not compress the dynamic range.
     """
-    data = raw_image.astype(float)
-    data[data <= 0] = np.nan
+    data = raw_image.astype(np.int16)
+    data[data <= 0] = -1
     vmin = np.nanmin(data[data > 0]) if np.any(data > 0) else 1.0
 
     fig, ax = plt.subplots(figsize=(8, 8))

@@ -9,7 +9,6 @@ from typing import Optional
 import dxtbx
 import dxtbx.nexus
 import h5py
-import hdf5plugin  # noqa: F401 - registers HDF5 filters
 import numpy as np
 import nxmx
 import pydantic
@@ -18,6 +17,7 @@ from resonet.utils.predict_dxtbx import ImagePredictDxtbx
 from tqdm import tqdm
 from workflows.services.common_service import CommonService
 
+from dlstbx.swmr import h5check
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.cuda_profiler import CudaProfiler
 from dlstbx.util.xray_centering import Orientation
@@ -108,6 +108,27 @@ class DLSResonetResolution(CommonService):
                     raw = raw[0]
                 yield raw, frame_idx
             return
+        if target_frame is not None:
+            try:
+                with h5py.File(image_file, mode="r", swmr=True) as f:
+                    d = f["/entry/data/data"]
+                    dataset_files, file_map = h5check.get_real_frames(f, d)
+            except Exception:
+                self.log.exception(f"Error reading {image_file}")
+                return
+            m, frame = file_map[target_frame]
+            h5_data_file, dsetname = dataset_files[m]
+            try:
+                with h5py.File(h5_data_file, mode="r", swmr=True) as h5_file:
+                    self.log.debug(f"Opening file {h5_data_file}")
+                    dataset = h5_file[dsetname]
+                    dataset.id.refresh()
+                    raw_image = dataset[frame, ...]  # Slice your frame
+                    yield raw_image, target_frame
+                return
+            except Exception:
+                self.log.exception(f"Error reading {h5_data_file}")
+                return
         with h5py.File(image_file, swmr=True) as f:
             nxmx_obj = nxmx.NXmx(f)
             nxsample = nxmx_obj.entries[0].samples[0]
@@ -132,16 +153,9 @@ class DLSResonetResolution(CommonService):
             if scan_axis is None:
                 scan_axis = nxsample.depends_on
             num_images = len(scan_axis)
-            if target_frame is not None:
-                if 0 <= target_frame < num_images:
-                    (raw_image,) = dxtbx.nexus.get_raw_data(
-                        nxdata, nxdetector, target_frame
-                    )
-                    yield raw_image, target_frame
-                return
             for frame_idx, j in enumerate(tqdm(range(num_images), unit=" images")):
                 (raw_image,) = dxtbx.nexus.get_raw_data(nxdata, nxdetector, j)
-                yield raw_image, frame_idx
+                yield raw_image.as_numpy_array(), frame_idx
 
     def eat_images(self, glob_s, max_proc=None, seen_images=None):
         """Process images matching glob_s.
@@ -236,7 +250,6 @@ class DLSResonetResolution(CommonService):
                     break
 
                 t = time.time()
-                raw_image = raw_image.as_numpy_array()
                 if raw_image.dtype != np.int16:
                     raw_image = raw_image.astype(np.int16)
                 t_reads.append(time.time() - t)
@@ -251,11 +264,13 @@ class DLSResonetResolution(CommonService):
                 if self._kind == "reso":
                     with self._cuda_profiler.record():
                         d = self._predictor.detect_resolution()
+                        q_val = 1000.0 / float(d) ** 2 if d > 0 else 0
                     results.append(
                         {
                             "file": f,
                             "frame": frame_idx,
                             "resolution": round(float(d), 4),
+                            "n_spots_total": round(q_val),
                         }
                     )
                     self.log.debug(

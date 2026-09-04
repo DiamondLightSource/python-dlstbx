@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import time
+import warnings
 from typing import NamedTuple, Optional
 
 
@@ -19,7 +20,8 @@ class CudaProfiler:
     not GPU completion time. This class uses torch.cuda.Event timestamps on
     the GPU timeline, then synchronizes before reading elapsed time.
 
-    Falls back to time.perf_counter() transparently when CUDA is unavailable.
+    Falls back to time.perf_counter() transparently when CUDA is unavailable,
+    and emits a warning explaining the reason.
 
     Example::
 
@@ -33,24 +35,47 @@ class CudaProfiler:
     def __init__(self, device: str = "cuda:0", track_memory: bool = True):
         self._device = device
         self._track_memory = track_memory
-        self._use_cuda = device.startswith("cuda")
         self._dev_idx: int = 0
-        if self._use_cuda and ":" in device:
-            self._dev_idx = int(device.split(":")[-1])
         self.results: list[ProfileResult] = []
+
+        if not device.startswith("cuda"):
+            warnings.warn(
+                f"CudaProfiler: device={device!r} is not a CUDA device; "
+                "falling back to wall-clock timing.",
+                stacklevel=2,
+            )
+            self._cuda_ok = False
+            return
+
+        if ":" in device:
+            self._dev_idx = int(device.split(":")[-1])
+
+        try:
+            import torch
+
+            if not torch.cuda.is_available():
+                warnings.warn(
+                    "CudaProfiler: CUDA is not available on this system "
+                    "(torch.cuda.is_available() returned False); "
+                    "falling back to wall-clock timing.",
+                    stacklevel=2,
+                )
+                self._cuda_ok = False
+            else:
+                self._cuda_ok = True
+        except ImportError:
+            warnings.warn(
+                "CudaProfiler: torch is not installed; "
+                "falling back to wall-clock timing.",
+                stacklevel=2,
+            )
+            self._cuda_ok = False
 
     @contextlib.contextmanager
     def record(self):
         """Wrap a block and record its execution time (and optional GPU memory)."""
-        try:
-            import torch
-
-            cuda_ok = self._use_cuda and torch.cuda.is_available()
-        except ImportError:
-            cuda_ok = False
-
-        if cuda_ok:
-            import torch
+        if self._cuda_ok:
+            import torch  # already confirmed available in __init__
 
             mem_before = (
                 torch.cuda.memory_allocated(self._dev_idx)

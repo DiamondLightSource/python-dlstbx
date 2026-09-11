@@ -74,6 +74,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "fast_ep = dlstbx.wrapper.fast_ep:FastEPWrapper",
     "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
     "ffs_index_integrate = dlstbx.wrapper.ffs:IndexIntegrateWrapper",
+    "ffs_merge = dlstbx.wrapper.ffs:MergeWrapper",
     "ffs_spotfind_index_integrate = dlstbx.wrapper.ffs:SpotfindIndexIntegrateWrapper",
     "ligand_fit = dlstbx.wrapper.ligand_fit:LigandFitWrapper",
     "metal_id = dlstbx.wrapper.metal_id:MetalIdWrapper",

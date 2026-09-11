@@ -54,6 +54,43 @@ MERGE_JSON = "dials.merge.json"
 
 UNMERGED_MTZ = "scaled_unmerged.mtz"
 
+# Unit cell axis and angle names, in the order dxtbx reports them.
+CELL_AXES = ("a", "b", "c", "alpha", "beta", "gamma")
+
+
+def autoproc_parameters(model: dict) -> dict:
+    """
+    Map an experiment model onto the fields write_autoproc expects.
+
+    An empty model yields an empty dict, so an unreadable experiment
+    sends no AutoProc fields at all.
+    """
+    if not model:
+        return {}
+    params = {f"refinedcell_{name}": v for name, v in zip(CELL_AXES, model["cell"])}
+    params["spacegroup"] = model["spacegroup"]
+    return params
+
+
+def integration_parameters(model: dict) -> dict:
+    """
+    Map an experiment model onto the fields upsert_integration expects.
+
+    Fields absent from the model are left out rather than sent as
+    None, so a partial read does not blank columns already holding a
+    value.
+    """
+    if not model:
+        return {}
+    params = {f"cell_{name}": v for name, v in zip(CELL_AXES, model["cell"])}
+    if "image_range" in model:
+        params["start_image_no"], params["end_image_no"] = model["image_range"]
+    if "detector_distance" in model:
+        params["refined_detector_dist"] = model["detector_distance"]
+    if "beam_centre" in model:
+        params["refined_xbeam"], params["refined_ybeam"] = model["beam_centre"]
+    return params
+
 
 class PipelineWrapper(dlstbx.wrapper.Wrapper):
     """
@@ -370,13 +407,18 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         shell["anom"] = get("anom_completeness") is not None
         return shell
 
-    def crystal_parameters(self, working_directory: Path) -> dict:
+    def experiment_parameters(self, working_directory: Path) -> dict:
         """
-        Read the space group and cell that scaling settled on.
+        Read the model that scaling settled on.
 
         A missing or unreadable file leaves the fields absent rather
         than failing the job, since the scaling statistics are still
-        worth recording without them.
+        worth recording without them. Geometry is absent for a
+        stills experiment, which carries no scan.
+
+        Returns:
+            dict: Space group, cell, image range, detector distance and
+                beam centre, or an empty dict when unreadable
         """
         from dxtbx.model.experiment_list import ExperimentListFactory
 
@@ -385,31 +427,40 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             experiments = ExperimentListFactory.from_json_file(
                 str(path), check_format=False
             )
-            crystal = experiments[0].crystal
+            experiment = experiments[0]
         except (OSError, IndexError, ValueError, RuntimeError):
-            self.log.warning("Could not read a crystal model from %s", path)
+            self.log.warning("Could not read an experiment model from %s", path)
             return {}
 
-        a, b, c, alpha, beta, gamma = crystal.get_unit_cell().parameters()
-        return {
+        crystal = experiment.crystal
+        model = {
             "spacegroup": str(crystal.get_space_group().info()),
-            "refinedcell_a": a,
-            "refinedcell_b": b,
-            "refinedcell_c": c,
-            "refinedcell_alpha": alpha,
-            "refinedcell_beta": beta,
-            "refinedcell_gamma": gamma,
+            "cell": crystal.get_unit_cell().parameters(),
         }
+        if experiment.scan:
+            model["image_range"] = experiment.scan.get_image_range()
+        if experiment.detector and experiment.beam:
+            panel = experiment.detector[0]
+            model["detector_distance"] = panel.get_distance()
+            model["beam_centre"] = panel.get_beam_centre(experiment.beam.get_s0())
+        return model
 
     def send_results_to_ispyb(self, stats: dict, working_directory: Path) -> None:
-        """Register the AutoProc record and hang the scaling off it."""
+        """
+        Register the AutoProc record and attach the scaling to it.
+
+        The commands travel as one list and in this order, because each
+        refers to an identifier the one before it stored.
+        """
+        model = self.experiment_parameters(working_directory)
+
         register_autoproc = {
             "ispyb_command": "write_autoproc",
             "autoproc_id": None,
             "store_result": "ispyb_autoproc_id",
             "program_id": "$ispyb_autoprocprogram_id",
         }
-        register_autoproc.update(self.crystal_parameters(working_directory))
+        register_autoproc.update(autoproc_parameters(model))
 
         insert_scaling = {
             "ispyb_command": "insert_scaling",
@@ -420,8 +471,25 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             "outerShell": self.shell(stats, -1),
         }
 
+        # The recipe opens an integration record before processing
+        # starts, leaving it empty and unattached until scaling exists.
+        link_integration = {
+            "ispyb_command": "upsert_integration",
+            "integration_id": "$ispyb_integration_id",
+            "program_id": "$ispyb_autoprocprogram_id",
+            "scaling_id": "$ispyb_autoprocscaling_id",
+        }
+        link_integration.update(integration_parameters(model))
+
         self.recwrap.send_to(
-            "ispyb", {"ispyb_command_list": [register_autoproc, insert_scaling]}
+            "ispyb",
+            {
+                "ispyb_command_list": [
+                    register_autoproc,
+                    insert_scaling,
+                    link_integration,
+                ]
+            },
         )
         self.log.info("Sent scaling statistics to ISPyB")
 

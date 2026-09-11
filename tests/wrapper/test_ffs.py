@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from dlstbx.wrapper.ffs import IndexIntegrateWrapper, SpotfindIndexIntegrateWrapper
+from dlstbx.wrapper.ffs import (
+    IndexIntegrateWrapper,
+    SpotfindIndexIntegrateWrapper,
+    autoproc_parameters,
+    integration_parameters,
+)
 
 
 def summary(working_directory: Path, name: str, success: bool = True, **paths) -> Path:
@@ -173,3 +178,72 @@ def test_the_two_wrappers_drive_different_programs():
     assert IndexIntegrateWrapper.summary_filename != (
         SpotfindIndexIntegrateWrapper.summary_filename
     ), "both pipelines can share a working directory, so summaries must not collide"
+
+
+# A scaled.expt read of a rotation sweep, as experiment_parameters returns it.
+FULL_MODEL = {
+    "spacegroup": "P 4 2 2",
+    "cell": (123.534, 123.534, 87.240, 90.0, 90.0, 90.0),
+    "image_range": (1, 3600),
+    "detector_distance": 283.705,
+    "beam_centre": (152.154, 165.049),
+}
+
+
+def test_the_cell_is_named_differently_for_each_ispyb_command():
+    autoproc = autoproc_parameters(FULL_MODEL)
+    integration = integration_parameters(FULL_MODEL)
+
+    assert autoproc["refinedcell_a"] == 123.534, (
+        "write_autoproc takes the cell under refinedcell_ names"
+    )
+    assert integration["cell_a"] == 123.534, (
+        "upsert_integration takes the same cell under cell_ names"
+    )
+    assert autoproc["spacegroup"] == "P 4 2 2", (
+        "the space group only belongs on the AutoProc record"
+    )
+    assert "spacegroup" not in integration, (
+        "AutoProcIntegration has no space group column"
+    )
+
+
+def test_the_integration_record_carries_the_refined_geometry():
+    integration = integration_parameters(FULL_MODEL)
+
+    assert integration["start_image_no"] == 1, "scan start reaches ISPyB"
+    assert integration["end_image_no"] == 3600, "scan end reaches ISPyB"
+    assert integration["refined_detector_dist"] == 283.705, (
+        "the detector distance scaling settled on reaches ISPyB"
+    )
+    assert (integration["refined_xbeam"], integration["refined_ybeam"]) == (
+        152.154,
+        165.049,
+    ), "the beam centre reaches ISPyB in the order ISPyB names it"
+
+
+def test_geometry_absent_from_the_model_is_omitted_rather_than_blanked():
+    stills = {"spacegroup": "P 1", "cell": (10.0, 20.0, 30.0, 90.0, 90.0, 90.0)}
+
+    integration = integration_parameters(stills)
+
+    assert integration["cell_c"] == 30.0, "the cell is still reported"
+    for absent in (
+        "start_image_no",
+        "end_image_no",
+        "refined_detector_dist",
+        "refined_xbeam",
+        "refined_ybeam",
+    ):
+        assert absent not in integration, (
+            f"{absent} must be left out rather than sent as None, "
+            "which would blank a column that already holds a value"
+        )
+
+
+@pytest.mark.parametrize("mapper", [autoproc_parameters, integration_parameters])
+def test_an_unreadable_experiment_maps_to_nothing(mapper):
+    assert mapper({}) == {}, (
+        "an unreadable scaled.expt must not fabricate ISPyB fields"
+    )
+

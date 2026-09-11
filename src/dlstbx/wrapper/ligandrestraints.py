@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
 from dlstbx.wrapper import Wrapper
+
+RESTRAINTS_PROGRAMS = ("grade2", "acedrg")
 
 
 class LigandRestraintsWrapper(Wrapper):
@@ -18,6 +21,13 @@ class LigandRestraintsWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
         analysis_dir = Path(params.get("analysis_directory"))
         dtag = params.get("dtag")
+        program = str(params.get("restraints_program") or "grade2").lower()
+
+        if program not in RESTRAINTS_PROGRAMS:
+            self.log.error(
+                f"Unknown restraints program {program!r} for dtag {dtag}, expected one of {RESTRAINTS_PROGRAMS}"
+            )
+            return False
 
         model_dir = analysis_dir / "model_building"
         dataset_dir = model_dir / dtag
@@ -40,7 +50,13 @@ class LigandRestraintsWrapper(Wrapper):
 
         restraints_log = dataset_dir / "restraints.log"
         attachments = [restraints_log]
-        restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
+
+        if program == "acedrg":
+            restraints_command = f"acedrg -i {smiles_file} -r LIG -o {CompoundCode} > {restraints_log} 2>&1"
+        else:
+            restraints_command = f"grade2 --in {smiles_file} --itype smi --out {CompoundCode} -f > {restraints_log}"
+
+        self.log.info(f"Generating restraints with {program} for dtag {dtag}")
 
         try:
             subprocess.run(
@@ -61,14 +77,31 @@ class LigandRestraintsWrapper(Wrapper):
             self.send_attachments_to_ispyb(attachments)
             return False
 
-        (compound_dir / f"{CompoundCode}.restraints.cif").rename(
-            compound_dir / f"{CompoundCode}.cif"
-        )
-        (compound_dir / f"{CompoundCode}.xyz.pdb").rename(
-            compound_dir / f"{CompoundCode}.pdb"
-        )
+        if program == "grade2":
+            # grade2 names its outputs slightly differently
+            for suffix, target in (("restraints.cif", "cif"), ("xyz.pdb", "pdb")):
+                source = compound_dir / f"{CompoundCode}.{suffix}"
+                if source.exists():
+                    source.rename(compound_dir / f"{CompoundCode}.{target}")
+        else:
+            # acedrg leaves its per-conformer tmp directory behind
+            shutil.rmtree(compound_dir / f"{CompoundCode}_TMP", ignore_errors=True)
 
-        self.log.info(f"Restraints generated successfully for dtag {dtag}")
+        missing = [
+            f"{CompoundCode}.{extension}"
+            for extension in ("cif", "pdb")
+            if not (compound_dir / f"{CompoundCode}.{extension}").exists()
+        ]
+        if missing:
+            self.log.error(
+                f"{program} did not produce {', '.join(missing)} for dataset {dtag}"
+            )
+            self.send_attachments_to_ispyb(attachments)
+            return False
+
+        self.log.info(
+            f"Restraints generated successfully with {program} for dtag {dtag}"
+        )
         self.send_attachments_to_ispyb(attachments)
         return True
 

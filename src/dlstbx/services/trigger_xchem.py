@@ -47,6 +47,8 @@ from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
 from dlstbx.util.stage_reprocess import stage_existing_modeldir
 
+INDUSTRIAL_PROPOSAL_CODES = frozenset({"in", "sw"})
+
 
 class PrometheusMetrics(BasePrometheusMetrics):
     def create_metrics(self):
@@ -71,6 +73,7 @@ class ModelBuildingParameters(pydantic.BaseModel):
     pipedream: Optional[bool] = True
     overwrite: Optional[bool] = False
     bulk_array: Optional[bool] = False
+    restraints_program: Optional[str] = None
 
 
 class HitIndentificationParameters(pydantic.BaseModel):
@@ -193,6 +196,18 @@ class DLSTriggerXChem(CommonService):
             return
         rw.transport.transaction_commit(txn)
 
+    def proposal_code_for_dcid(self, dcid, session) -> Optional[str]:
+        """The proposal code ('mx', 'lb', 'in', 'sw', ...) a dcid was collected under."""
+        protein_info = get_protein_for_dcid(dcid, session)
+        if protein_info is None:
+            return None
+        proposal = (
+            session.query(Proposal)
+            .filter(Proposal.proposalId == protein_info.proposalId)
+            .first()
+        )
+        return proposal.proposalCode if proposal else None
+
     def upsert_proc(self, rw, dcid, procname, recipe_parameters):
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = True
@@ -291,8 +306,8 @@ class DLSTriggerXChem(CommonService):
 
         Copies the chosen dimple files into the shared model_building directory,
         writes the ligand .smiles file, and fires a single ligand-restraints job
-        (grade2 default) per dcid. On success that recipe sends control to
-        trigger_hitidentification.
+        per dcid, with acedrg for industry proposals and grade2 otherwise by default.
+        On success the recipe sends control to trigger_hitidentification.
         """
 
         dcid = parameters.dcid
@@ -320,7 +335,14 @@ class DLSTriggerXChem(CommonService):
             "lb36049",
             "lb43133",
             "lb42944",
+            "sw42203",
+            "sw44082",
+            "sw44917",
+            "sw45960",
+            "sw46235",
         ]
+
+        # When collecting data under one proposal and writing to another
         PROPOSAL_ALIASES = {"mx41448": "lb42888"}
 
         query = (session.query(Proposal)).filter(Proposal.proposalId == proposal_id)
@@ -329,6 +351,13 @@ class DLSTriggerXChem(CommonService):
         proposal_number = proposal.proposalNumber
         data_proposal = proposal_code + proposal_number
         proposal_string = PROPOSAL_ALIASES.get(data_proposal, data_proposal)
+
+        industrial = proposal_code in INDUSTRIAL_PROPOSAL_CODES
+        if industrial and pipedream:
+            self.log.info(
+                f"Disabling Pipedream for industrial proposal {data_proposal} (dcid {dcid})"
+            )
+            pipedream = False
 
         # 0. Check that this is an XChem expt & locate .SQLite database
         if proposal_string not in ALLOWED_PROPOSALS:
@@ -772,8 +801,15 @@ class DLSTriggerXChem(CommonService):
             "bulk_array": bulk_array,
         }
 
-        self.log.info(f"Launching ligand-restraints for dtag {dtag} (dcid {dcid})")
-        self.upsert_proc(rw, dcid, "Grade2", recipe_parameters)
+        if industrial:
+            restraints_program = "AceDRG"
+        else:
+            restraints_program = parameters.restraints_program or "Grade2"
+
+        self.log.info(
+            f"Launching ligand-restraints ({restraints_program}) for dtag {dtag} (dcid {dcid})"
+        )
+        self.upsert_proc(rw, dcid, restraints_program, recipe_parameters)
         return {"success": True}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
@@ -790,7 +826,8 @@ class DLSTriggerXChem(CommonService):
         """Launches PanDDA2 / Pipedream hit identification pipelines for XChem.
 
         Records the current dcid and its dtag in model_dir/.batch_dcids.json as a
-        {dcid: dtag} map. Pipedream fires for the current dcid on every call.
+        {dcid: dtag} map. Pipedream fires for the current dcid on every call,
+        except on industrial visits, where it is disabled.
         PanDDA2 is gated by the count of recorded dcids vs. comparator_threshold:
         below threshold → skip; at threshold → fire one per-dcid PanDDA2 job for
         each recorded dcid; above threshold → single PanDDA2 for the current dtag.
@@ -808,6 +845,13 @@ class DLSTriggerXChem(CommonService):
         pandda = parameters.pandda
         overwrite = parameters.overwrite
         bulk_array = parameters.bulk_array
+
+        if (
+            pipedream
+            and self.proposal_code_for_dcid(dcid, session) in INDUSTRIAL_PROPOSAL_CODES
+        ):
+            self.log.info(f"Disabling Pipedream for industrial proposal (dcid {dcid})")
+            pipedream = False
 
         if not pipedream and not pandda:
             self.log.info(

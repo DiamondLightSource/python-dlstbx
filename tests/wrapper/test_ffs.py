@@ -62,7 +62,7 @@ def test_the_recipe_parameters_become_flags(job_parameters):
     wrapper = IndexIntegrateWrapper()
     params = job_parameters("ffs_index_integrate")
 
-    command = wrapper.build_commandline(params)
+    command = wrapper.construct_commandline(params)
 
     assert command[0] == "ffs_index_integrate", "the console script leads the argv"
     assert "--max-cell" in command, "underscores in a field become hyphens in a flag"

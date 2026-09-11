@@ -15,10 +15,44 @@ import dlstbx.wrapper
 # the rank that orders them in SynchWeb. Absent entries are the stages
 # that did not run.
 REPORTED_RESULTS = (
-    ("integrated_reflections", "Result", 1),
-    ("indexed_experiments", "Result", 2),
-    ("strong_reflections", "Result", 2),
+    ("integrated_reflections", "result", 1),
+    ("indexed_experiments", "result", 2),
+    ("strong_reflections", "result", 2),
 )
+
+# Files the merge chain produces, paired with the ISPyB attachment type
+# and the rank that orders them in SynchWeb.
+MERGE_RESULTS = (
+    ("merged.mtz", "result", 1),
+    ("scaled_unmerged.mtz", "result", 2),
+    ("scaled.expt", "result", 2),
+    ("dials.merge.html", "graph", 2),
+    ("dials.scale.html", "graph", 2),
+    ("dials.symmetry.html", "graph", 3),
+    ("dials.symmetry.log", "log", 3),
+    ("dials.scale.log", "log", 3),
+    ("dials.merge.log", "log", 3),
+)
+
+# ISPyB AutoProcScaling column paired with the key holding it in the
+# statistics dials.merge writes.
+SCALING_FIELDS = {
+    "n_tot_obs": "n_obs",
+    "n_tot_unique_obs": "n_uniq",
+    "multiplicity": "multiplicity",
+    "completeness": "completeness",
+    "mean_i_sig_i": "i_over_sigma_mean",
+    "r_merge": "r_merge",
+    "r_meas_all_iplusi_minus": "r_meas",
+    "r_pim_all_iplusi_minus": "r_pim",
+    "cc_half": "cc_one_half",
+    "cc_anom": "cc_anom",
+    "anom_completeness": "anom_completeness",
+}
+
+MERGE_JSON = "dials.merge.json"
+
+UNMERGED_MTZ = "scaled_unmerged.mtz"
 
 
 class PipelineWrapper(dlstbx.wrapper.Wrapper):
@@ -36,7 +70,7 @@ class PipelineWrapper(dlstbx.wrapper.Wrapper):
     program: str
     summary_filename: str
 
-    def build_commandline(self, params: dict) -> list[str]:
+    def construct_commandline(self, params: dict) -> list[str]:
         """
         Assemble the pipeline command line from the recipe.
 
@@ -98,7 +132,7 @@ class PipelineWrapper(dlstbx.wrapper.Wrapper):
         summary; a file its stage failed to write is skipped rather
         than attached as a broken path.
         """
-        produced = [(working_directory / self.summary_filename, "Log", 2)]
+        produced = [(working_directory / self.summary_filename, "log", 2)]
         produced += [
             (Path(summary[field]), file_type, rank)
             for field, file_type, rank in REPORTED_RESULTS
@@ -162,7 +196,7 @@ class PipelineWrapper(dlstbx.wrapper.Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         try:
-            command = self.build_commandline(params)
+            command = self.construct_commandline(params)
         except KeyError as e:
             self.log.error("Recipe is missing job parameter %s", e)
             return False
@@ -220,41 +254,6 @@ class SpotfindIndexIntegrateWrapper(PipelineWrapper):
     summary_filename = "ffs_spotfind_index_integrate.json"
 
 
-# Files the merge chain produces, paired with the ISPyB attachment type
-# and the rank that orders them in SynchWeb.
-MERGE_RESULTS = (
-    ("merged.mtz", "Result", 1),
-    ("scaled_unmerged.mtz", "Result", 2),
-    ("scaled.expt", "Result", 2),
-    ("dials.merge.html", "Graph", 2),
-    ("dials.scale.html", "Graph", 2),
-    ("dials.symmetry.html", "Graph", 3),
-    ("dials.symmetry.log", "Log", 3),
-    ("dials.scale.log", "Log", 3),
-    ("dials.merge.log", "Log", 3),
-)
-
-# ISPyB AutoProcScaling column paired with the key holding it in the
-# statistics dials.merge writes.
-SCALING_FIELDS = {
-    "n_tot_obs": "n_obs",
-    "n_tot_unique_obs": "n_uniq",
-    "multiplicity": "multiplicity",
-    "completeness": "completeness",
-    "mean_i_sig_i": "i_over_sigma_mean",
-    "r_merge": "r_merge",
-    "r_meas_all_iplusi_minus": "r_meas",
-    "r_pim_all_iplusi_minus": "r_pim",
-    "cc_half": "cc_one_half",
-    "cc_anom": "cc_anom",
-    "anom_completeness": "anom_completeness",
-}
-
-MERGE_JSON = "dials.merge.json"
-
-UNMERGED_MTZ = "scaled_unmerged.mtz"
-
-
 def resolution_limits(*d_star_sq: float | None) -> tuple[float | None, float | None]:
     """
     Convert d* squared bounds to low and high resolution limits.
@@ -288,7 +287,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
     _logger_name = "dlstbx.wrap.ffs_merge"
     name = "ffs_merge"
 
-    def build_commands(self, params: dict) -> list[tuple[str, list[str]]]:
+    def construct_commandlines(self, params: dict) -> list[tuple[str, list[str]]]:
         """
         Build the three DIALS stages, in the order they run.
 
@@ -465,7 +464,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             return False
 
         start_time = time.perf_counter()
-        for stage, command in self.build_commands(params):
+        for stage, command in self.construct_commandlines(params):
             self.log.info("command: %s", " ".join(command))
             try:
                 result = subprocess.run(

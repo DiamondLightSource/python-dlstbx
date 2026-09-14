@@ -48,6 +48,8 @@ from dlstbx.util.soakdb import find_xchem_visit_dir
 from dlstbx.util.stage_reprocess import stage_existing_modeldir
 
 INDUSTRIAL_PROPOSAL_CODES = frozenset({"in", "sw"})
+BATCH_DCIDS = ".batch_dcids.json"  # {dcid: dtag} cached while PanDDA2 waits
+PANDDA2_STARTED = ".pandda2_started"
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -283,6 +285,14 @@ class DLSTriggerXChem(CommonService):
                     )
                 auto_dir.mkdir(parents=True, exist_ok=True)
         return auto_dir / "analysis"
+
+    def _has_restraints(self, dataset_dir: pathlib.Path) -> bool:
+        """True when a dataset holds a single ligand .smiles and its .cif."""
+        smiles = list((dataset_dir / "compound").glob("*.smiles"))
+        return (
+            len(smiles) == 1
+            and (dataset_dir / "compound" / f"{smiles[0].stem}.cif").is_file()
+        )
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_modelbuilding(
@@ -825,15 +835,19 @@ class DLSTriggerXChem(CommonService):
     ):
         """Launches PanDDA2 / Pipedream hit identification pipelines for XChem.
 
-        Records the current dcid and its dtag in model_dir/.batch_dcids.json as a
-        {dcid: dtag} map. Pipedream fires for the current dcid on every call,
-        except on industrial visits, where it is disabled.
-        PanDDA2 is gated by the count of recorded dcids vs. comparator_threshold:
-        below threshold → skip; at threshold → fire one per-dcid PanDDA2 job for
-        each recorded dcid; above threshold → single PanDDA2 for the current dtag.
+        Pipedream fires for the current dcid on every call, except on industrial
+        visits, where it is disabled.
 
-        bulk_array=True: iterate model_dir directly, write the dataset list to
-        .bulk_array.json, and fire one array job over dtags in model_building.
+        Records the current dcid and its dtag in model_dir/.batch_dcids.json as a
+        {dcid: dtag} map. PanDDA2 is gated by the count of recorded dcids vs.
+        comparator_threshold: below threshold → skip; at threshold → fire one
+        per-dcid PanDDA2 job for each recorded dcid; above threshold → single
+        PanDDA2 for the current dtag. Once a visit is under way it carries
+        model_dir/.pandda2_started, written by the batch above and by a bulk
+        array, and goes straight to a single PanDDA2 whatever the dcid count.
+
+        bulk_array=True: write the dataset list to .bulk_array.json, fire one
+        array job over it.
 
         use_existing_modeldir=<existing model_building path>: before enumerating,
         copy the complete datasets from that legacy model_building dir
@@ -906,11 +920,11 @@ class DLSTriggerXChem(CommonService):
         }
 
         if bulk_array:
-            # Only run on datasets that have a ligand
+            # Only run on datasets that have a ligand and its restraints
             dataset_list = sorted(
-                p.parts[-1]
+                p.name
                 for p in model_dir.iterdir()
-                if p.is_dir() and list((p / "compound").glob("*.smiles"))
+                if p.is_dir() and self._has_restraints(p)
             )
             dataset_count = len(dataset_list)
             recipe_parameters["n_datasets"] = dataset_count
@@ -921,6 +935,11 @@ class DLSTriggerXChem(CommonService):
                     f"bulk_array=True, launching PanDDA2 array job over {dataset_count} datasets"
                 )
                 self.upsert_proc(rw, dcid, "PanDDA2-array", recipe_parameters)
+                # Run in single dataset mode for any subsequent dtags
+                try:
+                    (model_dir / PANDDA2_STARTED).touch()
+                except OSError as e:
+                    self.log.warning(f"Could not mark {model_dir} as started: {e}")
             if pipedream:
                 self.log.info(
                     f"bulk_array=True, launching Pipedream array job over {dataset_count} datasets"
@@ -937,7 +956,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Record this dcid and its dtag in the hidden gating json for PanDDA2
-        dcids_file = model_dir / ".batch_dcids.json"
+        dcids_file = model_dir / BATCH_DCIDS
         if dcids_file.exists():
             with open(dcids_file, "r") as f:
                 recorded_dcids = json.load(f)
@@ -951,7 +970,13 @@ class DLSTriggerXChem(CommonService):
         dataset_count = len(recorded_dcids)
         self.log.info(f"Recorded waiting dcid count is: {dataset_count}")
 
-        # PanDDA2 launch logic
+        if (model_dir / PANDDA2_STARTED).exists():
+            self.log.info(
+                f"{model_dir / PANDDA2_STARTED} exists, launching single PanDDA2 job for dtag {dtag}"
+            )
+            self.upsert_proc(rw, dcid, "PanDDA2", recipe_parameters)
+            return {"success": True}
+
         if dataset_count < comparator_threshold:
             self.log.info(
                 f"{dataset_count} < comparator dataset threshold of {comparator_threshold}, skipping PanDDA2 for now..."
@@ -971,6 +996,10 @@ class DLSTriggerXChem(CommonService):
                     "n_datasets": 1,
                 }
                 self.upsert_proc(rw, batch_dcid, "PanDDA2", batch_params)
+            try:
+                (model_dir / PANDDA2_STARTED).touch()
+            except OSError as e:
+                self.log.warning(f"Could not mark {model_dir} as started: {e}")
             return {"success": True}
 
         # dataset_count > comparator_threshold

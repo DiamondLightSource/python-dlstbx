@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from dlstbx.util.soakdb_schema import XCE_TABLE_SCHEMA
+
 
 def soakdb_path(visit_dir: Path) -> Path:
     return visit_dir / "processing/database" / "soakDBDataFile.sqlite"
@@ -124,7 +126,28 @@ def prepare_auto_db(db_master: Path, auto_dir: Path) -> Path:
 
     sync_schema_from_master(db_master, db_copy, "mainTable")
     sync_rows_from_master(db_master, db_copy, "mainTable")
+    # A soakDB that XCE has never opened lacks XCE-managed columns
+    create_missing_columns(db_copy)
     return db_copy
+
+
+def create_missing_columns(db_path, schema=XCE_TABLE_SCHEMA):
+    """Ensure every table in `schema` exists and holds all its columns, adding
+    any that are missing. Mirrors XChemExplorer's ``create_missing_columns``.
+
+    `schema` maps table name -> ordered list of column names (all created TEXT,
+    matching XCE); defaults to the vendored mainTable/panddaTable definitions."""
+    conn = sqlite3.connect(db_path, timeout=30)
+    try:
+        for table, columns in schema.items():
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {table} (ID INTEGER)")
+            existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for column in columns:
+                if column not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def sync_schema_from_master(db_master, db_copy, table):
@@ -179,12 +202,9 @@ def updatable_crystals(database_path, overwrite=False) -> set[str]:
     default: rows not yet given a RefinementOutcome.
     overwrite: every crystal row, including manually-curated ones."""
     if overwrite:
-        # where = "CrystalName IS NOT NULL"
-        where = "(LastUpdated_by = 'gda2' OR LastUpdated_by IS NULL)"
+        where = "CrystalName IS NOT NULL"
     else:
-        where = (
-            "RefinementOutcome IS NULL OR RefinementOutcome = '1 - Analysis Pending'"
-        )
+        where = "RefinementOutcome = '1 - Analysis Pending'"
     conn = sqlite3.connect(database_path, timeout=30)
     try:
         rows = conn.execute(

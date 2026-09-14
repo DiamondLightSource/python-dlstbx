@@ -12,6 +12,7 @@ from dlstbx.util.pipedream_xchem_helpers import (
 from dlstbx.util.soakdb import prepare_auto_db, updatable_crystals
 from dlstbx.util.xchem_collate_helpers import (
     symlink_score_buckets,
+    update_dimple_columns,
     update_xchem_database,
 )
 from dlstbx.wrapper import Wrapper
@@ -22,8 +23,7 @@ class XChemCollateWrapper(Wrapper):
 
     def run(self):
         """Performs collation of PanDDA2 & Pipedream results for a labxchem visit.
-        Runs automated model selection and re-integrates results back into soakDB,
-        and XChem evironment."""
+        Runs automated model selection and re-integrates results back into XChem evironment."""
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         self.log.info(
@@ -86,6 +86,13 @@ class XChemCollateWrapper(Wrapper):
             self.log.error(f"Exception bucketing scores for {panddas_dir}: {e}")
 
         if updatable is not None:
+            try:
+                update_dimple_columns(model_dir, db_copy, updatable, self.log)
+            except Exception as e:
+                self.log.error(
+                    f"Exception importing dimple columns for {processing_dir}: {e}"
+                )
+
             try:
                 update_xchem_database(
                     model_dir, pipedream_dir, panddas_dir, db_copy, updatable, self.log
@@ -188,4 +195,5 @@ class XChemCollateWrapper(Wrapper):
             self.log.error(f"Could not clean up setvar logs in {pipedream_dir}: {e}")
 
         self.log.info("Auto XChemCollate finished successfully")
+        self.recwrap.send_to("email", True)
         return True

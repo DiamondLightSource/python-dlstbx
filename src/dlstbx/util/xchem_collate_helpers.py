@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 from datetime import datetime
 from pathlib import Path
 
+import gemmi
 import pandas as pd
 import yaml
 
@@ -91,20 +93,69 @@ def pandda_ligand_confidence(panddas_dir, dtag):
 
 
 def pandda_run_fields(panddas_dir, dtag):
-    """mainTable DimplePANDDA* columns XCE sets for every dataset PanDDA saw,
-    derived from the panddas dir rather than the (human) inspect CSV. Empty dict
-    if PanDDA didn't process this dataset."""
+    """mainTable PanDDA columns XCE sets for every dataset PanDDA saw, derived
+    from the panddas dir. Empty dict if PanDDA didn't process this dataset."""
     processed = panddas_dir / "processed_datasets" / dtag
     if not processed.is_dir():
         return {}
     events_yaml = processed / "events.yaml"
     is_hit = events_yaml.exists() and bool(yaml.safe_load(events_yaml.read_text()))
-    return {
+    fields = {
         "DimplePANDDAwasRun": "True",
         "DimplePANDDApath": str(panddas_dir),
         "DimplePANDDAreject": "False",
         "DimplePANDDAhit": "True" if is_hit else "False",
+        "PANDDAStatus": "Finished",
     }
+    pandda_model = find_pandda_model(panddas_dir, dtag)
+    if pandda_model:
+        fields["DatePanDDAModelCreated"] = datetime.fromtimestamp(
+            pandda_model.stat().st_mtime
+        ).strftime("%Y-%m-%d %H:%M:%S")
+    return fields
+
+
+def dimple_import_fields(dataset_dir, dtag, logger=None):
+    """soakDB Dimple/Refinement columns for one dataset, mirroring XCE's
+    helpers/update_data_source_for_new_dimple_pdb.py. Empty dict if the dataset
+    has no dimple.pdb; Rcryst/Rfree/space group are read from the dimple.pdb
+    header via gemmi."""
+    dimple_pdb = dataset_dir / "dimple.pdb"
+    if not dimple_pdb.is_file():
+        return {}
+
+    dimple_mtz = dataset_dir / "dimple.mtz"
+    fields = {
+        "DimplePathToPDB": str(dimple_pdb),
+        "RefinementOutcome": "1 - Analysis Pending",
+    }
+    if dimple_mtz.is_file():
+        fields["DimplePathToMTZ"] = str(dimple_mtz)
+        fields["DataProcessingDimpleSuccessful"] = "True"
+        fields["DimpleStatus"] = "finished"
+    else:
+        fields["DataProcessingDimpleSuccessful"] = "False"
+        fields["DimpleStatus"] = "failed"
+
+    try:
+        st = gemmi.read_structure(str(dimple_pdb))
+        if st.spacegroup_hm:
+            fields["RefinementSpaceGroup"] = st.spacegroup_hm
+        if st.meta.refinement:
+            ref = st.meta.refinement[0]
+            if ref.r_work is not None and not math.isnan(ref.r_work):
+                fields["DimpleRcryst"] = ref.r_work
+            if ref.r_free is not None and not math.isnan(ref.r_free):
+                fields["DimpleRfree"] = ref.r_free
+    except Exception as e:
+        if logger:
+            logger.warning(f"Could not parse {dimple_pdb} header for {dtag}: {e}")
+
+    free_mtz = dataset_dir / f"{dtag}.free.mtz"
+    if free_mtz.is_file():
+        # XCE stores the bare filename, resolved relative to the dataset dir
+        fields["RefinementMTZfree"] = f"{dtag}.free.mtz"
+    return fields
 
 
 def pipedream_refinement_metrics(
@@ -344,14 +395,11 @@ def update_xchem_database(
         )
         pandda_model = find_pandda_model(panddas_dir, dtag)
 
-        # DimplePANDDA* flags XCE sets for every dataset PanDDA ran on, merged
-        # into whichever model branch is selected below.
+        # DimplePANDDA* flags XCE sets for every dataset PanDDA ran on
         pandda_fields = pandda_run_fields(panddas_dir, dtag)
 
         # Export
         if pipedream_model:
-            logger.info(f"Selected Pipedream model for {dtag}")
-
             # Determine ligand confidence based on overall ligandcc value
             if rscc >= 0.8:
                 RefinementLigandConfidence = "4 - High Confidence"
@@ -392,10 +440,6 @@ def update_xchem_database(
             )
 
         elif pandda_model:
-            logger.info(f"Selected PanDDA2 model for {dtag}")
-            model_created = datetime.fromtimestamp(
-                pandda_model.stat().st_mtime
-            ).strftime("%Y-%m-%d %H:%M:%S")
             db_dicts.append(
                 {
                     "CrystalName": dtag,
@@ -405,7 +449,6 @@ def update_xchem_database(
                     "RefinementLigandConfidence": pandda_ligand_confidence(
                         panddas_dir, dtag
                     ),
-                    "DatePanDDAModelCreated": model_created,
                     "LastUpdated": db_timestamp,
                     "LastUpdated_by": "gda2",
                     **pandda_fields,
@@ -429,3 +472,32 @@ def update_xchem_database(
         logger.debug(f"Bulk updated {db_copy} for {len(db_dicts)} datasets")
     except Exception as e:
         logger.debug(f"Could not bulk update {db_copy}: {e}")
+
+
+def update_dimple_columns(model_dir, db_copy, updatable, logger):
+    """Import DIMPLE results into the soakDB for every dataset with a dimple.pdb,
+    mirroring the per-dataset dimple import XCE runs after DIMPLE. Gated by
+    `updatable` so curated rows are left alone. Covers apo datasets (no compound
+    cif) that model selection skips."""
+    db_dicts = []
+    for dataset_dir in model_dir.iterdir():
+        if not dataset_dir.is_dir():
+            continue
+        dtag = dataset_dir.name
+        if dtag not in updatable:
+            continue
+        fields = dimple_import_fields(dataset_dir, dtag, logger)
+        if not fields:
+            continue
+        fields["CrystalName"] = dtag
+        fields["LastUpdated"] = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-4]
+        fields["LastUpdated_by"] = "gda2"
+        db_dicts.append(fields)
+
+    if not db_dicts:
+        return
+    try:
+        update_data_source_bulk(db_dicts, db_copy)
+        logger.debug(f"Imported dimple columns for {len(db_dicts)} datasets")
+    except Exception as e:
+        logger.debug(f"Could not bulk update dimple columns in {db_copy}: {e}")

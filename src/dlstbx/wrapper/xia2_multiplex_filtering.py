@@ -141,6 +141,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 "spacegroup",
                 "anomalous",
                 "absorption_level",
+                "small_molecule",  # This will be taken from the parent phil
             }
             translation = {
                 "d_min": "resolution.d_min",
@@ -256,9 +257,13 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             ".mtz": None,
             ".html": "log",
             ".sca": None,
+            ".ins": None,
+            ".hkl": None,
         }
         keep = {
             "filtered.mtz": "result",
+            "filtered.ins": "result",
+            "filtered.hkl": "result",
             "filtered_unmerged.mtz": "result",
             "filtered.expt": "result",
             "filtered.refl": "result",
@@ -392,6 +397,8 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                                         "filtered.mtz",
                                         "xia2.multiplex_filtering.html",
                                         "xia2.multiplex_filtering.log",
+                                        "filtered.ins",
+                                        "filtered.hkl",
                                     )
                                 )
                                 else 2

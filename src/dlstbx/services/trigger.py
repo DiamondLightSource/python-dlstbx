@@ -250,6 +250,7 @@ class MultiplexReprocessingParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
     spacegroup: Optional[str] = None
+    small_molecule: Optional[bool] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
@@ -2311,6 +2312,7 @@ class DLSTrigger(CommonService):
         - dcid: the dataCollectionId for the given data collection
         - wavelength: wavelength of data collection
         - spacegroup: space group for processing
+        - small_molecule: whether or not the data should be processed using small molecule space groups / shelx output files
         - wavelength_tolerance: tolerance for selecting datasets with same wavelength
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
@@ -2388,6 +2390,7 @@ class DLSTrigger(CommonService):
             "cchalf_filtering_method",
             "image_group_size",
             "sd_cutoff",
+            "small_molecule",
         )
 
         for param_name, param_value in parameters:

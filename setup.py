@@ -84,6 +84,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "ligandrestraints = dlstbx.wrapper.ligandrestraints:LigandRestraintsWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "scaleit = dlstbx.wrapper.scaleit:ScaleitWrapper",
+    "sensofit = dlstbx.wrapper.sensofit:SensoFitWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",
     "screen19_mx = dlstbx.wrapper.screen19_mx:Screen19MXWrapper",
     "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",

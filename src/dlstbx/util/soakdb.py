@@ -5,9 +5,8 @@ import sqlite3
 from itertools import groupby
 from pathlib import Path
 
-import yaml
-
 from dlstbx.util.soakdb_schema import XCE_TABLE_SCHEMA
+from dlstbx.util.xchem_config import cache_acronym, load_visit_config
 
 
 def soakdb_path(visit_dir: Path) -> Path:
@@ -45,10 +44,10 @@ def find_xchem_visit_dir(
     """Locate the labxchem visit directory under `xchem_dir` whose target
     matches `acronym`.
 
-    Prefers cached `.user.yaml` files (disambiguating by the crystal's
-    puck/position when several visits share a target); falls back to reading
-    the `Protein` field from each visit's soakDB database, caching the result
-    to `.user.yaml` for next time. Returns None if no visit matches."""
+    Prefers the acronym cached in each visit's config file (disambiguating by
+    the crystal's puck/position when several visits share a target); falls back
+    to reading the `Protein` field from each visit's soakDB database, caching
+    the result for next time. Returns None if no visit matches."""
     if not xchem_dir.is_dir():
         log.warning(
             f"XChem visit parent directory {xchem_dir} not accessible "
@@ -56,17 +55,20 @@ def find_xchem_visit_dir(
         )
         return None
 
-    # tier 1: match via cached .user.yaml
+    # tier 1: match via the cached acronym
     candidates = []
+    uncached = []
     for subdir in xchem_dir.iterdir():
-        user_yaml = subdir / ".user.yaml"
-        if not user_yaml.is_file():
+        if not subdir.is_dir():
             continue
-        with open(user_yaml) as f:
-            expt_yaml = yaml.load(f, Loader=yaml.SafeLoader)
-        if expt_yaml["data"]["acronym"] == acronym:
+        cached = load_visit_config(subdir, log).acronym
+        if cached is None:
+            # A config file holding only user settings still needs its acronym
+            # filling in, so key tier 2 on the acronym and not on the file.
+            uncached.append(subdir)
+        elif cached == acronym:
             candidates.append(subdir)
-            log.info(f"Found user yaml for dtag {dtag} at {user_yaml}")
+            log.info(f"Found cached acronym for dtag {dtag} in {subdir}")
 
     if len(candidates) == 1:
         return candidates[0]
@@ -88,11 +90,9 @@ def find_xchem_visit_dir(
             )
 
     # tier 2: no cached match — read Protein from each soakDB, caching as we go
-    log.info(f"No matching user yaml in {xchem_dir}, reading soakDB databases...")
+    log.info(f"No matching cached acronym in {xchem_dir}, reading soakDB databases...")
     match_dir = None
-    for subdir in xchem_dir.iterdir():
-        if (subdir / ".user.yaml").exists():
-            continue
+    for subdir in uncached:
         db_path = soakdb_path(subdir)
         if not db_path.is_file():
             continue
@@ -102,8 +102,7 @@ def find_xchem_visit_dir(
             log.info(f"Problem reading .sqlite database for {subdir}: {e}")
             continue
         if name is not None:
-            with open(subdir / ".user.yaml", "w") as f:
-                yaml.dump({"data": {"acronym": name}}, f)
+            cache_acronym(subdir, name, log)
         if name == acronym:
             match_dir = subdir
     return match_dir

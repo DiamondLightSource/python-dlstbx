@@ -66,7 +66,7 @@ class ModelBuildingParameters(pydantic.BaseModel):
     comparator_threshold: int = pydantic.Field(default=350)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    scaling_id: list[int]
+    scaling_id: Optional[list[int]] = None
     program_id: Optional[int] = None
     timeout: float = pydantic.Field(default=180, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
@@ -80,27 +80,27 @@ class ModelBuildingParameters(pydantic.BaseModel):
 
 class HitIndentificationParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    xchem_visit_directory: str
+    xchem_visit_directory: pydantic.DirectoryPath
     comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    scaling_id: list[int]
+    scaling_id: Optional[list[int]] = None
     timeout: float = pydantic.Field(default=180, alias="timeout-minutes")
     pipedream: Optional[bool] = True
     pandda: Optional[bool] = True
     overwrite: Optional[bool] = False
     bulk_array: Optional[bool] = False
-    use_existing_modeldir: Optional[str] = None
+    use_existing_modeldir: Optional[pydantic.DirectoryPath] = None
 
 
 class CollateParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     program_id: int = pydantic.Field(gt=0)
-    xchem_visit_directory: str
+    xchem_visit_directory: pydantic.DirectoryPath
     database_path: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    scaling_id: list[int]
+    scaling_id: Optional[list[int]] = None
     timeout: float = pydantic.Field(default=60, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=20, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
@@ -180,6 +180,13 @@ class DLSTriggerXChem(CommonService):
                     f"{target.capitalize()} trigger called with invalid parameters: {e}"
                 )
                 result = None
+            except Exception:
+                # Send anything uncaught to DLQ
+                self.log.error(
+                    f"{target.capitalize()} trigger failed for message {message!r}",
+                    exc_info=True,
+                )
+                result = None
 
         if result and result.get("success"):
             rw.send({"result": result.get("return_value")}, transaction=txn)
@@ -222,6 +229,8 @@ class DLSTriggerXChem(CommonService):
         self.log.debug(f"{procname} trigger: generated JobID {jobid}")
 
         for key, value in recipe_parameters.items():
+            if value is None:
+                continue
             jpp = self.ispyb.mx_processing.get_job_parameter_params()
             jpp["job_id"] = jobid
             jpp["parameter_key"] = key
@@ -321,7 +330,7 @@ class DLSTriggerXChem(CommonService):
         """
 
         dcid = parameters.dcid
-        scaling_id = parameters.scaling_id[0]
+        scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
         overwrite = parameters.overwrite
@@ -435,23 +444,26 @@ class DLSTriggerXChem(CommonService):
             "xia2.multiplex",
         ]  # consider dimple output from these jobs to take forward
 
-        query = (
-            session.query(AutoProcProgram.processingPrograms)
-            .join(
-                AutoProc,
-                AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
-            )
-            .join(
-                AutoProcScaling,
-                AutoProc.autoProcId == AutoProcScaling.autoProcId,
-            )
-        ).filter(AutoProcScaling.autoProcScalingId == scaling_id)
+        # Skip the dataset early if the scaling id is from fast_dp.
+        if scaling_id is not None:
+            query = (
+                session.query(AutoProcProgram.processingPrograms)
+                .join(
+                    AutoProc,
+                    AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+                )
+                .join(
+                    AutoProcScaling,
+                    AutoProc.autoProcId == AutoProcScaling.autoProcId,
+                )
+            ).filter(AutoProcScaling.autoProcScalingId == scaling_id)
 
-        if query.first()[0] == "fast_dp":
-            self.log.info(
-                "Exiting PanDDA2/Pipedream trigger: upstream processingProgram is fast_dp"
-            )
-            return {"success": True}
+            upstream_program = query.first()
+            if upstream_program is not None and upstream_program[0] == "fast_dp":
+                self.log.info(
+                    "Exiting PanDDA2/Pipedream trigger: upstream processingProgram is fast_dp"
+                )
+                return {"success": True}
 
         # Calculate message delay for exponential backoff, used when waiting for
         # either a related dimple job or an upstream processing program to
@@ -853,7 +865,7 @@ class DLSTriggerXChem(CommonService):
         copy the complete datasets from that legacy model_building dir
         """
         dcid = parameters.dcid
-        scaling_id = parameters.scaling_id[0]
+        scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
         pandda = parameters.pandda
@@ -1031,7 +1043,8 @@ class DLSTriggerXChem(CommonService):
         - target: set this to "xchem_collate"
         - dcid: the dataCollectionId i.e. "{ispyb_dcid}"
         - program_id: the AutoProcProgramId of the triggering job
-        - scaling_id: list of scaling ids i.e. ["{scaling_id}"]
+        - scaling_id: optional ["{scaling_id}"]; only used to link the job to
+          its parent in ISPyB
         - xchem_visit_directory: the labxchem visit dir
         - database_path: the soakDB master under the visit's processing dir
         - pipedream / overwrite: forwarded to the collate wrapper
@@ -1041,7 +1054,6 @@ class DLSTriggerXChem(CommonService):
         { "target": "xchem_collate",
             "dcid": 123456,
             "program_id": 123456,
-            "scaling_id": [123456],
             "xchem_visit_directory": '/dls/labxchem/data/lb42888/lb42888-1',
             "database_path": '/dls/labxchem/data/lb42888/lb42888-1/processing/database/soakDBDataFile.sqlite',
             "automatic": true,
@@ -1050,7 +1062,7 @@ class DLSTriggerXChem(CommonService):
 
         dcid = parameters.dcid
         program_id = parameters.program_id
-        scaling_id = parameters.scaling_id[0]
+        scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
         overwrite = parameters.overwrite
         pipedream = parameters.pipedream
 
@@ -1198,7 +1210,6 @@ class DLSTriggerXChem(CommonService):
         self.log.debug("XChemCollate trigger: Starting")
 
         team_leader_email = get_visit_team_leader_email(visit, session) or ""
-        team_leader_email = "qvu59474@diamond.ac.uk"
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
         analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         recipe_parameters = {

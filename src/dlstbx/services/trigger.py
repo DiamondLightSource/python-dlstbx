@@ -2249,10 +2249,10 @@ class DLSTrigger(CommonService):
 
                 job_parameters.extend(
                     [
-                        ("filtering.method", "deltacchalf"),
-                        ("deltacchalf.stdcutoff", "3"),
-                        ("deltacchalf.mode", "image_group"),
-                        ("deltacchalf.group_size", str(group_size)),
+                        ("apply_cchalf_filtering", "deltacchalf"),
+                        ("sd_cutoff", "3"),
+                        ("cchalf_filtering_method", "image_group"),
+                        ("image_group_size", str(group_size)),
                     ]
                 )
 

@@ -226,20 +226,14 @@ class DLSTriggerXChem(CommonService):
         self.log.debug(f"{procname} trigger: generated JobID {jobid}")
 
         for key, value in recipe_parameters.items():
-            # A list is stored as one row per entry; the ISPyB connector gathers
-            # repeated keys back into ispyb_processing_parameters[key] as a list.
-            values = value if isinstance(value, (list, tuple)) else [value]
-            for item in values:
-                jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                jpp["job_id"] = jobid
-                jpp["parameter_key"] = key
-                jpp["parameter_value"] = item
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                    list(jpp.values())
-                )
-                self.log.debug(
-                    f"{procname} trigger: generated JobParameterID {jppid} with {key}={item}"
-                )
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"{procname} trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
 
         self.log.debug(f"{procname}_id trigger: Processing job {jobid} created")
 
@@ -329,11 +323,9 @@ class DLSTriggerXChem(CommonService):
         per dcid, with acedrg for industry proposals and grade2 otherwise by default.
         On success the recipe sends control to trigger_hitidentification.
 
-        The visit's config file (see dlstbx.util.xchem_config) supplies
-        `comparator_threshold` and `pipedream` for any the recipe did not set
-        explicitly, and its `enabled` decides whether the visit is processed at
-        all, overriding ALLOWED_PROPOSALS in both directions. Industrial
-        proposals never run Pipedream, whatever recipe or config ask for.
+        The visit's config file (see dlstbx.util.xchem_config) can specify
+        any parameters not set by the recipe explicitly; `enabled` decides
+        whether the visit is processed at all.
         """
 
         dcid = parameters.dcid
@@ -1265,8 +1257,7 @@ class DLSTriggerXChem(CommonService):
             self.log.info(f"Notifying {notify_email} from the config for {visit}")
         else:
             notify_email = [get_visit_team_leader_email(visit, session) or ""]
-        # TEMPORARY: keep test mail off real users. Delete this line to go live.
-        notify_email = ["qvu59474@diamond.ac.uk"]
+            notify_email = ["qvu59474@diamond.ac.uk"]
 
         analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         recipe_parameters = {
@@ -1277,7 +1268,7 @@ class DLSTriggerXChem(CommonService):
             "scaling_id": scaling_id,
             "pipedream": pipedream,
             "overwrite": overwrite,
-            "notify_email": notify_email,
+            "notify_email": ",".join(notify_email),
         }
         # Upsert on max dcid
         self.upsert_proc(rw, max(dcids), "XChem-Collate", recipe_parameters)

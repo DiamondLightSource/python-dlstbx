@@ -31,8 +31,8 @@ class XChemCollateWrapper(Wrapper):
         )
 
         params = self.recwrap.recipe_step["job_parameters"]
-        pipedream = params.get("pipedream")
-        overwrite = params.get("overwrite")
+        pipedream = str(params.get("pipedream", "")).strip().lower() == "true"
+        overwrite = str(params.get("overwrite", "")).strip().lower() == "true"
         xchem_visit_dir = Path(params.get("xchem_visit_directory"))
         processing_dir = xchem_visit_dir / "processing"
         analysis_dir = Path(params.get("analysis_directory"))
@@ -102,6 +102,12 @@ class XChemCollateWrapper(Wrapper):
 
         # -------------------------------------------------------
         # Perform Pipedream collate --> html output
+        if pipedream and not pipedream_dir.is_dir():
+            self.log.error(
+                f"Pipedream collation requested but no {pipedream_dir}, skipping"
+            )
+            pipedream = False
+
         if pipedream:
             try:
                 write_pipedream_output(analysis_dir, logger=self.log)

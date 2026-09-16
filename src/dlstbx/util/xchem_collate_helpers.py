@@ -369,20 +369,27 @@ def update_xchem_database(
     `updatable` is the CrystalName set this run is allowed to write, captured
     before any RefinementOutcome is set."""
 
-    # Build list of dicts for batch updating rows in SQLite
+    # Build list of dicts for batch updating rows in SQLite.
     db_dicts = []
+    outcomes = {
+        "not updatable": [],
+        "no ligand cif": [],
+        "Pipedream model": [],
+        "PanDDA model": [],
+        "no model": [],
+    }
     for dataset_dir in model_dir.iterdir():
         if not dataset_dir.is_dir():
             continue
         dtag = dataset_dir.name
         if dtag not in updatable:
-            logger.info(f"{dtag} not in set of updatable CrystalNames")
+            outcomes["not updatable"].append(dtag)
             continue
         compound_dir = dataset_dir / "compound"
         cif_files = list(compound_dir.glob("*.cif"))
 
         if not cif_files:
-            logger.info(f"No .cif file in {compound_dir}, skipping {dtag}")
+            outcomes["no ligand cif"].append(dtag)
             continue
         if len(cif_files) > 1:
             logger.error(f"Multiple .cif files in {compound_dir}")
@@ -400,6 +407,7 @@ def update_xchem_database(
 
         # Export
         if pipedream_model:
+            outcomes["Pipedream model"].append(dtag)
             # Determine ligand confidence based on overall ligandcc value
             if rscc >= 0.8:
                 RefinementLigandConfidence = "4 - High Confidence"
@@ -440,6 +448,7 @@ def update_xchem_database(
             )
 
         elif pandda_model:
+            outcomes["PanDDA model"].append(dtag)
             db_dicts.append(
                 {
                     "CrystalName": dtag,
@@ -455,7 +464,7 @@ def update_xchem_database(
                 }
             )
         else:
-            logger.info(f"No model selected for {dtag}")
+            outcomes["no model"].append(dtag)
             db_dicts.append(
                 {
                     "CrystalName": dtag,
@@ -465,6 +474,11 @@ def update_xchem_database(
                     **pandda_fields,
                 }
             )
+
+    logger.info(
+        "Model selection: "
+        + ", ".join(f"{len(dtags)} {label}" for label, dtags in outcomes.items())
+    )
 
     # Now update the database with the formed dicts
     try:

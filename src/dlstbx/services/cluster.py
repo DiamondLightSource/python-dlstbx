@@ -219,40 +219,79 @@ class DLSCluster(CommonService):
             recipefile = parameters["recipefile"]
             try:
                 self._recursive_mkdir(os.path.dirname(recipefile))
+            except PermissionError as e:
+                # Attempted to create a recipefile directory somewhere we don't have permissions
+                self.log.error(
+                    f"Could not create recipe file directory: {e}", exc_info=True
+                )
+                self.transport.nack(header, requeue=False)
+                return
             except OSError as e:
                 if e.errno == errno.ENOENT:
                     self.log.error(
                         "Error in underlying filesystem: %s", str(e), exc_info=True
                     )
-                    self._transport.nack(header)
+                    self.transport.nack(header)
                     return
                 raise
             self.log.debug("Writing recipe to %s", recipefile)
             params.commands = params.commands.replace("$RECIPEFILE", recipefile)
-            with open(recipefile, "w") as fh:
-                fh.write(rw.recipe.pretty())
+            try:
+                with open(recipefile, "w") as fh:
+                    fh.write(rw.recipe.pretty())
+            except PermissionError as e:
+                # Attempted to write a recipefile somewhere we don't have permissions
+                self.log.error(f"Could not write recipe file: {e}", exc_info=True)
+                self.transport.nack(header, requeue=False)
+                return
         if "recipeenvironment" in parameters:
             recipeenvironment = parameters["recipeenvironment"]
             try:
                 self._recursive_mkdir(os.path.dirname(recipeenvironment))
+            except PermissionError as e:
+                # Attempted to create a recipeenvironment directory somewhere we don't have permissions
+                self.log.error(
+                    f"Could not create recipe environment directory: {e}", exc_info=True
+                )
+                self.transport.nack(header, requeue=False)
+                return
             except OSError as e:
                 if e.errno == errno.ENOENT:
                     self.log.error(
                         "Error in underlying filesystem: %s", str(e), exc_info=True
                     )
-                    self._transport.nack(header)
+                    self.transport.nack(header)
                     return
                 raise
             self.log.debug("Writing recipe environment to %s", recipeenvironment)
             params.commands = params.commands.replace("$RECIPEENV", recipeenvironment)
-            with open(recipeenvironment, "w") as fh:
-                json.dump(
-                    rw.environment, fh, sort_keys=True, indent=2, separators=(",", ": ")
+            try:
+                with open(recipeenvironment, "w") as fh:
+                    json.dump(
+                        rw.environment,
+                        fh,
+                        sort_keys=True,
+                        indent=2,
+                        separators=(",", ": "),
+                    )
+            except PermissionError as e:
+                # Attempted to write a recipeenvironment somewhere we don't have permissions
+                self.log.error(
+                    f"Could not write recipe environment: {e}", exc_info=True
                 )
+                self.transport.nack(header, requeue=False)
+                return
         if "recipewrapper" in parameters:
             recipewrapper = parameters["recipewrapper"]
             try:
                 self._recursive_mkdir(os.path.dirname(recipewrapper))
+            except PermissionError as e:
+                # Attempted to create a recipewrapper directory somewhere we don't have permissions
+                self.log.error(
+                    f"Could not create recipe wrapper directory: {e}", exc_info=True
+                )
+                self.transport.nack(header, requeue=False)
+                return
             except OSError as e:
                 if e.errno == errno.ENOENT:
                     self.log.error(
@@ -262,23 +301,29 @@ class DLSCluster(CommonService):
                     self.log.error(
                         "Could not create working directory: %s", str(e), exc_info=True
                     )
-                self._transport.nack(header)
+                self.transport.nack(header)
                 return
             self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
             params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
-            with open(recipewrapper, "w") as fh:
-                json.dump(
-                    {
-                        "recipe": rw.recipe.recipe,
-                        "recipe-pointer": rw.recipe_pointer,
-                        "environment": rw.environment,
-                        "recipe-path": rw.recipe_path,
-                        "payload": rw.payload,
-                    },
-                    fh,
-                    indent=2,
-                    separators=(",", ": "),
-                )
+            try:
+                with open(recipewrapper, "w") as fh:
+                    json.dump(
+                        {
+                            "recipe": rw.recipe.recipe,
+                            "recipe-pointer": rw.recipe_pointer,
+                            "environment": rw.environment,
+                            "recipe-path": rw.recipe_path,
+                            "payload": rw.payload,
+                        },
+                        fh,
+                        indent=2,
+                        separators=(",", ": "),
+                    )
+            except PermissionError as e:
+                # Attempted to write a recipewrapper somewhere we don't have permissions
+                self.log.error(f"Could not write recipe wrapper: {e}", exc_info=True)
+                self.transport.nack(header, requeue=False)
+                return
 
         if "workingdir" not in parameters or not parameters["workingdir"].startswith(
             "/"

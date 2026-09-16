@@ -34,20 +34,28 @@ MERGE_RESULTS = (
     ("dials.merge.log", "log", 3),
 )
 
-# ISPyB AutoProcScaling column paired with the key holding it in the
-# statistics dials.merge writes.
+# ISPyB AutoProcScaling column paired with its key in the merging_stats
+# block of dials.merge.json.
 SCALING_FIELDS = {
     "n_tot_obs": "n_obs",
     "n_tot_unique_obs": "n_uniq",
     "multiplicity": "multiplicity",
     "completeness": "completeness",
     "mean_i_sig_i": "i_over_sigma_mean",
-    "r_merge": "r_merge",
     "r_meas_all_iplusi_minus": "r_meas",
     "r_pim_all_iplusi_minus": "r_pim",
     "cc_half": "cc_one_half",
-    "cc_anom": "cc_anom",
+}
+
+# ISPyB AutoProcScaling column paired with its key in the
+# merging_stats_anom block of dials.merge.json.
+ANOMALOUS_SCALING_FIELDS = {
+    "r_merge": "r_merge",
+    "r_meas_within_iplusi_minus": "r_meas",
+    "r_pim_within_iplusi_minus": "r_pim",
     "anom_completeness": "anom_completeness",
+    "anom_multiplicity": "multiplicity",
+    "cc_anom": "cc_anom",
 }
 
 MERGE_JSON = "dials.merge.json"
@@ -359,11 +367,12 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         Read the merging statistics dials.merge records.
 
         The file is keyed by wavelength with a single entry for a
-        rotation sweep, so the first value is taken.
+        rotation sweep, so the first entry holding statistics is taken.
 
         Returns:
-            dict | None: The merging statistics, or None when the file
-                is missing or holds nothing usable
+            dict | None: The wavelength entry, holding merging_stats and,
+                when anomalous merging ran, merging_stats_anom. None when
+                the file is missing or holds nothing usable
         """
         path = working_directory / MERGE_JSON
         try:
@@ -373,38 +382,44 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             return None
 
         for entry in report.values():
-            stats = entry.get("merging_stats")
-            if stats:
-                return stats
+            if entry.get("merging_stats"):
+                return entry
         self.log.error("No merging statistics present in %s", path)
         return None
 
-    def shell(self, stats: dict, index: int | None = None) -> dict:
+    def shell(self, entry: dict, index: int | None = None) -> dict:
         """
         Assemble one ISPyB scaling shell from the merging statistics.
 
+        The anomalous columns come from the merging_stats_anom block, so
+        they are None when dials.merge did not write one.
+
         Args:
-            stats: The merging statistics dials.merge recorded
+            entry: The wavelength entry read_statistics returns
             index: Resolution bin to read, or None for the overall
                 figures. Bins run from low resolution upwards.
 
         Returns:
             dict: The shell, in the shape insert_scaling expects
         """
-        if index is None:
-            source = stats.get("overall", {})
-            get = source.get
-        else:
 
-            def get(key, default=None):
-                values = stats.get(key) or []
-                return values[index] if len(values) > abs(index) else default
+        def column(stats: dict, key: str):
+            if index is None:
+                return stats.get("overall", {}).get(key)
+            values = stats.get(key) or []
+            return values[index] if -len(values) <= index < len(values) else None
 
-        shell = {column: get(key) for column, key in SCALING_FIELDS.items()}
-        low, high = resolution_limits(get("d_star_sq_min"), get("d_star_sq_max"))
+        stats = entry["merging_stats"]
+        anom = entry.get("merging_stats_anom") or {}
+        shell = {col: column(stats, key) for col, key in SCALING_FIELDS.items()}
+        shell.update(
+            {col: column(anom, key) for col, key in ANOMALOUS_SCALING_FIELDS.items()}
+        )
+        low, high = resolution_limits(
+            column(stats, "d_star_sq_min"), column(stats, "d_star_sq_max")
+        )
         shell["res_lim_low"] = low
         shell["res_lim_high"] = high
-        shell["anom"] = get("anom_completeness") is not None
         return shell
 
     def experiment_parameters(self, working_directory: Path) -> dict:
@@ -445,7 +460,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             model["beam_centre"] = panel.get_beam_centre(experiment.beam.get_s0())
         return model
 
-    def send_results_to_ispyb(self, stats: dict, working_directory: Path) -> None:
+    def send_results_to_ispyb(self, entry: dict, working_directory: Path) -> None:
         """
         Register the AutoProc record and attach the scaling to it.
 
@@ -466,9 +481,9 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             "ispyb_command": "insert_scaling",
             "autoproc_id": "$ispyb_autoproc_id",
             "store_result": "ispyb_autoprocscaling_id",
-            "overall": self.shell(stats),
-            "innerShell": self.shell(stats, 0),
-            "outerShell": self.shell(stats, -1),
+            "overall": self.shell(entry),
+            "innerShell": self.shell(entry, 0),
+            "outerShell": self.shell(entry, -1),
         }
 
         # The recipe opens an integration record before processing
@@ -552,11 +567,11 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         self._runtime_hist.observe(time.perf_counter() - start_time)
         self.publish(working_directory)
 
-        stats = self.read_statistics(working_directory)
-        if stats is None:
+        entry = self.read_statistics(working_directory)
+        if entry is None:
             self._failure_counter.inc()
             return False
-        self.send_results_to_ispyb(stats, working_directory)
+        self.send_results_to_ispyb(entry, working_directory)
 
         self._success_counter.inc()
         return True

@@ -51,7 +51,11 @@ class SensoFitWrapper(Wrapper):
             self.log.error("No such .cxw file: %s", cxw)
             return False
 
-        # Results live beside the input
+        # Results live beside the input. gda2 runs with umask 022, which would
+        # leave the output owned by gda2 and undeletable by whoever owns the
+        # .cxw. Revisit this once results are deposited into the visit directory
+        # (see PLACEHOLDER below), where the group ACLs handle it instead.
+        os.umask(0o000)
         results_dir = cxw.parent / params.results_subdir
         results_dir.mkdir(parents=True, exist_ok=True)
 

@@ -898,7 +898,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
         comparator_threshold = config.resolve("comparator_threshold", parameters)
         pipedream = config.resolve("pipedream", parameters)
-        pandda = config.resolve("run_pandda", parameters, "pandda")
+        pandda = parameters.pandda
 
         # Industrial proposals never run Pipedream, whatever the visit asks for
         if (
@@ -1078,9 +1078,8 @@ class DLSTriggerXChem(CommonService):
         - automatic: boolean passed to ProcessingJob.automatic
 
         The visit's config file (see dlstbx.util.xchem_config) supplies
-        `pipedream` if the recipe did not, names the `notify` mail recipients in
-        place of the visit's ISPyB Team Leader, and can stop the visit with
-        `enabled: false`.
+        `pipedream` if the recipe did not, its top-level `notify` names the mail
+        recipient, and `enabled:false` stops processing.
         Example recipe parameters:
         { "target": "xchem_collate",
             "dcid": 123456,
@@ -1256,8 +1255,7 @@ class DLSTriggerXChem(CommonService):
         if notify_email:
             self.log.info(f"Notifying {notify_email} from the config for {visit}")
         else:
-            notify_email = [get_visit_team_leader_email(visit, session) or ""]
-            notify_email = ["qvu59474@diamond.ac.uk"]
+            notify_email = get_visit_team_leader_email(visit, session) or ""
 
         analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         recipe_parameters = {
@@ -1268,7 +1266,7 @@ class DLSTriggerXChem(CommonService):
             "scaling_id": scaling_id,
             "pipedream": pipedream,
             "overwrite": overwrite,
-            "notify_email": ",".join(notify_email),
+            "notify_email": notify_email,
         }
         # Upsert on max dcid
         self.upsert_proc(rw, max(dcids), "XChem-Collate", recipe_parameters)

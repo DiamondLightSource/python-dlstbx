@@ -200,5 +200,5 @@ def get_pandda_settings(visit_dir, logger=None):
 
     A visit need not have a config file, and one that exists may be empty.
     """
-    settings = load_visit_config(visit_dir, logger or log).pandda_args
+    settings = load_visit_config(visit_dir, logger or log).pandda or {}
     return " ".join(f"--{k}={v}" for k, v in settings.items())

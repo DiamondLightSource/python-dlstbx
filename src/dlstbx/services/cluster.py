@@ -178,15 +178,32 @@ class DLSCluster(CommonService):
             log_extender=self.extend_log,
         )
 
-    @staticmethod
-    def _recursive_mkdir(path):
+    def _write_job_file(
+        self, header, path: str, description: str, content: str
+    ) -> bool:
+        """Write a file needed by the cluster job, creating its directory.
+
+        Returns False if the message was rejected and processing should stop."""
+        self.log.debug("Writing %s to %s", description, path)
         try:
-            os.makedirs(path)
-        except OSError as exc:
-            if exc.errno == errno.EEXIST and os.path.isdir(path):
-                pass
-            else:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as fh:
+                fh.write(content)
+        except PermissionError as e:
+            # Attempted to write somewhere we don't have permissions
+            self.log.error(f"Could not write {description}: {e}", exc_info=True)
+            self.transport.nack(header, requeue=False)
+            return False
+        except OSError as e:
+            if e.errno != errno.ENOENT:
                 raise
+            self.log.error(
+                f"Error in underlying filesystem writing {description}: {e}",
+                exc_info=True,
+            )
+            self.transport.nack(header)
+            return False
+        return True
 
     def run_submit_job(self, rw, header, message):
         """Submit cluster job according to message."""
@@ -217,57 +234,31 @@ class DLSCluster(CommonService):
 
         if "recipefile" in parameters:
             recipefile = parameters["recipefile"]
-            try:
-                self._recursive_mkdir(os.path.dirname(recipefile))
-            except OSError as e:
-                if e.errno == errno.ENOENT:
-                    self.log.error(
-                        "Error in underlying filesystem: %s", str(e), exc_info=True
-                    )
-                    self._transport.nack(header)
-                    return
-                raise
-            self.log.debug("Writing recipe to %s", recipefile)
             params.commands = params.commands.replace("$RECIPEFILE", recipefile)
-            with open(recipefile, "w") as fh:
-                fh.write(rw.recipe.pretty())
+            if not self._write_job_file(
+                header, recipefile, "recipe file", rw.recipe.pretty()
+            ):
+                return
         if "recipeenvironment" in parameters:
             recipeenvironment = parameters["recipeenvironment"]
-            try:
-                self._recursive_mkdir(os.path.dirname(recipeenvironment))
-            except OSError as e:
-                if e.errno == errno.ENOENT:
-                    self.log.error(
-                        "Error in underlying filesystem: %s", str(e), exc_info=True
-                    )
-                    self._transport.nack(header)
-                    return
-                raise
-            self.log.debug("Writing recipe environment to %s", recipeenvironment)
             params.commands = params.commands.replace("$RECIPEENV", recipeenvironment)
-            with open(recipeenvironment, "w") as fh:
-                json.dump(
-                    rw.environment, fh, sort_keys=True, indent=2, separators=(",", ": ")
-                )
+            if not self._write_job_file(
+                header,
+                recipeenvironment,
+                "recipe environment",
+                json.dumps(
+                    rw.environment, sort_keys=True, indent=2, separators=(",", ": ")
+                ),
+            ):
+                return
         if "recipewrapper" in parameters:
             recipewrapper = parameters["recipewrapper"]
-            try:
-                self._recursive_mkdir(os.path.dirname(recipewrapper))
-            except OSError as e:
-                if e.errno == errno.ENOENT:
-                    self.log.error(
-                        "Error in underlying filesystem: %s", str(e), exc_info=True
-                    )
-                else:
-                    self.log.error(
-                        "Could not create working directory: %s", str(e), exc_info=True
-                    )
-                self._transport.nack(header)
-                return
-            self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
             params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
-            with open(recipewrapper, "w") as fh:
-                json.dump(
+            if not self._write_job_file(
+                header,
+                recipewrapper,
+                "recipe wrapper",
+                json.dumps(
                     {
                         "recipe": rw.recipe.recipe,
                         "recipe-pointer": rw.recipe_pointer,
@@ -275,10 +266,11 @@ class DLSCluster(CommonService):
                         "recipe-path": rw.recipe_path,
                         "payload": rw.payload,
                     },
-                    fh,
                     indent=2,
                     separators=(",", ": "),
-                )
+                ),
+            ):
+                return
 
         if "workingdir" not in parameters or not parameters["workingdir"].startswith(
             "/"

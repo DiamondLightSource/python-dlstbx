@@ -436,16 +436,28 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # Per-visit settings, for anything the recipe did not set explicitly
-        config = load_visit_config(xchem_visit_dir, self.log)
-        if not (allow_listed if config.enabled is None else config.enabled):
+        # Per-visit settings, for anything the recipe did not set explicitly.
+        # A config that cannot be read must not disturb processing, so the
+        # recipe's own parameters stand and the allow-list decides on its own.
+        comparator_threshold = parameters.comparator_threshold
+        pipedream = parameters.pipedream
+        enabled = None
+        try:
+            config = load_visit_config(xchem_visit_dir, self.log)
+            enabled = config.enabled
+            comparator_threshold = config.resolve("comparator_threshold", parameters)
+            pipedream = config.resolve("pipedream", parameters)
+        except Exception:
+            self.log.warning(
+                f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
+            )
+
+        if not (allow_listed if enabled is None else enabled):
             self.log.info(
                 f"Exiting PanDDA2/Pipedream trigger: autoprocessing is disabled in "
                 f"the config for visit {xchem_visit_dir}"
             )
             return {"success": True}
-        comparator_threshold = config.resolve("comparator_threshold", parameters)
-        pipedream = config.resolve("pipedream", parameters)
 
         # Industrial proposals never run Pipedream, whatever the visit asks for
         if industrial and pipedream:
@@ -899,17 +911,29 @@ class DLSTriggerXChem(CommonService):
         # Re-derive paths from labxchem visit parameter
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
 
-        # Per-visit settings, for anything the recipe did not set explicitly
-        config = load_visit_config(xchem_visit_dir, self.log)
-        if config.enabled is False:
+        # Per-visit settings, for anything the recipe did not set explicitly.
+        # A config that cannot be read must not disturb processing, so the
+        # recipe's own parameters stand.
+        comparator_threshold = parameters.comparator_threshold
+        pipedream = parameters.pipedream
+        pandda = parameters.pandda
+        enabled = None
+        try:
+            config = load_visit_config(xchem_visit_dir, self.log)
+            enabled = config.enabled
+            comparator_threshold = config.resolve("comparator_threshold", parameters)
+            pipedream = config.resolve("pipedream", parameters)
+        except Exception:
+            self.log.warning(
+                f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
+            )
+
+        if enabled is False:
             self.log.info(
                 f"Exiting hitidentification trigger: autoprocessing is disabled in "
                 f"the config for visit {xchem_visit_dir}"
             )
             return {"success": True}
-        comparator_threshold = config.resolve("comparator_threshold", parameters)
-        pipedream = config.resolve("pipedream", parameters)
-        pandda = parameters.pandda
 
         # Industrial proposals never run Pipedream, whatever the visit asks for
         if (
@@ -1251,18 +1275,32 @@ class DLSTriggerXChem(CommonService):
         self.log.debug("XChemCollate trigger: Starting")
 
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
-        config = load_visit_config(xchem_visit_dir, self.log)
-        if config.enabled is False:
+
+        # Per-visit settings, for anything the recipe did not set explicitly.
+        # A config that cannot be read must not disturb processing, so the
+        # recipe's own parameters stand.
+        pipedream = parameters.pipedream
+        notify_email = None
+        enabled = None
+        try:
+            config = load_visit_config(xchem_visit_dir, self.log)
+            enabled = config.enabled
+            pipedream = config.resolve("pipedream", parameters)
+            notify_email = config.notify
+        except Exception:
+            self.log.warning(
+                f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
+            )
+
+        if enabled is False:
             self.log.info(
                 f"Exiting XChemCollate trigger: autoprocessing is disabled in the "
                 f"config for visit {xchem_visit_dir}"
             )
             return {"success": True}
-        pipedream = config.resolve("pipedream", parameters)
 
         # Who gets the finished-processing mail: whoever the visit config names,
         # else the visit's ISPyB Team Leader.
-        notify_email = config.notify
         if notify_email:
             self.log.info(f"Notifying {notify_email} from the config for {visit}")
         else:

@@ -359,6 +359,34 @@ class DLSWorkflowsCluster(CommonService):
                 self._transport.transaction_commit(txn)
                 return
 
+            if n == 0:
+                # Argo reporting success is not evidence the wrapper did its job.
+                # dlstbx.wrap catches every exception out of the wrapper, logs it,
+                # and still exits 0 - so a wrapper that died produces a "successful"
+                # pod and a "succeeded" workflow. Its own failure() call cannot tell
+                # us either, because that goes to the recipe's "failure" channel from
+                # inside a pod whose only outbound path is this outbox.
+                #
+                # So a successful workflow that wrote nothing almost always means the
+                # wrapper failed silently. Say so loudly, fail the recipe step rather
+                # than letting it stop with no explanation, and deliberately skip
+                # _cleanup so the outbox and recipewrapper survive for diagnosis.
+                self.log.error(
+                    "Workflow %s reported success but wrote no outbox messages - the "
+                    "wrapper most likely failed (dlstbx.wrap exits 0 even when it "
+                    "does). Keeping %s and the recipewrapper for diagnosis; the pod "
+                    "log will have the traceback.",
+                    handle["name"],
+                    outbox_dir,
+                )
+                rw.send_to(
+                    "failure",
+                    {"handle": handle, "status": "no-messages", "success": False},
+                    transaction=txn,
+                )
+                self._transport.transaction_commit(txn)
+                return
+
             self.log.info(
                 "Workflow %s succeeded; replayed %d outbox message(s)",
                 handle["name"],

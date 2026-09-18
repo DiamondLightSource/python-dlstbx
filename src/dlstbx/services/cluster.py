@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import errno
 import getpass
 import importlib.metadata
 import json
@@ -17,6 +16,8 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
+
+from dlstbx.util.jobfile import write_job_file
 
 
 class JobSubmissionParameters(pydantic.BaseModel):
@@ -183,27 +184,21 @@ class DLSCluster(CommonService):
     ) -> bool:
         """Write a file needed by the cluster job, creating its directory.
 
-        Returns False if the message was rejected and processing should stop."""
-        self.log.debug("Writing %s to %s", description, path)
-        try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w") as fh:
-                fh.write(content)
-        except PermissionError as e:
-            # Attempted to write somewhere we don't have permissions
-            self.log.error(f"Could not write {description}: {e}", exc_info=True)
-            self.transport.nack(header, requeue=False)
-            return False
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-            self.log.error(
-                f"Error in underlying filesystem writing {description}: {e}",
-                exc_info=True,
-            )
-            self.transport.nack(header)
-            return False
-        return True
+        Returns False if the message was rejected and processing should stop.
+
+        The body of this now lives in dlstbx.util.jobfile so that other services
+        can apply the same failure policy without reaching in here and passing a
+        `self` that is not a DLSCluster. Kept as a method so this class's own call
+        sites read unchanged.
+        """
+        return write_job_file(
+            path,
+            content,
+            description=description,
+            log=self.log,
+            transport=self.transport,
+            header=header,
+        )
 
     def run_submit_job(self, rw, header, message):
         """Submit cluster job according to message."""

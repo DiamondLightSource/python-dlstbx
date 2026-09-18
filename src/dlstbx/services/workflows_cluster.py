@@ -10,7 +10,7 @@ import requests
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
-from dlstbx.services.cluster import DLSCluster
+from dlstbx.util.jobfile import make_job_dir, write_job_file
 from dlstbx.util.outbox import replay_outbox
 
 
@@ -211,17 +211,12 @@ class DLSWorkflowsCluster(CommonService):
             self._transport.nack(header)
             return
 
-        # DLSCluster._write_job_file creates the directory, writes the file, and
-        # nacks the message itself on a permission or filesystem error - returning
-        # False to say "already rejected, stop here". It is an instance method
-        # rather than a static one, but it only touches self.log and
-        # self.transport, both of which CommonService gives us, so it is called
-        # unbound here rather than duplicating its error handling.
-        if not DLSCluster._write_job_file(
-            self,
-            header,
+        # write_job_file creates the directory, writes the file, and nacks the
+        # message itself on a permission or filesystem error - returning False to
+        # say "already rejected, stop here". See dlstbx.util.jobfile for which
+        # failures are treated as permanent and which as transient.
+        if not write_job_file(
             recipewrapper,
-            "recipe wrapper",
             json.dumps(
                 {
                     "recipe": rw.recipe.recipe,
@@ -233,25 +228,41 @@ class DLSWorkflowsCluster(CommonService):
                 indent=2,
                 separators=(",", ": "),
             ),
+            description="recipe wrapper",
+            log=self.log,
+            transport=self._transport,
+            header=header,
         ):
             return
 
+        # Previously a bare "except OSError -> nack", which requeued permission
+        # errors as well - the poison-loop that #390 fixed for the slurm service.
+        # make_job_dir applies the same triage as the recipewrapper write above.
         working_directory = pathlib.Path(job_params["workingdir"])
-        try:
-            working_directory.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            self.log.exception(
-                "Could not create working directory %s", working_directory
-            )
-            self._transport.nack(header)
+        if not make_job_dir(
+            working_directory,
+            description="working directory",
+            log=self.log,
+            transport=self._transport,
+            header=header,
+        ):
             return
 
         # The pod has /dls but no broker access, so it writes its outgoing recipe
         # messages here (via OutboxTransport) instead of sending them - watch_job
         # replays them once the workflow finishes. The outbox must exist before the
         # pod starts, since OutboxTransport refuses to write into a missing directory.
+        # This one had no error handling at all: an OSError here escaped the
+        # recipe callback, leaving the message neither acked nor nacked.
         outbox_dir = working_directory / "outbox"
-        outbox_dir.mkdir(parents=True, exist_ok=True)
+        if not make_job_dir(
+            outbox_dir,
+            description="outbox directory",
+            log=self.log,
+            transport=self._transport,
+            header=header,
+        ):
+            return
 
         # The Argo template parameters. Only these two need to cross the submission
         # boundary, because they are the only things that appear on the pod's

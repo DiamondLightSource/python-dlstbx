@@ -260,6 +260,9 @@ setup(
         + [f"{x}={x}" for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
+        "workflows.transport": [
+            "OutboxTransport = dlstbx.util.outbox:OutboxTransport",
+        ],
         "zocalo.health_checks": sorted(health_checks),
         "zocalo.services.cluster.schedulers": [
             "slurm = dlstbx.services.cluster:submit_to_slurm",

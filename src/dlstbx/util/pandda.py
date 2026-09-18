@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import gemmi
 import numpy as np
-import yaml
+
+from dlstbx.util.xchem_config import load_visit_config
 
 PROTEIN_RESIDUES = [
     "ALA",
@@ -189,19 +190,11 @@ def merge_build(receptor, ligand, contact_chain):
     return receptor
 
 
-def get_pandda_settings(yaml_file):
-    """Turn a visit's .user.yaml into PanDDA2 ``--key=value`` args.
+def get_pandda_settings(visit_dir, logger):
+    """Turn the ``autoprocessing.pandda`` section of a visit's config file into
+    PanDDA2 ``--key=value`` args.
 
-    A visit need not have a .user.yaml, and one that exists may be empty.
+    A visit need not have a config file, and one that exists may be empty.
     """
-    try:
-        with open(yaml_file, "r") as file:
-            expt_yaml = yaml.load(file, Loader=yaml.SafeLoader) or {}
-    except FileNotFoundError:
-        return ""
-    settings = expt_yaml.get("autoprocessing", {}).get("pandda", {})
-    if settings:
-        args_string = " ".join(f"--{k}={v}" for k, v in settings.items())
-    else:
-        args_string = ""
-    return args_string
+    settings = load_visit_config(visit_dir, logger).pandda or {}
+    return " ".join(f"--{k}={v}" for k, v in settings.items())

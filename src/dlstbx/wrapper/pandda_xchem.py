@@ -38,7 +38,6 @@ class PanDDAWrapper(Wrapper):
         PANDDA_2_DIR = "/dls_sw/i04-1/software/PanDDA2"
         params = self.recwrap.recipe_step["job_parameters"]
         xchem_visit_dir = Path(params.get("xchem_visit_directory"))
-        user_yaml = xchem_visit_dir / ".user.yaml"
         analysis_dir = Path(params.get("analysis_directory"))
         pandda_dir = analysis_dir / "pandda2"
         model_dir = analysis_dir / "model_building"
@@ -95,7 +94,7 @@ class PanDDAWrapper(Wrapper):
             shutil.rmtree(dataset_pdir)
 
         # add any user specified pandda parameters
-        args_string = get_pandda_settings(user_yaml)
+        args_string = get_pandda_settings(xchem_visit_dir, self.log)
         pandda2_command = f"source {PANDDA_2_DIR}/venv/bin/activate; \
         python -u /dls_sw/i04-1/software/PanDDA2/scripts/process_dataset.py --data_dirs={model_dir} --out_dir={panddas_dir} --dtag={dtag} --use_ligand_data=True --local_cpus=4 {args_string}"
 
@@ -175,7 +174,7 @@ class PanDDAWrapper(Wrapper):
         z_map = dataset_pdir / f"{dtag}-z_map.native.ccp4"
         event_map = next(dataset_pdir.glob(f"{dtag}-event_{event_idx}_1-BDC_*"), None)
         pdb_file = dataset_pdir / f"{dtag}-pandda-input.pdb"
-        mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
+        # mtz_file = dataset_pdir / f"{dtag}-pandda-input.mtz"
         restricted_pdb_file = dataset_pdir / "build.pdb"
 
         # Rhofit can be confused by hunting non-binding site density. This can be avoided

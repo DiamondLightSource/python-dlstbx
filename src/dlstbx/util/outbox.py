@@ -28,6 +28,7 @@ import contextlib
 import itertools
 import json
 import logging
+import optparse
 import os
 import time
 import uuid
@@ -67,19 +68,47 @@ class OutboxTransport(OfflineTransport):
     config: dict[Any, Any] = {}
 
     @classmethod
-    def add_command_line_options(cls, parser: argparse.ArgumentParser) -> None:
-        """Add the --outbox option, storing its value on the class config."""
+    def add_command_line_options(
+        cls, parser: argparse.ArgumentParser | optparse.OptionParser
+    ) -> None:
+        """Add the --outbox option, storing its value on the class config.
 
-        class SetParameter(argparse.Action):
-            def __call__(self, parser, namespace, value, option_string=None):
-                cls.config[option_string] = value
+        workflows.transport.add_command_line_options() calls this on *every*
+        registered transport, so the parser handed to us belongs to whichever
+        command is starting up, not to us: dlstbx.wrap builds an
+        argparse.ArgumentParser, while zocalo.service (via
+        workflows.contrib.start_service) still builds an optparse.OptionParser.
+        Both have to be handled, and both have to land the value on the same
+        cls.config key, because _send() reads it back as config["--outbox"].
+        """
+        help_text = "Directory on /dls where outbox messages are written"
 
-        parser.add_argument(
-            "--outbox",
-            metavar="DIR",
-            help="Directory on /dls where outbox messages are written",
-            action=SetParameter,
-        )
+        if isinstance(parser, argparse.ArgumentParser):
+
+            class SetParameter(argparse.Action):
+                def __call__(self, parser, namespace, value, option_string=None):
+                    cls.config[option_string] = value
+
+            parser.add_argument(
+                "--outbox",
+                metavar="DIR",
+                help=help_text,
+                action=SetParameter,
+            )
+        else:
+
+            def set_parameter(option, opt, value, parser):
+                cls.config[opt] = value
+
+            parser.add_option(
+                "--outbox",
+                metavar="DIR",
+                help=help_text,
+                type="string",
+                nargs=1,
+                action="callback",
+                callback=set_parameter,
+            )
 
     def _send(
         self,

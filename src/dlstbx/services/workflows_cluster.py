@@ -101,8 +101,15 @@ class DLSWorkflowsCluster(CommonService):
             raise RuntimeError(f"GraphQL error from {self._graphql_endpoint}: {body['errors']}")
         return body["data"]
 
-    def submit_to_workflows(self, job_params: dict) -> dict:
-        """Submit a workflow template and return the submitWorkflowTemplate result."""
+    def submit_to_workflows(self, workflow: dict, parameters: dict) -> dict:
+        """Submit a workflow template and return the submitWorkflowTemplate result.
+
+        Args:
+            workflow: The recipe's "workflow" block - the template to run and the
+                visit to run it against.
+            parameters: The Argo template parameters, already built and stringified
+                by run_submit_job.
+        """
         mutation = """
             mutation testTemplateSubmission($templateName: String!, $visitID: VisitInput!, $parameters: JSON!){
                 submitWorkflowTemplate(
@@ -125,13 +132,13 @@ class DLSWorkflowsCluster(CommonService):
                     }
             }
         """
-        visit = job_params["workflow"]["visit"]
+        visit = workflow["visit"]
         variables = {
-            "templateName": job_params["workflow"]["template_name"],
+            "templateName": workflow["template_name"],
             "visitID": VisitInput(
                 visit["proposalCode"], visit["proposalNumber"], visit["number"]
             ).to_dict(),
-            "parameters": job_params,
+            "parameters": parameters,
         }
         return self._graphql_request(mutation, variables)["submitWorkflowTemplate"]
 
@@ -188,30 +195,46 @@ class DLSWorkflowsCluster(CommonService):
         "Submit cluster job according to message."
         job_params = rw.recipe_step["job_parameters"]
 
+        # Unlike DLSCluster, where a recipewrapper is optional, one is required
+        # here: the pod has no broker, so this file on /dls is the only way the
+        # recipe reaches the wrapper, and the only way the wrapper learns where to
+        # send its results. Without it the job could run but the recipe could never
+        # continue, so refuse the submission rather than start a job that can only
+        # dead-end.
         recipewrapper = job_params.get("recipewrapper")
-        if recipewrapper:
-            try:
-                DLSCluster._recursive_mkdir(os.path.dirname(recipewrapper))
-            except OSError:
-                self.log.exception(
-                    "Could not create directory for recipewrapper %s", recipewrapper
-                )
-                self._transport.nack(header)
-                return
-            self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
-            with open(recipewrapper, "w") as fh:
-                json.dump(
-                    {
-                        "recipe": rw.recipe.recipe,
-                        "recipe-pointer": rw.recipe_pointer,
-                        "environment": rw.environment,
-                        "recipe-path": rw.recipe_path,
-                        "payload": rw.payload,
-                    },
-                    fh,
-                    indent=2,
-                    separators=(",", ": "),
-                )
+        if not recipewrapper:
+            self.log.error(
+                "Rejecting submission for template %s: no recipewrapper in the "
+                "recipe step, so the recipe could not be continued",
+                job_params.get("workflow", {}).get("template_name"),
+            )
+            self._transport.nack(header)
+            return
+
+        # DLSCluster._write_job_file creates the directory, writes the file, and
+        # nacks the message itself on a permission or filesystem error - returning
+        # False to say "already rejected, stop here". It is an instance method
+        # rather than a static one, but it only touches self.log and
+        # self.transport, both of which CommonService gives us, so it is called
+        # unbound here rather than duplicating its error handling.
+        if not DLSCluster._write_job_file(
+            self,
+            header,
+            recipewrapper,
+            "recipe wrapper",
+            json.dumps(
+                {
+                    "recipe": rw.recipe.recipe,
+                    "recipe-pointer": rw.recipe_pointer,
+                    "environment": rw.environment,
+                    "recipe-path": rw.recipe_path,
+                    "payload": rw.payload,
+                },
+                indent=2,
+                separators=(",", ": "),
+            ),
+        ):
+            return
 
         working_directory = pathlib.Path(job_params["workingdir"])
         try:
@@ -229,15 +252,31 @@ class DLSWorkflowsCluster(CommonService):
         # pod starts, since OutboxTransport refuses to write into a missing directory.
         outbox_dir = working_directory / "outbox"
         outbox_dir.mkdir(parents=True, exist_ok=True)
-        # NB: "outbox" (lowercase) mirrors the existing "recipewrapper" key already in
-        # this dict. Whether/how the workflow-submission backend maps this JSON key
-        # onto the Argo `OUTBOX` template parameter (see
-        # mx-workflows/wss/templates/dc-sim.yaml) is not verified from this codebase -
-        # confirm the real mapping before relying on it end-to-end.
-        job_params["outbox"] = str(outbox_dir)
+
+        # The Argo template parameters. Only these two need to cross the submission
+        # boundary, because they are the only things that appear on the pod's
+        # command line - everything else the wrapper needs (the whole recipe, the
+        # payload, the job parameters) travels inside the recipewrapper file above
+        # and is read straight off /dls.
+        #
+        # Argo parameter values are strings, so anything the recipe supplies is
+        # coerced rather than left to fail somewhere less obvious.
+        parameters = {
+            # Template-specific extras, if this recipe declares any.
+            **{
+                key: str(value)
+                for key, value in job_params["workflow"].get("parameters", {}).items()
+            },
+            # Service-owned, and deliberately last so a recipe cannot shadow them.
+            # Every workflows-cluster template takes these two, the same way every
+            # cluster.submission recipe takes $RECIPEWRAP (see
+            # dlstbx.services.cluster.DLSCluster).
+            "RECIPEWRAP": str(recipewrapper),
+            "OUTBOX": str(outbox_dir),
+        }
 
         try:
-            submitted = self.submit_to_workflows(job_params)
+            submitted = self.submit_to_workflows(job_params["workflow"], parameters)
         except Exception:
             self.log.exception(
                 "Failed to submit workflow for job %s", job_params.get("workflow")

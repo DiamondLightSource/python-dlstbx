@@ -46,6 +46,7 @@ from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
 from dlstbx.util.stage_reprocess import stage_existing_modeldir
+from dlstbx.util.xchem_config import load_visit_config
 
 INDUSTRIAL_PROPOSAL_CODES = frozenset({"in", "sw"})
 BATCH_DCIDS = ".batch_dcids.json"  # {dcid: dtag} cached while PanDDA2 waits
@@ -63,7 +64,10 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class ModelBuildingParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    comparator_threshold: int = pydantic.Field(default=350)
+    # The standing default for automatic processing. A recipe that sets this
+    # pins it for every visit it covers, so the automatic recipes leave it out
+    # and let a visit's config file have a say.
+    comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: Optional[list[int]] = None
@@ -327,12 +331,14 @@ class DLSTriggerXChem(CommonService):
         writes the ligand .smiles file, and fires a single ligand-restraints job
         per dcid, with acedrg for industry proposals and grade2 otherwise by default.
         On success the recipe sends control to trigger_hitidentification.
+
+        The visit's config file (see dlstbx.util.xchem_config) can specify
+        any parameters not set by the recipe explicitly; `enabled` decides
+        whether the visit is processed at all.
         """
 
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
-        comparator_threshold = parameters.comparator_threshold
-        pipedream = parameters.pipedream
         overwrite = parameters.overwrite
         bulk_array = parameters.bulk_array
 
@@ -372,14 +378,14 @@ class DLSTriggerXChem(CommonService):
         proposal_string = PROPOSAL_ALIASES.get(data_proposal, data_proposal)
 
         industrial = proposal_code in INDUSTRIAL_PROPOSAL_CODES
-        if industrial and pipedream:
-            self.log.info(
-                f"Disabling Pipedream for industrial proposal {data_proposal} (dcid {dcid})"
-            )
-            pipedream = False
 
-        # 0. Check that this is an XChem expt & locate .SQLite database
-        if proposal_string not in ALLOWED_PROPOSALS:
+        # 0. Check that this is an XChem expt & locate .SQLite database.
+        # A proposal off the allow-list is only worth looking at if it is a
+        # labxchem one; whether it is processed is then down to the visit's own
+        # `enabled`, resolved once its directory is known below.
+        xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
+        allow_listed = proposal_string in ALLOWED_PROPOSALS
+        if not allow_listed and not xchem_dir.is_dir():
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} proposal {proposal_string}"
             )
@@ -419,7 +425,6 @@ class DLSTriggerXChem(CommonService):
                 user_sg = spacegroup.hm
 
         # Find corresponding XChem visit directory and database
-        xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
         xchem_visit_dir = find_xchem_visit_dir(
             xchem_dir, acronym, container_code, location, dtag, self.log
         )
@@ -429,6 +434,24 @@ class DLSTriggerXChem(CommonService):
                 f"Exiting PanDDA2/Pipedream trigger: No labxchem directory found for {acronym}."
             )
             return {"success": True}
+
+        # Per-visit settings, for anything the recipe did not set explicitly
+        config = load_visit_config(xchem_visit_dir, self.log)
+        if not (allow_listed if config.enabled is None else config.enabled):
+            self.log.info(
+                f"Exiting PanDDA2/Pipedream trigger: autoprocessing is disabled in "
+                f"the config for visit {xchem_visit_dir}"
+            )
+            return {"success": True}
+        comparator_threshold = config.resolve("comparator_threshold", parameters)
+        pipedream = config.resolve("pipedream", parameters)
+
+        # Industrial proposals never run Pipedream, whatever the visit asks for
+        if industrial and pipedream:
+            self.log.info(
+                f"Disabling Pipedream for industrial proposal {data_proposal} (dcid {dcid})"
+            )
+            pipedream = False
 
         processing_dir = xchem_visit_dir / "processing"
         self.log.debug(
@@ -863,15 +886,33 @@ class DLSTriggerXChem(CommonService):
 
         use_existing_modeldir=<existing model_building path>: before enumerating,
         copy the complete datasets from that legacy model_building dir
+
+        The visit's config file (see dlstbx.util.xchem_config) supplies
+        `comparator_threshold`, `pandda` and `pipedream` for any the recipe did
+        not set explicitly, and `enabled: false` there stops the visit outright.
+        Industrial proposals never run Pipedream, whatever the config asks.
         """
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
-        comparator_threshold = parameters.comparator_threshold
-        pipedream = parameters.pipedream
-        pandda = parameters.pandda
         overwrite = parameters.overwrite
         bulk_array = parameters.bulk_array
 
+        # Re-derive paths from labxchem visit parameter
+        xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
+
+        # Per-visit settings, for anything the recipe did not set explicitly
+        config = load_visit_config(xchem_visit_dir, self.log)
+        if config.enabled is False:
+            self.log.info(
+                f"Exiting hitidentification trigger: autoprocessing is disabled in "
+                f"the config for visit {xchem_visit_dir}"
+            )
+            return {"success": True}
+        comparator_threshold = config.resolve("comparator_threshold", parameters)
+        pipedream = config.resolve("pipedream", parameters)
+        pandda = parameters.pandda
+
+        # Industrial proposals never run Pipedream, whatever the visit asks for
         if (
             pipedream
             and self.proposal_code_for_dcid(dcid, session) in INDUSTRIAL_PROPOSAL_CODES
@@ -885,8 +926,6 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # Re-derive paths from labxchem visit parameter
-        xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
         processing_dir = xchem_visit_dir / "processing"
         analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         model_dir = analysis_dir / "model_building"
@@ -1050,6 +1089,10 @@ class DLSTriggerXChem(CommonService):
         - pipedream / overwrite: forwarded to the collate wrapper
         - comment: stored in the ProcessingJob.comment field
         - automatic: boolean passed to ProcessingJob.automatic
+
+        The visit's config file (see dlstbx.util.xchem_config) supplies
+        `pipedream` if the recipe did not, its top-level `notify` names the mail
+        recipient, and `enabled:false` stops processing.
         Example recipe parameters:
         { "target": "xchem_collate",
             "dcid": 123456,
@@ -1064,7 +1107,6 @@ class DLSTriggerXChem(CommonService):
         program_id = parameters.program_id
         scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
         overwrite = parameters.overwrite
-        pipedream = parameters.pipedream
 
         _, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid}, session)
         visit = ispyb_info.get("ispyb_visit", "")
@@ -1209,8 +1251,24 @@ class DLSTriggerXChem(CommonService):
 
         self.log.debug("XChemCollate trigger: Starting")
 
-        team_leader_email = get_visit_team_leader_email(visit, session) or ""
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
+        config = load_visit_config(xchem_visit_dir, self.log)
+        if config.enabled is False:
+            self.log.info(
+                f"Exiting XChemCollate trigger: autoprocessing is disabled in the "
+                f"config for visit {xchem_visit_dir}"
+            )
+            return {"success": True}
+        pipedream = config.resolve("pipedream", parameters)
+
+        # Who gets the finished-processing mail: whoever the visit config names,
+        # else the visit's ISPyB Team Leader.
+        notify_email = config.notify
+        if notify_email:
+            self.log.info(f"Notifying {notify_email} from the config for {visit}")
+        else:
+            notify_email = get_visit_team_leader_email(visit, session) or ""
+
         analysis_dir = self._resolve_analysis_dir(xchem_visit_dir)
         recipe_parameters = {
             "dcid": max(dcids),
@@ -1220,7 +1278,7 @@ class DLSTriggerXChem(CommonService):
             "scaling_id": scaling_id,
             "pipedream": pipedream,
             "overwrite": overwrite,
-            "team_leader_email": team_leader_email,
+            "notify_email": notify_email,
         }
         # Upsert on max dcid
         self.upsert_proc(rw, max(dcids), "XChem-Collate", recipe_parameters)

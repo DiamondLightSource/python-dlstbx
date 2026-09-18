@@ -376,13 +376,11 @@ def update_xchem_database(
             continue
         dtag = dataset_dir.name
         if dtag not in updatable:
-            logger.info(f"{dtag} not in set of updatable CrystalNames")
             continue
         compound_dir = dataset_dir / "compound"
         cif_files = list(compound_dir.glob("*.cif"))
 
         if not cif_files:
-            logger.info(f"No .cif file in {compound_dir}, skipping {dtag}")
             continue
         if len(cif_files) > 1:
             logger.error(f"Multiple .cif files in {compound_dir}")

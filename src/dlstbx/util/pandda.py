@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import logging
-
 import gemmi
 import numpy as np
 
 from dlstbx.util.xchem_config import load_visit_config
-
-log = logging.getLogger("dlstbx.util.pandda")
 
 PROTEIN_RESIDUES = [
     "ALA",
@@ -194,11 +190,11 @@ def merge_build(receptor, ligand, contact_chain):
     return receptor
 
 
-def get_pandda_settings(visit_dir, logger=None):
+def get_pandda_settings(visit_dir, logger):
     """Turn the ``autoprocessing.pandda`` section of a visit's config file into
     PanDDA2 ``--key=value`` args.
 
     A visit need not have a config file, and one that exists may be empty.
     """
-    settings = load_visit_config(visit_dir, logger or log).pandda or {}
+    settings = load_visit_config(visit_dir, logger).pandda or {}
     return " ".join(f"--{k}={v}" for k, v in settings.items())

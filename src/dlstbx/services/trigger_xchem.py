@@ -429,13 +429,8 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        # Off the allow-list, a visit is only processed if it has opted in, and
-        # it cannot have done so without a config file
         if not allow_listed and not (xchem_visit_dir / CONFIG_FILENAME).is_file():
-            self.log.debug(
-                f"Exiting PanDDA2/Pipedream trigger: proposal {proposal_string} is "
-                f"not allow-listed and {xchem_visit_dir} has no {CONFIG_FILENAME}"
-            )
+            self.log.debug("Exiting PanDDA2/Pipedream trigger: visit not registered ")
             return {"success": True}
 
         # Per-visit settings, for anything the recipe did not set explicitly.

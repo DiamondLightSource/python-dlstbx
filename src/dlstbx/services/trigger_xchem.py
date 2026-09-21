@@ -46,7 +46,7 @@ from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
 from dlstbx.util.stage_reprocess import stage_existing_modeldir
-from dlstbx.util.xchem_config import load_visit_config
+from dlstbx.util.xchem_config import CONFIG_FILENAME, load_visit_config
 
 INDUSTRIAL_PROPOSAL_CODES = frozenset({"in", "sw"})
 BATCH_DCIDS = ".batch_dcids.json"  # {dcid: dtag} cached while PanDDA2 waits
@@ -376,9 +376,12 @@ class DLSTriggerXChem(CommonService):
         industrial = proposal_code in INDUSTRIAL_PROPOSAL_CODES
 
         # 0. Check that this is an XChem expt & locate .SQLite database.
+        # Off the allow-list, a proposal is only worth looking at if one of its
+        # visits has a config at all; whether it is processed is then down to
+        # that visit's own `enabled`, resolved once its directory is known.
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
         allow_listed = proposal_string in ALLOWED_PROPOSALS
-        if not allow_listed and not xchem_dir.is_dir():
+        if not allow_listed and not any(xchem_dir.glob(f"*/{CONFIG_FILENAME}")):
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} proposal {proposal_string}"
             )

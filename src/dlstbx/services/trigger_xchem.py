@@ -64,9 +64,6 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class ModelBuildingParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    # The standing default for automatic processing. A recipe that sets this
-    # pins it for every visit it covers, so the automatic recipes leave it out
-    # and let a visit's config file have a say.
     comparator_threshold: int = pydantic.Field(default=300)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -333,8 +330,7 @@ class DLSTriggerXChem(CommonService):
         On success the recipe sends control to trigger_hitidentification.
 
         The visit's config file (see dlstbx.util.xchem_config) can specify
-        any parameters not set by the recipe explicitly; `enabled` decides
-        whether the visit is processed at all.
+        any parameters not set by the recipe explicitly.
         """
 
         dcid = parameters.dcid
@@ -380,9 +376,6 @@ class DLSTriggerXChem(CommonService):
         industrial = proposal_code in INDUSTRIAL_PROPOSAL_CODES
 
         # 0. Check that this is an XChem expt & locate .SQLite database.
-        # A proposal off the allow-list is only worth looking at if it is a
-        # labxchem one; whether it is processed is then down to the visit's own
-        # `enabled`, resolved once its directory is known below.
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
         allow_listed = proposal_string in ALLOWED_PROPOSALS
         if not allow_listed and not xchem_dir.is_dir():
@@ -437,14 +430,15 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Per-visit settings, for anything the recipe did not set explicitly.
-        # A config that cannot be read must not disturb processing, so the
-        # recipe's own parameters stand and the allow-list decides on its own.
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
-        enabled = None
+        # the allow-list is a blanket yes for a proposal; a visit that says
+        # `enabled` overrides it, either way
+        enabled = allow_listed
         try:
             config = load_visit_config(xchem_visit_dir, self.log)
-            enabled = config.enabled
+            if config.enabled is not None:
+                enabled = config.enabled
             comparator_threshold = config.resolve("comparator_threshold", parameters)
             pipedream = config.resolve("pipedream", parameters)
         except Exception:
@@ -452,7 +446,7 @@ class DLSTriggerXChem(CommonService):
                 f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
             )
 
-        if not (allow_listed if enabled is None else enabled):
+        if not enabled:
             self.log.info(
                 f"Exiting PanDDA2/Pipedream trigger: autoprocessing is disabled in "
                 f"the config for visit {xchem_visit_dir}"
@@ -917,10 +911,11 @@ class DLSTriggerXChem(CommonService):
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
         pandda = parameters.pandda
-        enabled = None
+        enabled = True
         try:
             config = load_visit_config(xchem_visit_dir, self.log)
-            enabled = config.enabled
+            if config.enabled is not None:
+                enabled = config.enabled
             comparator_threshold = config.resolve("comparator_threshold", parameters)
             pipedream = config.resolve("pipedream", parameters)
         except Exception:
@@ -928,7 +923,7 @@ class DLSTriggerXChem(CommonService):
                 f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
             )
 
-        if enabled is False:
+        if not enabled:
             self.log.info(
                 f"Exiting hitidentification trigger: autoprocessing is disabled in "
                 f"the config for visit {xchem_visit_dir}"
@@ -1281,10 +1276,11 @@ class DLSTriggerXChem(CommonService):
         # recipe's own parameters stand.
         pipedream = parameters.pipedream
         notify_email = None
-        enabled = None
+        enabled = True
         try:
             config = load_visit_config(xchem_visit_dir, self.log)
-            enabled = config.enabled
+            if config.enabled is not None:
+                enabled = config.enabled
             pipedream = config.resolve("pipedream", parameters)
             notify_email = config.notify
         except Exception:
@@ -1292,7 +1288,7 @@ class DLSTriggerXChem(CommonService):
                 f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
             )
 
-        if enabled is False:
+        if not enabled:
             self.log.info(
                 f"Exiting XChemCollate trigger: autoprocessing is disabled in the "
                 f"config for visit {xchem_visit_dir}"

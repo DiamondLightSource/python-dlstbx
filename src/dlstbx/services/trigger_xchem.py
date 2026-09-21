@@ -396,6 +396,21 @@ class DLSTriggerXChem(CommonService):
         dtag, location, container_code = query.one()
         location = int(location)
 
+        # Find corresponding XChem visit directory and database
+        xchem_visit_dir = find_xchem_visit_dir(
+            xchem_dir, acronym, container_code, location, dtag, self.log
+        )
+
+        if xchem_visit_dir is None:
+            self.log.debug(
+                f"Exiting PanDDA2/Pipedream trigger: No labxchem directory found for {acronym}."
+            )
+            return {"success": True}
+
+        if not (xchem_visit_dir / CONFIG_FILENAME).is_file():
+            self.log.debug("Exiting PanDDA2/Pipedream trigger: visit not registered ")
+            return {"success": True}
+
         # Check for live crystal recollections
         latest_dcid = get_latest_dcid_for_dtag(dtag, session)
         if latest_dcid and latest_dcid != dcid:
@@ -417,21 +432,6 @@ class DLSTriggerXChem(CommonService):
             spacegroup = gemmi.find_spacegroup_by_name(sg_row[0])
             if spacegroup:
                 user_sg = spacegroup.hm
-
-        # Find corresponding XChem visit directory and database
-        xchem_visit_dir = find_xchem_visit_dir(
-            xchem_dir, acronym, container_code, location, dtag, self.log
-        )
-
-        if xchem_visit_dir is None:
-            self.log.debug(
-                f"Exiting PanDDA2/Pipedream trigger: No labxchem directory found for {acronym}."
-            )
-            return {"success": True}
-
-        if not allow_listed and not (xchem_visit_dir / CONFIG_FILENAME).is_file():
-            self.log.debug("Exiting PanDDA2/Pipedream trigger: visit not registered ")
-            return {"success": True}
 
         # Per-visit settings, for anything the recipe did not set explicitly.
         comparator_threshold = parameters.comparator_threshold

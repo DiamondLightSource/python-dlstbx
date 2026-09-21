@@ -408,7 +408,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         if not (xchem_visit_dir / CONFIG_FILENAME).is_file():
-            self.log.debug("Exiting PanDDA2/Pipedream trigger: visit not registered ")
+            self.log.debug("Exiting PanDDA2/Pipedream trigger: visit not registered")
             return {"success": True}
 
         # Check for live crystal recollections
@@ -436,8 +436,6 @@ class DLSTriggerXChem(CommonService):
         # Per-visit settings, for anything the recipe did not set explicitly.
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
-        # the allow-list is a blanket yes for a proposal; a visit that says
-        # `enabled` overrides it, either way
         enabled = allow_listed
         try:
             config = load_visit_config(xchem_visit_dir, self.log)
@@ -897,21 +895,15 @@ class DLSTriggerXChem(CommonService):
         copy the complete datasets from that legacy model_building dir
 
         The visit's config file (see dlstbx.util.xchem_config) supplies
-        `comparator_threshold`, `pandda` and `pipedream` for any the recipe did
-        not set explicitly, and `enabled: false` there stops the visit outright.
-        Industrial proposals never run Pipedream, whatever the config asks.
+        can also set parameters the recipe did not set explicitly.
         """
         dcid = parameters.dcid
         scaling_id = parameters.scaling_id[0] if parameters.scaling_id else None
         overwrite = parameters.overwrite
         bulk_array = parameters.bulk_array
-
-        # Re-derive paths from labxchem visit parameter
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
 
         # Per-visit settings, for anything the recipe did not set explicitly.
-        # A config that cannot be read must not disturb processing, so the
-        # recipe's own parameters stand.
         comparator_threshold = parameters.comparator_threshold
         pipedream = parameters.pipedream
         pandda = parameters.pandda
@@ -1111,10 +1103,6 @@ class DLSTriggerXChem(CommonService):
         - pipedream / overwrite: forwarded to the collate wrapper
         - comment: stored in the ProcessingJob.comment field
         - automatic: boolean passed to ProcessingJob.automatic
-
-        The visit's config file (see dlstbx.util.xchem_config) supplies
-        `pipedream` if the recipe did not, its top-level `notify` names the mail
-        recipient, and `enabled:false` stops processing.
         Example recipe parameters:
         { "target": "xchem_collate",
             "dcid": 123456,
@@ -1275,29 +1263,16 @@ class DLSTriggerXChem(CommonService):
 
         xchem_visit_dir = pathlib.Path(parameters.xchem_visit_directory)
 
-        # Per-visit settings, for anything the recipe did not set explicitly.
-        # A config that cannot be read must not disturb processing, so the
-        # recipe's own parameters stand.
         pipedream = parameters.pipedream
         notify_email = None
-        enabled = True
         try:
             config = load_visit_config(xchem_visit_dir, self.log)
-            if config.enabled is not None:
-                enabled = config.enabled
             pipedream = config.resolve("pipedream", parameters)
             notify_email = config.notify
         except Exception:
             self.log.warning(
                 f"Ignoring visit config for {xchem_visit_dir}", exc_info=True
             )
-
-        if not enabled:
-            self.log.info(
-                f"Exiting XChemCollate trigger: autoprocessing is disabled in the "
-                f"config for visit {xchem_visit_dir}"
-            )
-            return {"success": True}
 
         # Who gets the finished-processing mail: whoever the visit config names,
         # else the visit's ISPyB Team Leader.

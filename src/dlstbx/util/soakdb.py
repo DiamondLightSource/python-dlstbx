@@ -55,7 +55,7 @@ def find_xchem_visit_dir(
         )
         return None
 
-    # tier 1: match via the cached acronym
+    # match via the cached acronym
     candidates = []
     uncached = []
     for subdir in xchem_dir.iterdir():
@@ -63,8 +63,6 @@ def find_xchem_visit_dir(
             continue
         cached = load_visit_config(subdir, log).acronym
         if cached is None:
-            # A config file holding only user settings still needs its acronym
-            # filling in, so key tier 2 on the acronym and not on the file.
             uncached.append(subdir)
         elif cached == acronym:
             candidates.append(subdir)
@@ -89,7 +87,7 @@ def find_xchem_visit_dir(
                 f"for dtag {dtag}: {e}"
             )
 
-    # tier 2: no cached match — read Protein from each soakDB, caching as we go
+    # no cached match — read Protein from each soakDB, caching as we go
     log.info(f"No matching cached acronym in {xchem_dir}, reading soakDB databases...")
     match_dir = None
     for subdir in uncached:

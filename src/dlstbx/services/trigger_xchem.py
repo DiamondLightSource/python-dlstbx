@@ -376,12 +376,9 @@ class DLSTriggerXChem(CommonService):
         industrial = proposal_code in INDUSTRIAL_PROPOSAL_CODES
 
         # 0. Check that this is an XChem expt & locate .SQLite database.
-        # Off the allow-list, a proposal is only worth looking at if one of its
-        # visits has a config at all; whether it is processed is then down to
-        # that visit's own `enabled`, resolved once its directory is known.
         xchem_dir = pathlib.Path(f"/dls/labxchem/data/{proposal_string}")
         allow_listed = proposal_string in ALLOWED_PROPOSALS
-        if not allow_listed and not any(xchem_dir.glob(f"*/{CONFIG_FILENAME}")):
+        if not allow_listed and not xchem_dir.is_dir():
             self.log.debug(
                 f"Not triggering PanDDA2 pipeline for dcid={dcid} proposal {proposal_string}"
             )
@@ -429,6 +426,15 @@ class DLSTriggerXChem(CommonService):
         if xchem_visit_dir is None:
             self.log.debug(
                 f"Exiting PanDDA2/Pipedream trigger: No labxchem directory found for {acronym}."
+            )
+            return {"success": True}
+
+        # Off the allow-list, a visit is only processed if it has opted in, and
+        # it cannot have done so without a config file
+        if not allow_listed and not (xchem_visit_dir / CONFIG_FILENAME).is_file():
+            self.log.debug(
+                f"Exiting PanDDA2/Pipedream trigger: proposal {proposal_string} is "
+                f"not allow-listed and {xchem_visit_dir} has no {CONFIG_FILENAME}"
             )
             return {"success": True}
 

@@ -406,6 +406,7 @@ class DLSTriggerXChem(CommonService):
             return {"success": True}
 
         # Get the user defined spacegroup
+        user_sg = None
         query = (
             session.query(Crystal.spaceGroup)
             .join(BLSample, BLSample.crystalId == Crystal.crystalId)
@@ -613,17 +614,15 @@ class DLSTriggerXChem(CommonService):
 
         df = pd.read_sql(query.statement, query.session.bind)
 
-        # prioritise datasets processed in user-defined spacegroup
-        if "user_sg" in locals():
-            df_filteredbysg = df[df["spaceGroup"] == user_sg]
-
-            if not df_filteredbysg.empty:
-                df = df_filteredbysg
-                n_success_upstream = len(df)
-                self.log.info(
-                    f"There are {n_success_upstream} successful upstream jobs (excluding fast-dp) in the user-defined spacegroup {user_sg} \
-                    selecting the best one based on I/sigI*completeness * #unique reflections, from the most recent processing batch"
-                )
+        # Prefer datasets processed in the user-defined spacegroup
+        df["sg_match"] = (df["spaceGroup"] == user_sg) if user_sg else False
+        self.log.info(
+            f"There are {len(df)} successful upstream jobs (excluding fast-dp), "
+            f"{int(df['sg_match'].sum())} of them in the user-defined spacegroup {user_sg}; "
+            "selecting the best one that has a dimple model, preferring the user-defined "
+            "spacegroup and then I/sigI * completeness * #unique reflections, from the "
+            "most recent processing batch"
+        )
 
         # rank datasets by I/sigI*completeness*# unique reflections
         df["heuristic"] = (
@@ -632,7 +631,7 @@ class DLSTriggerXChem(CommonService):
             * df["nTotalUniqueObservations"].astype(float)
         )
 
-        df = df[["autoProcScalingId", "heuristic"]].copy()
+        df = df[["autoProcScalingId", "sg_match", "heuristic"]].copy()
         scaling_ids = df["autoProcScalingId"].tolist()
 
         # find associated dimple jobs from scaling_ids
@@ -689,7 +688,7 @@ class DLSTriggerXChem(CommonService):
             left_on="parameterValue",
             right_on="autoProcScalingId",
             how="inner",
-        ).sort_values("heuristic", ascending=False)
+        ).sort_values(["sg_match", "heuristic"], ascending=[False, False])
 
         if df3.empty:
             self.log.info(

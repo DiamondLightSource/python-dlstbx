@@ -47,8 +47,10 @@ class XChemCollateWrapper(Wrapper):
         # Collate PanDDA2 results --> events & sites csv
 
         if panddas_dir.exists():
+            postrun_log = panddas_dir / "pandda2_postrun.log"
+            postrun_err = panddas_dir / "pandda2_postrun.err"
             pandda2_command = f"source /dls_sw/i04-1/software/PanDDA2/venv/bin/activate; \
-            python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={panddas_dir} --use_ligand_data=False --debug=True --local_cpus=4 > {panddas_dir / 'pandda2_postrun.log'}"
+            python -u /dls_sw/i04-1/software/PanDDA2/scripts/postrun.py --data_dirs={model_dir} --out_dir={panddas_dir} --use_ligand_data=False --debug=True --local_cpus=4 > {postrun_log} 2> {postrun_err}"
 
             self.log.info(f"Running XChemCollate command: {pandda2_command}")
 
@@ -66,7 +68,6 @@ class XChemCollateWrapper(Wrapper):
             except subprocess.CalledProcessError as e:
                 self.log.error(f"XChemCollate command: '{pandda2_command}' failed")
                 self.log.info(e.stdout)
-                self.log.error(e.stderr)
 
         # -------------------------------------------------------
         # Perform model selection (PanDDA2 | Pipedream) & re-integrate into XChem environment

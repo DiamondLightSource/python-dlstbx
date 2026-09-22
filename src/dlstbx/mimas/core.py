@@ -282,6 +282,27 @@ def handle_rotation_end(
             )
         )
 
+    # fast-feedback-service stubs to be added once autoprocessing is desirable
+    #
+    # tasks.append(
+    #     mimas.MimasISPyBJobInvocation(
+    #         DCID=scenario.DCID,
+    #         autostart=False,
+    #         recipe="autoprocessing-gpu-processing",
+    #         source="automatic",
+    #         displayname="FFS GPU",
+    #     )
+    # )
+    # tasks.append(
+    #     mimas.MimasISPyBJobInvocation(
+    #         DCID=scenario.DCID,
+    #         autostart=False,
+    #         recipe="autoprocessing-gpu-processing-from-spots",
+    #         source="automatic",
+    #         displayname="FFS GPU (from spots)",
+    #     )
+    # )
+
     xia2_dials_beamline_extra_params: ParamTuple = ()
     if scenario.beamline == "i02-1":
         xia2_dials_beamline_extra_params = (

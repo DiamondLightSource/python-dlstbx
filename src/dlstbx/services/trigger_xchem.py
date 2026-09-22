@@ -46,7 +46,7 @@ from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 from dlstbx.util.soakdb import find_xchem_visit_dir
 from dlstbx.util.stage_reprocess import stage_existing_modeldir
-from dlstbx.util.xchem_config import CONFIG_FILENAME, load_visit_config
+from dlstbx.util.xchem_config import CACHE_FILE, SETTINGS_FILE, load_visit_config
 
 INDUSTRIAL_PROPOSAL_CODES = frozenset({"in", "sw"})
 BATCH_DCIDS = ".batch_dcids.json"  # {dcid: dtag} cached while PanDDA2 waits
@@ -407,7 +407,9 @@ class DLSTriggerXChem(CommonService):
             )
             return {"success": True}
 
-        if not (xchem_visit_dir / CONFIG_FILENAME).is_file():
+        if not any(
+            (xchem_visit_dir / name).is_file() for name in (CACHE_FILE, SETTINGS_FILE)
+        ):
             self.log.debug("Exiting PanDDA2/Pipedream trigger: visit not registered")
             return {"success": True}
 

@@ -1,10 +1,9 @@
 """Per-visit settings for the XChem autoprocessing pipelines.
 
-A labxchem visit may hold a `.user.yaml` naming its target and steering how
-it is processed::
+Settings live in a `.user.yaml` the users own, under a visit's `processing`
+directory, which the pipeline only ever reads::
 
-    data:
-      acronym: A71EV2A            # cached by the pipeline
+    # <visit>/processing/.user.yaml
     autoprocessing:
       enabled: true               # process this visit at all?
       comparator_threshold: 150   # datasets PanDDA2 waits for before starting
@@ -12,6 +11,16 @@ it is processed::
       pandda:                     # extra PanDDA2 --key=value arguments
         high_res_lower_limit: 2.5
     notify: someone@diamond.ac.uk   # who to mail when collate finishes
+
+The target acronym is cached separately, in a `.user.yaml` at the top of the
+visit, because that is the one the pipeline can write::
+
+    # <visit>/.user.yaml
+    data:
+      acronym: A71EV2A
+
+Visits predating the split keep their settings alongside the cached acronym,
+and are still read from there when they have no `processing` file.
 
 A recipe that set the parameter explicitly beats the file, the file
 beats the parameter model's default.
@@ -25,7 +34,10 @@ from typing import Any
 import pydantic
 import yaml
 
-CONFIG_FILENAME = ".user.yaml"
+# written by the pipeline, holding only the cached acronym
+CACHE_FILE = ".user.yaml"
+# written by users; the pipeline never writes here
+SETTINGS_FILE = "processing/.user.yaml"
 
 
 class VisitConfig(pydantic.BaseModel):
@@ -62,43 +74,56 @@ def _mapping(value) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def _read(visit_dir, logger) -> tuple[Path, dict | None]:
-    """A visit config file's path and parsed contents, the latter None if the
-    file is there but could not be read."""
-    path = Path(visit_dir) / CONFIG_FILENAME
+def _read(path: Path, logger) -> dict | None:
+    """A config file's parsed contents, or None if it is there but unreadable."""
     try:
         text = path.read_text() if path.is_file() else ""
-        return path, _mapping(yaml.safe_load(text))
+        return _mapping(yaml.safe_load(text))
     except Exception as e:
         logger.warning(f"Ignoring unreadable visit config {path}: {e}")
-        return path, None
+        return None
 
 
 def load_visit_config(visit_dir, logger) -> VisitConfig:
-    """Read a visit's config file, or an all-defaults config if it has none.
+    """Read a visit's settings and cached acronym, or an all-defaults config.
 
     A setting that fails validation is dropped on its own and the rest of the
     file still applies, so one typo cannot cost a visit its whole config.
     """
-    path, raw = _read(visit_dir, logger)
-    raw = raw or {}
-    values = {str(k): v for k, v in _mapping(raw.get("autoprocessing")).items()}
-    values["acronym"] = _mapping(raw.get("data")).get("acronym")
-    values["notify"] = raw.get("notify")
+    visit_dir = Path(visit_dir)
+    cache_path = visit_dir / CACHE_FILE
+    cache = _read(cache_path, logger) or {}
+
+    # visits predating the split keep their settings in the cache file
+    settings_path = visit_dir / SETTINGS_FILE
+    if settings_path.is_file():
+        settings = _read(settings_path, logger) or {}
+    else:
+        settings_path, settings = cache_path, cache
+
+    values = {str(k): v for k, v in _mapping(settings.get("autoprocessing")).items()}
+    values["acronym"] = _mapping(cache.get("data")).get("acronym")
+    values["notify"] = settings.get("notify")
     try:
         return VisitConfig(**values)
     except pydantic.ValidationError as e:
         # only return settings that validate
         bad = {str(err["loc"][0]) for err in e.errors() if err["loc"]}
-        logger.warning(f"Ignoring invalid {', '.join(sorted(bad))} in {path}: {e}")
+        logger.warning(
+            f"Ignoring invalid {', '.join(sorted(bad))} in {settings_path}: {e}"
+        )
         return VisitConfig(**{k: v for k, v in values.items() if k not in bad})
 
 
 def cache_acronym(visit_dir, acronym: str, logger) -> None:
-    """Cache a visit's target acronym to its config file so that a beamline visit
-    can be linked with a labxchem one.
+    """Cache a visit's target acronym so that a beamline visit can be linked
+    with a labxchem one. Does nothing if an acronym is already recorded.
+
+    Written at the top of the visit, not under `processing`, because that is
+    where the pipeline can write.
     """
-    path, raw = _read(visit_dir, logger)
+    path = Path(visit_dir) / CACHE_FILE
+    raw = _read(path, logger)
     if raw is None:
         return
     data = _mapping(raw.get("data"))

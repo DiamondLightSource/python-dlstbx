@@ -85,6 +85,9 @@ class DLSPerImageAnalysis(CommonService):
             return
         self.log.info("Node self-check passed")
 
+        self._max_ntry = 10
+        self._message_delay = 60
+
         # The main per_image_analysis queue.
         # For every received message a single frame will be analysed.
         workflows.recipe.wrap_subscribe(
@@ -147,6 +150,8 @@ class DLSPerImageAnalysis(CommonService):
         self.log.info("Starting PIA on %s", payload.file)
         params = payload.parameters or PerImageAnalysisParameters()
 
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
+
         # Do the per-image-analysis
         start = time.time()
         try:
@@ -166,17 +171,31 @@ class DLSPerImageAnalysis(CommonService):
             #     )
             #     self._request_termination()
             #     return
-            self.log.error(
-                "PIA on %s with parameters %s failed with %r",
-                payload.file,
-                params,
-                e,
-                exc_info=True,
-            )
-            txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-            rw.transport.nack(header, transaction=txn)
-            rw.transport.transaction_commit(txn)
-            return
+            ntry = message.get("ntry", 0)
+            if ntry < self._max_ntry:
+                self.log.warning(
+                    f"PIA on {payload.file} with parameters {params} failed with {e}. Retry cycle #{ntry}",
+                )
+                message.update({"ntry": ntry + 1})
+                rw.transport.ack(header, transaction=txn)
+                rw.checkpoint(
+                    message,
+                    delay=self._message_delay,
+                    transaction=txn,
+                )
+                rw.transport.transaction_commit(txn)
+                return {"success": True}
+            else:
+                self.log.error(
+                    "PIA on %s with parameters %s failed with %r",
+                    payload.file,
+                    params,
+                    e,
+                    exc_info=True,
+                )
+                rw.transport.nack(header, transaction=txn)
+                rw.transport.transaction_commit(txn)
+                return
         runtime = time.time() - start
 
         results = pia_results.model_dump()
@@ -185,7 +204,6 @@ class DLSPerImageAnalysis(CommonService):
             results[key] = message[key]
 
         # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
         if (

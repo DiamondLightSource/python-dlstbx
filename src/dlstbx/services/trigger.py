@@ -233,7 +233,7 @@ class MultiplexParameters(pydantic.BaseModel):
     use_clustering: Optional[List[str]] = None
     use_filtering: List[str] = []
     filtering_group_size: Dict[str, int] = pydantic.Field(
-        default={"default": 50}, alias="filtering-group-size"
+        default={"default": 50}, alias="filtering_group_size"
     )
     beamline: str
     trigger_every_collection: bool

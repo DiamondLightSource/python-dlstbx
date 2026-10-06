@@ -232,9 +232,7 @@ class MultiplexParameters(pydantic.BaseModel):
     recipe: Optional[str] = None
     use_clustering: Optional[List[str]] = None
     use_filtering: List[str] = []
-    filtering_group_size: Dict[str, int] = pydantic.Field(
-        default={"default": 50}, alias="filtering_group_size"
-    )
+    filtering_group_size: Dict[str, int] = pydantic.Field(default={"default": 50})
     beamline: str
     trigger_every_collection: bool
 
@@ -2357,12 +2355,11 @@ class DLSTrigger(CommonService):
         duplicates = []
 
         for prev_param in job_parameters:
-            for new_param in parameters:
-                if prev_param[0] == new_param[0]:
-                    duplicates.append(prev_param)
-                    self.log.debug(
-                        f"Previous job parameter {prev_param[0]} will be overwritten by new reprocessing settings"
-                    )
+            if prev_param[0] in parameters.model_fields.keys():
+                duplicates.append(prev_param)
+                self.log.debug(
+                    f"Previous job parameter {prev_param[0]} will be overwritten by new reprocessing settings"
+                )
 
         for i in duplicates:
             job_parameters.remove(i)

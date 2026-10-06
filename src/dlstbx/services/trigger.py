@@ -232,9 +232,7 @@ class MultiplexParameters(pydantic.BaseModel):
     recipe: Optional[str] = None
     use_clustering: Optional[List[str]] = None
     use_filtering: List[str] = []
-    filtering_group_size: Dict[str, int] = pydantic.Field(
-        default={"default": 50}, alias="filtering-group-size"
-    )
+    filtering_group_size: Dict[str, int] = pydantic.Field(default={"default": 50})
     beamline: str
     trigger_every_collection: bool
 
@@ -2352,6 +2350,20 @@ class DLSTrigger(CommonService):
             .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
         ).all()
 
+        # Find duplicates with input reprocessing parameters - only use previous job parameters if these are not input
+
+        duplicates = []
+
+        for prev_param in job_parameters:
+            if prev_param[0] in parameters.model_fields.keys():
+                duplicates.append(prev_param)
+                self.log.debug(
+                    f"Previous job parameter {prev_param[0]} will be overwritten by new reprocessing settings"
+                )
+
+        for i in duplicates:
+            job_parameters.remove(i)
+
         # Second, get the DCIDs used in the existing multiplex job
 
         parent_job_dcids: list[tuple[int]] = (
@@ -2377,7 +2389,7 @@ class DLSTrigger(CommonService):
         dcids: list[int] = [row[0] for row in parent_job_dcids]
 
         self.log.info(f"Found DCIDS: {dcids}")
-        self.log.info("Found parent job parameters:")
+        self.log.info("Using job parameters:")
         for param in job_parameters:
             self.log.info(param)
 

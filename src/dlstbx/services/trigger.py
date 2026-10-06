@@ -314,6 +314,15 @@ class StrategyParameters(pydantic.BaseModel):
     wavelength: float = pydantic.Field(gt=0)
 
 
+class MultiXia2Parameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    dc_info: DataCollectionInfo
+    recipe: str
+    comment: Optional[str] = None
+    program_id: int = pydantic.Field(gt=0)
+    ispyb_parameters: Dict[str, Any] = pydantic.Field(default_factory=dict)
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -3170,5 +3179,94 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Strategy trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_multi_xia2(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: MultiXia2Parameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        dc_info = parameters.dc_info
+
+        if any(
+            getattr(dc_info, field) is None
+            for field in [
+                "imagePrefix",
+                "SESSIONID",
+                "dataCollectionNumber",
+            ]
+        ):
+            self.log.info(
+                f"Skipping multi-xia2 trigger: Insufficient info to find related dcids for dcid '{parameters.dcid}'"
+            )
+            return {"success": True}
+
+        query = session.query(DataCollection).filter(
+            DataCollection.imagePrefix == dc_info.imagePrefix,
+            DataCollection.SESSIONID == dc_info.SESSIONID,
+            DataCollection.dataCollectionNumber == dc_info.dataCollectionNumber,
+        )
+
+        if query.count() < 2:
+            self.log.info(
+                f"Skipping multi-xia2 trigger: not enough related data collections found for dcid '{parameters.dcid}'"
+            )
+            return {"success": True}
+
+        for dc in query.all():
+            if (
+                dc.dataCollectionId > parameters.dcid
+                and dc.runStatus == "DataCollection Successful"
+            ):
+                self.log.info(
+                    "Skipping multi-xia2-trigger: found a later successful data collection"
+                )
+                return {"success": True}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = True
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "multi-xia2"
+        jp["recipe"] = parameters.recipe
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"multi-xia2 trigger: generated JobID {jobid}")
+
+        for dc in query.all():
+            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+            jisp["datacollectionid"] = dc.dataCollectionId
+            jisp["start_image"] = dc.startImageNumber
+            jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
+
+            jisp["job_id"] = jobid
+            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                list(jisp.values())
+            )
+            self.log.debug(f"multi-xia2 trigger: generated JobImageSweepID {jispid}")
+        # Pass through parameters from the original xia2 job to the multi-xia2 job.
+        multi_xia2_parameters = parameters.ispyb_parameters
+        # Add multi-xia2 specific parameters
+        multi_xia2_parameters["resolution.cc_half_significance_level"] = 0.1
+
+        for key, value in multi_xia2_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"multi-xia2 trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"multi-xia2 trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

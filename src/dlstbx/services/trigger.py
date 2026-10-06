@@ -2344,8 +2344,42 @@ class DLSTrigger(CommonService):
             "ispyb_parameters": {"spacegroup": "P1", "apply_cchalf_filtering":"1", "cchalf_filtering_method": "image_group"},
         }
         """
+        # If only filtering parameters selected, then do not run full multiplex
+        if (
+            parameters.apply_cchalf_filtering
+            and not parameters.d_min
+            and not parameters.spacegroup
+        ):
+            parameters.recipe = "reprocess-xia2-multiplex-filtering"
+            self.log.info(
+                "Only filtering parameters present - running reprocess-xia2-multiplex-filtering"
+            )
 
-        parameters.recipe = "postprocessing-xia2-multiplex"
+            # If we are running filtering standalone, we need to find where the previous multiplex data is
+
+            original_processed = (
+                session.query(AutoProcProgramAttachment.filePath)
+                .join(
+                    AutoProc,
+                    AutoProc.autoProcProgramId
+                    == AutoProcProgramAttachment.autoProcProgramId,
+                )
+                .join(
+                    AutoProcScaling, AutoProcScaling.autoProcId == AutoProc.autoProcId
+                )
+                .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+                .where(AutoProcProgramAttachment.fileName == "xia2.multiplex.log")
+            ).all()[0][0]
+
+            folders = list(pathlib.Path(original_processed).parts)
+            i = folders.index("processed")
+            multiplex_directory = str(
+                pathlib.Path(*folders[:i], "tmp", "zocalo", *folders[i + 1 :])
+            )
+        else:
+            parameters.recipe = "postprocessing-xia2-multiplex"
+            self.log.info("Running postprocessing-xia2-multiplex")
+            multiplex_directory = None
 
         # First, get the job parameters from the existing multiplex job
 
@@ -2379,8 +2413,8 @@ class DLSTrigger(CommonService):
                     f"Previous job parameter {prev_param[0]} will be overwritten by new reprocessing settings"
                 )
 
-        for i in duplicates:
-            job_parameters.remove(i)
+        for duplicate_param in duplicates:
+            job_parameters.remove(duplicate_param)
 
         # Second, get the DCIDs used in the existing multiplex job
 
@@ -2438,6 +2472,12 @@ class DLSTrigger(CommonService):
                 job_parameters.extend(
                     [("anomalous", "true"), ("absorption_level", "high")]
                 )
+
+        if (
+            parameters.recipe == "reprocess-xia2-multiplex-filtering"
+            and multiplex_directory
+        ):
+            job_parameters.append(("multiplex_directory", multiplex_directory))
 
         # Register and trigger jobs (same as automatic multiplex)
 

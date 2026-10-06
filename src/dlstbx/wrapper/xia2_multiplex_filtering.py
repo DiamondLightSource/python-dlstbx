@@ -142,6 +142,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 "anomalous",
                 "absorption_level",
                 "small_molecule",  # This will be taken from the parent phil
+                "multiplex_directory",
             }
             translation = {
                 "d_min": "resolution.d_min",
@@ -164,7 +165,12 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
         working_directory = pathlib.Path(params["working_directory"])
         results_directory = pathlib.Path(params["results_directory"])
 
-        multiplex_dir = pathlib.Path(params["multiplex_directory"])
+        if "multiplex_directory" in params.keys():
+            multiplex_dir = pathlib.Path(params["multiplex_directory"])
+        else:
+            for param, value in params["ispyb_parameters"].items():
+                if param == "multiplex_directory":
+                    multiplex_dir = pathlib.Path(value[0])
 
         command = self.construct_commandline(params, multiplex_dir)
 

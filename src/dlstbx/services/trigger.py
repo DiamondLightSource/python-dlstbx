@@ -69,6 +69,7 @@ class DataCollectionInfo(pydantic.BaseModel):
     imagePrefix: Optional[str] = None
     dataCollectionNumber: Optional[int] = None
     SESSIONID: Optional[int] = None
+    BLSAMPLEID: Optional[int] = None
     wavelength: float = pydantic.Field(gt=0)
 
 
@@ -3198,6 +3199,7 @@ class DLSTrigger(CommonService):
             for field in [
                 "imagePrefix",
                 "SESSIONID",
+                "BLSAMPLEID",
                 "dataCollectionNumber",
             ]
         ):
@@ -3209,6 +3211,7 @@ class DLSTrigger(CommonService):
         query = session.query(DataCollection).filter(
             DataCollection.imagePrefix == dc_info.imagePrefix,
             DataCollection.SESSIONID == dc_info.SESSIONID,
+            DataCollection.BLSAMPLEID == dc_info.BLSAMPLEID,
             DataCollection.dataCollectionNumber == dc_info.dataCollectionNumber,
         )
 
@@ -3224,7 +3227,7 @@ class DLSTrigger(CommonService):
                 and dc.runStatus == "DataCollection Successful"
             ):
                 self.log.info(
-                    "Skipping multi-xia2-trigger: found a later successful data collection"
+                    f"Skipping multi-xia2-trigger for {parameters.dcid}: found a later successful data collection"
                 )
                 return {"success": True}
 

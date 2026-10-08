@@ -337,10 +337,12 @@ def handle_rotation_end(
         ("mxia2/DIALS", "autoprocessing-multi-xia2-dials"),
         ("mxia2/3dii", "autoprocessing-multi-xia2-3dii"),
     ):
-        ppl_autostart[ppl] = False
+        ppl_autostart[ppl] = (
+            scenario.preferred_processing == ppl and scenario.beamline != "i03"
+        )
         ppl_suffix[ppl] = suffix_pref
         ppl_triggervars[ppl] = triggervars_pref
-        if scenario.preferred_processing == ppl or is_dcclass_characterization:
+        if is_dcclass_characterization:
             ppl_autostart[ppl] = True
         elif any(r in recipe for r in cloud_recipes):
             ppl_suffix[ppl] = suffix

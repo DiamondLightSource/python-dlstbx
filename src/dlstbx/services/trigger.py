@@ -317,11 +317,14 @@ class StrategyParameters(pydantic.BaseModel):
 
 class MultiXia2Parameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    beamline: str
     dc_info: DataCollectionInfo
     recipe: str
     comment: Optional[str] = None
     program_id: int = pydantic.Field(gt=0)
     ispyb_parameters: Dict[str, Any] = pydantic.Field(default_factory=dict)
+    max_timeout_per_dc: int = pydantic.Field(default=600, alias="max-timeout-per-dc")
+    max_timeout: int = pydantic.Field(default=7200, alias="max-timeout")
 
 
 class DLSTrigger(CommonService):
@@ -3210,15 +3213,22 @@ class DLSTrigger(CommonService):
         Two timeouts are calculated: one based on the time between matching data
         collections and one based on any data collections recorded on the same sample
         after the current collection. The shortest timeout is used, but no more than
-        2 hours. The idea for this is that if no further collections are being recorded
-        for the sample, the wedge experiment has likely finished and the pipeline can
-        be run earlier than the time between related collections would suggest.
+        the maximum timeout specified (defaults to 2 hours). The idea for this is that
+        if no further collections are being recorded for the sample, the wedge experiment
+        has likely finished and the pipeline can be run earlier than the time between
+        related collections would suggest.
 
         The trigger only considers successful data collections and uses the
         current data collection together with its related siblings as input to
         the generated multi-xia2 processing job.
 
         """
+        if parameters.beamline != "i23":
+            self.log.info(
+                f"Skipping multi-xia2 trigger: beamline {parameters.beamline} not supported"
+            )
+            return {"success": True}
+
         dc_info = parameters.dc_info
 
         if any(
@@ -3280,7 +3290,7 @@ class DLSTrigger(CommonService):
             current_dc.endTime - previous_related_dc.endTime
         ).total_seconds()
 
-        max_allowed_time_per_dc = 600  # seconds
+        max_allowed_time_per_dc = parameters.max_timeout_per_dc  # seconds
         time_per_dc = time_between_related_dcs / (n_intermediate_dcs + 1)
         time_allowed_per_dc = min(max_allowed_time_per_dc, time_per_dc)
 
@@ -3293,8 +3303,8 @@ class DLSTrigger(CommonService):
         # Timeout to wait for (a) more recent dc(s) on the same sample to finish
         per_dc_timeout = time_allowed_per_dc * (n_more_recent_dcs + 1)
 
-        # Use shortest timeout of the two, but no more than 2 hours
-        timeout = min(related_dcid_timeout, per_dc_timeout, 7200)
+        # Use shortest timeout of the two, up to a sanity limit (max_timeout)
+        timeout = min(related_dcid_timeout, per_dc_timeout, parameters.max_timeout)
         time_since_dc = (datetime.now() - current_dc.endTime).total_seconds()
 
         self.log.debug(

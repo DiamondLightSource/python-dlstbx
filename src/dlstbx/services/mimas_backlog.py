@@ -73,7 +73,7 @@ class DLSMimasBacklog(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        beamline = rw.recipe_step["parameters"].get("beamline")
+        beamline = rw.recipe_step.get("parameters", {}).get("beamline", "")
         queue_hold = self.config.storage.get("queue_hold", [])
         pid = message.get("parameters", {}).get("ispyb_process", -1)
 

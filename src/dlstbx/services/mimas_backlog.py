@@ -22,7 +22,7 @@ class DLSMimasBacklog(CommonService):
 
         self._message_delay = 30
         self._message_hold = 1200
-        self._jobs_waiting = {"slurm": 60, "iris": 3000}
+        self._jobs_waiting = {"slurm": 1e6, "iris": 1e6}
         self._last_cluster_update = {"slurm": time.time(), "iris": time.time()}
 
         # Subscribe to the mimas.held queue, which contains the held mimas

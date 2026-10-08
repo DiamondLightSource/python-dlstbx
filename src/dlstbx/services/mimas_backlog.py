@@ -21,6 +21,7 @@ class DLSMimasBacklog(CommonService):
         self.log.info("MimasBacklog service starting up")
 
         self._message_delay = 30
+        self._message_hold = 1200
         self._jobs_waiting = {"slurm": 60, "iris": 3000}
         self._last_cluster_update = {"slurm": time.time(), "iris": time.time()}
 
@@ -72,6 +73,10 @@ class DLSMimasBacklog(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
+        beamline = rw.recipe_step["parameters"].get("beamline")
+        queue_hold = self.config.storage.get("queue_hold", [])
+        pid = message.get("parameters", {}).get("ispyb_process", -1)
+
         statistic_cluster = message["parameters"].get("statistic-cluster", "slurm")
         try:
             max_jobs_waiting = self.config.storage.get(
@@ -85,7 +90,18 @@ class DLSMimasBacklog(CommonService):
             f"Jobs waiting on {statistic_cluster} cluster: {self._jobs_waiting[statistic_cluster]}\n"
         )
 
-        if self._jobs_waiting[statistic_cluster] < max_jobs_waiting[statistic_cluster]:
+        if beamline in queue_hold:
+            self.log.warning(
+                f"Holding job {pid} from {beamline} for {self._message_hold}s. "
+            )
+            rw.checkpoint(
+                message,
+                delay=self._message_hold,
+                transaction=txn,
+            )
+        elif (
+            self._jobs_waiting[statistic_cluster] < max_jobs_waiting[statistic_cluster]
+        ):
             if self._last_cluster_update[statistic_cluster] > time.time() - timeout:
                 rw.send(message, transaction=txn)
                 self._jobs_waiting[statistic_cluster] += 1

@@ -3190,6 +3190,7 @@ class DLSTrigger(CommonService):
         *,
         parameters: MultiXia2Parameters,
         session: sqlalchemy.orm.session.Session,
+        transaction: int,
         **kwargs,
     ):
         dc_info = parameters.dc_info
@@ -3208,28 +3209,83 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        query = session.query(DataCollection).filter(
-            DataCollection.imagePrefix == dc_info.imagePrefix,
-            DataCollection.SESSIONID == dc_info.SESSIONID,
-            DataCollection.BLSAMPLEID == dc_info.BLSAMPLEID,
-            DataCollection.dataCollectionNumber == dc_info.dataCollectionNumber,
+        sample_dcs = (
+            session.query(DataCollection)
+            .filter(
+                DataCollection.SESSIONID == dc_info.SESSIONID,
+                DataCollection.BLSAMPLEID == dc_info.BLSAMPLEID,
+                DataCollection.runStatus == "DataCollection Successful",
+            )
+            .all()
         )
 
-        if query.count() < 2:
+        related_dcs = [
+            dc
+            for dc in sample_dcs
+            if dc.dataCollectionId != parameters.dcid
+            and dc.imagePrefix == dc_info.imagePrefix
+            and dc.dataCollectionNumber == dc_info.dataCollectionNumber
+        ]
+
+        if not related_dcs:
             self.log.info(
-                f"Skipping multi-xia2 trigger: not enough related data collections found for dcid '{parameters.dcid}'"
+                f"Skipping multi-xia2 trigger: not enough related data collections "
+                f"found for dcid '{parameters.dcid}'"
             )
             return {"success": True}
 
-        for dc in query.all():
-            if (
-                dc.dataCollectionId > parameters.dcid
-                and dc.runStatus == "DataCollection Successful"
-            ):
-                self.log.info(
-                    f"Skipping multi-xia2-trigger for {parameters.dcid}: found a later successful data collection"
-                )
-                return {"success": True}
+        if any(dc.dataCollectionId > parameters.dcid for dc in related_dcs):
+            self.log.info(
+                f"Skipping multi-xia2 trigger for {parameters.dcid}: "
+                "found a later successful data collection"
+            )
+            return {"success": True}
+
+        previous_related_dc = max(related_dcs, key=lambda dc: dc.dataCollectionId)
+        current_dc = next(
+            dc for dc in sample_dcs if dc.dataCollectionId == parameters.dcid
+        )
+
+        n_intermediate_dcs = sum(
+            previous_related_dc.dataCollectionId < dc.dataCollectionId < parameters.dcid
+            for dc in sample_dcs
+        )
+        time_between_related_dcs = (
+            current_dc.endTime - previous_related_dc.endTime
+        ).total_seconds()
+
+        max_allowed_time_per_dc = 600  # seconds
+        time_per_dc = time_between_related_dcs / (n_intermediate_dcs + 1)
+        time_allowed_per_dc = min(max_allowed_time_per_dc, time_per_dc)
+
+        # Timeout to wait for another related dc to finish.
+        related_dcid_timeout = time_between_related_dcs + time_allowed_per_dc
+
+        n_more_recent_dcs = sum(
+            dc.dataCollectionId > parameters.dcid for dc in sample_dcs
+        )
+        # Timeout to wait for (a) more recent dc(s) on the same sample to finish
+        per_dc_timeout = time_allowed_per_dc * (n_more_recent_dcs + 1)
+
+        # Use shortest timeout of the two, but no more than 2 hours
+        timeout = min(related_dcid_timeout, per_dc_timeout, 7200)
+        time_since_dc = (datetime.now() - current_dc.endTime).total_seconds()
+
+        self.log.debug(
+            "multi-xia2 trigger: "
+            f"n_intermediate_dcs={n_intermediate_dcs}, "
+            f"time_per_dc={time_per_dc:.0f}s, "
+            f"related_dcid_timeout={related_dcid_timeout:.0f}s, "
+            f"per_dc_timeout={per_dc_timeout:.0f}s"
+        )
+
+        if time_since_dc < timeout:
+            self.log.info(
+                f"Checkpointing multi-xia2 trigger for {parameters.dcid}: "
+                f"time since dc={time_since_dc:.0f}s, timeout={timeout:.0f}s"
+            )
+            rw.checkpoint({}, delay=60, transaction=transaction)
+            return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = True
@@ -3241,7 +3297,7 @@ class DLSTrigger(CommonService):
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"multi-xia2 trigger: generated JobID {jobid}")
 
-        for dc in query.all():
+        for dc in related_dcs + [current_dc]:
             jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
             jisp["datacollectionid"] = dc.dataCollectionId
             jisp["start_image"] = dc.startImageNumber

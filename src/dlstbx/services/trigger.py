@@ -69,6 +69,7 @@ class DataCollectionInfo(pydantic.BaseModel):
     imagePrefix: Optional[str] = None
     dataCollectionNumber: Optional[int] = None
     SESSIONID: Optional[int] = None
+    BLSAMPLEID: Optional[int] = None
     wavelength: float = pydantic.Field(gt=0)
 
 
@@ -310,6 +311,19 @@ class StrategyParameters(pydantic.BaseModel):
     experiment_type: str
     program_id: int = pydantic.Field(gt=0)
     wavelength: float = pydantic.Field(gt=0)
+
+
+class MultiXia2Parameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    beamline: str
+    dc_info: DataCollectionInfo
+    recipe: str
+    comment: Optional[str] = None
+    program_id: int = pydantic.Field(gt=0)
+    ispyb_parameters: Dict[str, Any] = pydantic.Field(default_factory=dict)
+    max_timeout_per_dc: int = pydantic.Field(default=600, alias="max-timeout-per-dc")
+    max_timeout: int = pydantic.Field(default=7200, alias="max-timeout")
+    checkpoint_delay: int = pydantic.Field(default=60, alias="checkpoint-delay")
 
 
 class DLSTrigger(CommonService):
@@ -3182,5 +3196,187 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Strategy trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_multi_xia2(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: MultiXia2Parameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,
+        **kwargs,
+    ):
+        """Trigger a multi-xia2 processing job for a related set of data collections
+        on I23.
+
+        Search the current sample/session for successful data collections that match
+        the same image prefix and data collection number as the current collection.
+        If there are not enough related collections, or if a later successful related
+        collection already exists, the trigger is skipped.
+
+        Otherwise, calculate timeouts based on the time between the current
+        collection and the previous related collection, together with the number of
+        intervening collections, and wait for the shortest timeout to elapse before
+        starting a multi-xia2 job. While the timeout has not expired, the current
+        message is checkpointed and retried later to avoid triggering too early.
+
+        Two timeouts are calculated: one based on the time between matching data
+        collections and one based on any data collections recorded on the same sample
+        after the current collection. The shortest timeout is used, but no more than
+        the maximum timeout specified (defaults to 2 hours). The idea for this is that
+        if no further collections are being recorded for the sample, the wedge experiment
+        has likely finished and the pipeline can be run earlier than the time between
+        related collections would suggest.
+
+        The trigger only considers successful data collections and uses the
+        current data collection together with its related siblings as input to
+        the generated multi-xia2 processing job.
+
+        """
+        if parameters.beamline != "i23":
+            self.log.info(
+                f"Skipping multi-xia2 trigger: beamline {parameters.beamline} not supported"
+            )
+            return {"success": True}
+
+        dc_info = parameters.dc_info
+
+        if any(
+            getattr(dc_info, field) is None
+            for field in [
+                "imagePrefix",
+                "SESSIONID",
+                "BLSAMPLEID",
+                "dataCollectionNumber",
+            ]
+        ):
+            self.log.info(
+                f"Skipping multi-xia2 trigger: Insufficient info to find related dcids for dcid '{parameters.dcid}'"
+            )
+            return {"success": True}
+
+        sample_dcs = (
+            session.query(DataCollection)
+            .filter(
+                DataCollection.SESSIONID == dc_info.SESSIONID,
+                DataCollection.BLSAMPLEID == dc_info.BLSAMPLEID,
+                DataCollection.runStatus == "DataCollection Successful",
+            )
+            .all()
+        )
+
+        related_dcs = [
+            dc
+            for dc in sample_dcs
+            if dc.dataCollectionId != parameters.dcid
+            and dc.imagePrefix == dc_info.imagePrefix
+            and dc.dataCollectionNumber == dc_info.dataCollectionNumber
+        ]
+
+        if not related_dcs:
+            self.log.info(
+                f"Skipping multi-xia2 trigger: not enough related data collections "
+                f"found for dcid '{parameters.dcid}'"
+            )
+            return {"success": True}
+
+        if any(dc.dataCollectionId > parameters.dcid for dc in related_dcs):
+            self.log.info(
+                f"Skipping multi-xia2 trigger for {parameters.dcid}: "
+                "found a later successful data collection"
+            )
+            return {"success": True}
+
+        previous_related_dc = max(related_dcs, key=lambda dc: dc.dataCollectionId)
+        current_dc = next(
+            dc for dc in sample_dcs if dc.dataCollectionId == parameters.dcid
+        )
+
+        n_intermediate_dcs = sum(
+            previous_related_dc.dataCollectionId < dc.dataCollectionId < parameters.dcid
+            for dc in sample_dcs
+        )
+        time_between_related_dcs = (
+            current_dc.endTime - previous_related_dc.endTime
+        ).total_seconds()
+
+        max_allowed_time_per_dc = parameters.max_timeout_per_dc  # seconds
+        time_per_dc = time_between_related_dcs / (n_intermediate_dcs + 1)
+        time_allowed_per_dc = min(max_allowed_time_per_dc, time_per_dc)
+
+        # Timeout to wait for another related dc to finish.
+        related_dcid_timeout = time_between_related_dcs + time_allowed_per_dc
+
+        n_more_recent_dcs = sum(
+            dc.dataCollectionId > parameters.dcid for dc in sample_dcs
+        )
+        # Timeout to wait for (a) more recent dc(s) on the same sample to finish
+        per_dc_timeout = time_allowed_per_dc * (n_more_recent_dcs + 1)
+
+        # Use shortest timeout of the two, up to a sanity limit (max_timeout)
+        timeout = min(related_dcid_timeout, per_dc_timeout, parameters.max_timeout)
+        time_since_dc = (datetime.now() - current_dc.endTime).total_seconds()
+
+        self.log.debug(
+            "multi-xia2 trigger: "
+            f"n_intermediate_dcs={n_intermediate_dcs}, "
+            f"time_per_dc={time_per_dc:.0f}s, "
+            f"related_dcid_timeout={related_dcid_timeout:.0f}s, "
+            f"per_dc_timeout={per_dc_timeout:.0f}s"
+        )
+
+        if time_since_dc < timeout:
+            self.log.info(
+                f"Checkpointing multi-xia2 trigger for {parameters.dcid}: "
+                f"time since dc={time_since_dc:.0f}s, timeout={timeout:.0f}s"
+            )
+            rw.checkpoint(
+                {}, delay=parameters.checkpoint_delay, transaction=transaction
+            )
+            return {"success": True}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = True
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "multi-xia2"
+        jp["recipe"] = parameters.recipe
+        self.log.debug(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"multi-xia2 trigger: generated JobID {jobid}")
+
+        for dc in related_dcs + [current_dc]:
+            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+            jisp["datacollectionid"] = dc.dataCollectionId
+            jisp["start_image"] = dc.startImageNumber
+            jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
+
+            jisp["job_id"] = jobid
+            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                list(jisp.values())
+            )
+            self.log.debug(f"multi-xia2 trigger: generated JobImageSweepID {jispid}")
+        # Pass through parameters from the original xia2 job to the multi-xia2 job.
+        multi_xia2_parameters = parameters.ispyb_parameters.copy()
+        # Add multi-xia2 specific parameters
+        multi_xia2_parameters["resolution.cc_half_significance_level"] = 0.1
+
+        for key, value in multi_xia2_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"multi-xia2 trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"multi-xia2 trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

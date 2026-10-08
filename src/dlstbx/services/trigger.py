@@ -325,6 +325,7 @@ class MultiXia2Parameters(pydantic.BaseModel):
     ispyb_parameters: Dict[str, Any] = pydantic.Field(default_factory=dict)
     max_timeout_per_dc: int = pydantic.Field(default=600, alias="max-timeout-per-dc")
     max_timeout: int = pydantic.Field(default=7200, alias="max-timeout")
+    checkpoint_delay: int = pydantic.Field(default=60, alias="checkpoint-delay")
 
 
 class DLSTrigger(CommonService):
@@ -3320,7 +3321,9 @@ class DLSTrigger(CommonService):
                 f"Checkpointing multi-xia2 trigger for {parameters.dcid}: "
                 f"time since dc={time_since_dc:.0f}s, timeout={timeout:.0f}s"
             )
-            rw.checkpoint({}, delay=60, transaction=transaction)
+            rw.checkpoint(
+                {}, delay=parameters.checkpoint_delay, transaction=transaction
+            )
             return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()

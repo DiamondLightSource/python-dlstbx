@@ -3193,6 +3193,32 @@ class DLSTrigger(CommonService):
         transaction: int,
         **kwargs,
     ):
+        """Trigger a multi-xia2 processing job for a related set of data collections
+        on I23.
+
+        Search the current sample/session for successful data collections that match
+        the same image prefix and data collection number as the current collection.
+        If there are not enough related collections, or if a later successful related
+        collection already exists, the trigger is skipped.
+
+        Otherwise, calculate timeouts based on the time between the current
+        collection and the previous related collection, together with the number of
+        intervening collections, and wait for the shortest timeout to elapse before
+        starting a multi-xia2 job. While the timeout has not expired, the current
+        message is checkpointed and retried later to avoid triggering too early.
+
+        Two timeouts are calculated: one based on the time between matching data
+        collections and one based on any data collections recorded on the same sample
+        after the current collection. The shortest timeout is used, but no more than
+        2 hours. The idea for this is that if no further collections are being recorded
+        for the sample, the wedge experiment has likely finished and the pipeline can
+        be run earlier than the time between related collections would suggest.
+
+        The trigger only considers successful data collections and uses the
+        current data collection together with its related siblings as input to
+        the generated multi-xia2 processing job.
+
+        """
         dc_info = parameters.dc_info
 
         if any(

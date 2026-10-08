@@ -3329,7 +3329,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = "multi-xia2"
         jp["recipe"] = parameters.recipe
-        self.log.info(jp)
+        self.log.debug(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"multi-xia2 trigger: generated JobID {jobid}")
 
@@ -3345,7 +3345,7 @@ class DLSTrigger(CommonService):
             )
             self.log.debug(f"multi-xia2 trigger: generated JobImageSweepID {jispid}")
         # Pass through parameters from the original xia2 job to the multi-xia2 job.
-        multi_xia2_parameters = parameters.ispyb_parameters
+        multi_xia2_parameters = parameters.ispyb_parameters.copy()
         # Add multi-xia2 specific parameters
         multi_xia2_parameters["resolution.cc_half_significance_level"] = 0.1
 

@@ -338,8 +338,7 @@ def handle_rotation_end(
         ("mxia2/3dii", "autoprocessing-multi-xia2-3dii"),
     ):
         ppl_autostart[ppl] = (
-            scenario.preferred_processing == ppl
-            and scenario.beamline not in ("i03", "i04-1")
+            scenario.preferred_processing == ppl and scenario.beamline != "i03"
         )
         ppl_suffix[ppl] = suffix_pref
         ppl_triggervars[ppl] = triggervars_pref

@@ -35,6 +35,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     time_limit: Optional[datetime.timedelta] = None
     gpus: Optional[int] = None
     exclusive: bool = False
+    nice: Optional[int] = None
     account: Optional[str] = None  # account in slurm terminology
     commands: list[str] | str
     constraints: Optional[str] = None
@@ -130,6 +131,14 @@ def submit_to_slurm(
         jdm_params["tres_per_node"] = f"gres/gpu:{params.gpus_per_node}"
     if params.gpus:
         jdm_params["tres_per_job"] = f"gres/gpu:{params.gpus}"
+    if params.nice is not None:
+        try:
+            nice = max(
+                0, int(f"{params.nice}")
+            )  # Negative "niceness" can be set only by admin users
+            jdm_params["nice"] = f"{nice}"
+        except (TypeError, ValueError):
+            logger.exception(f'Invalid job "niceness" setting: {params.nice}')
 
     job_submission = slurm.models.JobSubmitReq(
         script=script, job=slurm.models.JobDescMsg(**jdm_params)

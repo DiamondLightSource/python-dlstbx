@@ -1362,6 +1362,22 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
+        query = (
+            session.query(Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == parameters.dcid)
+        )
+        proposal = query.first()
+        if not proposal:
+            self.log.error(
+                f"mrbump trigger failed: no proposal associated with dcid={dcid}"
+            )
+            return False
+        if proposal.proposalCode in INDUSTRIAL_CODES:
+            self.log.info(f"Skipping mrbump trigger for {proposal.proposalCode} visit")
+            return {"success": True}
+
         if isinstance(parameters.hklin, dict):
             query = (
                 session.query(

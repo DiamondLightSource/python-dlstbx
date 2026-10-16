@@ -96,6 +96,24 @@ class Xia2MultiplexWrapper(Wrapper):
         }
         ispyb_command_list.append(integration)
 
+        # Step 3.5: Ammend paths in HTML for synchweb interactivity
+
+        for attachment in attachments:
+            html_path = pathlib.Path(attachment["file_path"]) / attachment["file_name"]
+            # pipeline-final is in file_path, but we want the /processed for data processing
+            parts = list(html_path.parts)
+            if "pipeline-final" in parts:
+                parts.remove("pipeline-final")
+            desired_path = pathlib.Path(*parts)
+            if attachment["file_name"] == "xia2.multiplex.html":
+                path_to_insert = desired_path.parent / "xia2-multiplex-working.phil"
+                self.fix_paths_in_html_output(html_path, path_to_insert)
+            elif attachment["file_name"] == "xia2.multiplex_clustering.html":
+                path_to_insert = (
+                    desired_path.parent.parent / "xia2-multiplex-working.phil"
+                )
+                self.fix_paths_in_html_output(html_path, path_to_insert)
+
         # Step 4: Upload attachments
         if attachments:
             for attachment in attachments:
@@ -185,6 +203,15 @@ class Xia2MultiplexWrapper(Wrapper):
             command.append("output.cluster_html=True")
 
         return command
+
+    def fix_paths_in_html_output(self, html_path, phil_path):
+        # Use this to make sure viewing the HTML in SynchWeb gives useful and helpful file paths for subset selection.
+        text = html_path.read_text(encoding="utf-8")
+        old = 'var PHIL_PATH_OVERRIDE = "";'
+        new = f"var PHIL_PATH_OVERRIDE = {json.dumps(str(phil_path))};"
+        if old in text:
+            # if old not in text, this is likely because it's a cluster and it's already been written
+            html_path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -319,7 +346,6 @@ class Xia2MultiplexWrapper(Wrapper):
         if success:
             with multiplex_json.open("r") as fh:
                 d = json.load(fh)
-
             for dataset_name, dataset in d["datasets"].items():
                 base_dir_logs = working_directory / "LogFiles"
                 base_dir_results = working_directory / "DataFiles"

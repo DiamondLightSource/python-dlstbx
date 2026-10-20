@@ -6,6 +6,7 @@ import os
 import procrunner
 import py
 
+import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
 
@@ -21,6 +22,18 @@ class MosflmStrategyWrapper(Wrapper):
         results_directory = py.path.local(params["results_directory"])
         self.log.info("working_directory: %s", working_directory.strpath)
         working_directory.ensure(dir=1)
+        results_directory.ensure(dir=1)
+
+        symlink = params.get("create_symlink", "strategy-mosflm")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(working_directory), symlink
+            )
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(results_directory), symlink
+            )
 
         # Set SynchWeb to swirl
         results_directory.join("strategy_native.log").ensure()
@@ -137,7 +150,7 @@ class MosflmStrategyWrapper(Wrapper):
             "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
         )
         result = procrunner.run(
-            ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
+            ["dxtbx.dlsnxs2cbf", master_h5, "-t", prefix, "-n 4"],
             working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )
@@ -165,7 +178,7 @@ class MosflmStrategyWrapper(Wrapper):
         # mosflm native,182.0,272.0,1.2,75,1.00,1.47
         # mosflm anomalous,182.0,272.0,1.2,75,0.92,1.47
 
-        assert dcid > 0, "Invalid data collection ID given."
+        # assert dcid > 0, "Invalid data collection ID given."
 
         ispyb_command_list = []
 

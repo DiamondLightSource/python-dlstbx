@@ -220,29 +220,19 @@ class MosflmStrategyWrapper(Wrapper):
         for i, strategy in enumerate(
             [results["strategy_native"], results["strategy_anomalous"]]
         ):
-            # Step 1: Add new record to Screening table, keep the ScreeningId
-            d = {
-                "dcid": dcid,
-                "programversion": "mosflm",
-                "shortcomments": strategy["comments"],
-                "ispyb_command": "insert_screening",
-                "store_result": "ispyb_screening_id_%i" % i,
-            }
-            ispyb_command_list.append(d)
-
-            # Step 2: Store screeningOutput results, linked to the screeningId
+            # Step 1: Store screeningOutput results, linked to the screeningId
             #         Keep the screeningOutputId
             d = {
                 "program": "mosflm",
                 "indexingsuccess": 1,
                 "strategysuccess": 1,
                 "ispyb_command": "insert_screening_output",
-                "screening_id": "$ispyb_screening_id_%i" % i,
+                "screening_id": "$ispyb_screening_id",
                 "store_result": "ispyb_screening_output_id_%i" % i,
             }
             ispyb_command_list.append(d)
 
-            # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
+            # Step 2: Store screeningOutputLattice results, linked to the screeningOutputId
             #         Keep the screeningOutputLatticeId
             d = {
                 "spacegroup": results["space_group"],
@@ -258,7 +248,7 @@ class MosflmStrategyWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 4: Store screeningStrategy results, linked to the screeningOutputId
+            # Step 3: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
                 "program": "mosflm",
@@ -269,7 +259,7 @@ class MosflmStrategyWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 5: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            # Step 4: Store screeningStrategyWedge results, linked to the screeningStrategyId
             #         Keep the screeningStrategyWedgeId
             d = {
                 "wedgenumber": 1,
@@ -283,7 +273,7 @@ class MosflmStrategyWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 6: Store screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
+            # Step 5: Store screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
             #         Keep the screeningStrategySubWedgeId
             d = {
                 "subwedgenumber": 1,

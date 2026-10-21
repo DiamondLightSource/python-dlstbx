@@ -71,8 +71,8 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             "cell_alpha": z["unit_cell"][3],
             "cell_beta": z["unit_cell"][4],
             "cell_gamma": z["unit_cell"][5],
-            "refined_xbeam": z["refined_beam"][0],
-            "refined_ybeam": z["refined_beam"][1],
+            "refined_xbeam": z["refined_beam"][1],
+            "refined_ybeam": z["refined_beam"][0],
         }
         ispyb_command_list.append(integration)
 

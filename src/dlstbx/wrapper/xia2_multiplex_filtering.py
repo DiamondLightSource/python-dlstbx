@@ -429,70 +429,48 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             )
             self._success_counter.inc()
         else:
-            ispyb_command_list = []
             primary_log = working_directory / "xia2.multiplex_filtering.log"
             processing_dir = working_directory / "Processing"
             results_processing = results_directory / "Processing"
             processing_logs = working_directory / "LogFiles"
             results_logs = results_directory / "LogFiles"
             if primary_log.exists():
-                ispyb_command_list.append(
-                    {
-                        "ispyb_command": "update_processing_status",
-                        "program_id": "$ispyb_autoprocprogram_id",
-                        "message": "processing failure",
-                        "status": "failure",
-                    }
-                )
                 shutil.copy(
                     working_directory / "xia2.multiplex_filtering.log",
                     results_directory / "xia2.multiplex_filtering.log",
                 )
                 location = results_directory
-                upload_attachment = {
-                    "ispyb_command": "add_program_attachment",
-                    "program_id": "$ispyb_autoprocprogram_id",
-                    "file_path": location.as_posix(),
-                    "file_name": "xia2.multiplex_filtering.log",
-                    "file_type": "log",
-                    "importance_rank": 1,
-                }
-                ispyb_command_list.append(upload_attachment)
+                self.record_result_individual_file(
+                    {
+                        "file_path": location.as_posix(),
+                        "file_name": "xia2.multiplex_filtering.log",
+                        "file_type": "log",
+                        "importance_rank": 1,
+                    }
+                )
 
-                for output in set(processing_dir.iterdir()):
+                for output in set(
+                    list(processing_dir.iterdir()) + list(processing_logs.iterdir())
+                ):
                     if output.suffix == ".log":
+                        if "LogFiles" in output.parts:
+                            initial_location = processing_logs
+                            results_location = results_logs
+                        else:
+                            initial_location = processing_dir
+                            results_location = results_processing
                         shutil.copy(
-                            processing_dir / output.name,
-                            results_processing / output.name,
+                            initial_location / output.name,
+                            results_location / output.name,
                         )
-                        location = results_processing
-                        upload_attachment = {
-                            "ispyb_command": "add_program_attachment",
-                            "program_id": "$ispyb_autoprocprogram_id",
-                            "file_path": location.as_posix(),
-                            "file_name": output.name,
-                            "file_type": "log",
-                            "importance_rank": 2,
-                        }
-                        ispyb_command_list.append(upload_attachment)
-                for output in set(processing_logs.iterdir()):
-                    if output.suffix == ".log":
-                        shutil.copy(
-                            processing_logs / output.name, results_logs / output.name
+                        self.record_result_individual_file(
+                            {
+                                "file_path": results_location.as_posix(),
+                                "file_name": output.name,
+                                "file_type": "log",
+                                "importance_rank": 2,
+                            }
                         )
-                        location = results_logs
-                        upload_attachment = {
-                            "ispyb_command": "add_program_attachment",
-                            "program_id": "$ispyb_autoprocprogram_id",
-                            "file_path": location.as_posix(),
-                            "file_name": output.name,
-                            "file_type": "log",
-                            "importance_rank": 2,
-                        }
-                        ispyb_command_list.append(upload_attachment)
-
-            self.log.info("Sending %s", str(ispyb_command_list))
-            self.recwrap.send_to("failure", {"ispyb_command_list": ispyb_command_list})
             self._failure_counter.inc()
 
         return success

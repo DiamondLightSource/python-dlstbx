@@ -574,6 +574,50 @@ class Xia2MultiplexWrapper(Wrapper):
             if cluster_count >= 2:
                 self.recwrap.send_to("email", True)
         else:
+            primary_log = working_directory / "xia2.multiplex.log"
+            processing_dir = working_directory / "Processing"
+            results_processing = results_directory / "Processing"
+            processing_logs = working_directory / "LogFiles"
+            results_logs = results_directory / "LogFiles"
+            if primary_log.exists():
+                shutil.copy(
+                    working_directory / "xia2.multiplex.log",
+                    results_directory / "xia2.multiplex.log",
+                )
+                location = results_directory
+                self.record_result_individual_file(
+                    {
+                        "file_path": location.as_posix(),
+                        "file_name": "xia2.multiplex.log",
+                        "file_type": "log",
+                        "importance_rank": 1,
+                    }
+                )
+
+                for output in set(
+                    list(processing_dir.iterdir()) + list(processing_logs.iterdir())
+                ):
+                    if output.suffix == ".log":
+                        if "LogFiles" in output.parts:
+                            initial_location = processing_logs
+                            results_location = results_logs
+                        else:
+                            initial_location = processing_dir
+                            results_location = results_processing
+
+                        shutil.copy(
+                            initial_location / output.name,
+                            results_location / output.name,
+                        )
+                        self.record_result_individual_file(
+                            {
+                                "file_path": results_location.as_posix(),
+                                "file_name": output.name,
+                                "file_type": "log",
+                                "importance_rank": 2,
+                            }
+                        )
+
             self._failure_counter.inc()
 
         return success

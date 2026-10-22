@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
+import time
+from pathlib import Path
 
-import procrunner
-import py
-
+import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
 
@@ -17,13 +19,25 @@ class MosflmStrategyWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
-        self.log.info("working_directory: %s", working_directory.strpath)
-        working_directory.ensure(dir=1)
+        working_directory = Path(params["working_directory"])
+        results_directory = Path(params["results_directory"])
+        self.log.info("working_directory: %s", working_directory)
+        working_directory.mkdir(parents=True, exist_ok=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
+
+        symlink = params.get("create_symlink", "strategy-mosflm")
+        if isinstance(symlink, list):
+            symlink = symlink[0]
+        if symlink:
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(working_directory), symlink
+            )
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(results_directory), symlink
+            )
 
         # Set SynchWeb to swirl
-        results_directory.join("strategy_native.log").ensure()
+        (results_directory / "strategy_native.log").touch()
 
         if params["image_pattern"].endswith(".h5"):
             if not self.hdf5_to_cbf():
@@ -32,47 +46,45 @@ class MosflmStrategyWrapper(Wrapper):
         image_directory = params["image_directory"]
         image_pattern = params["image_pattern"]
         image_first = int(params["image_first"])
-        image_file_name = os.path.join(image_directory, image_pattern % image_first)
+        image_file_name = str(Path(image_directory) / (image_pattern % image_first))
         commands = ["som.strategy", image_file_name]
         space_group = params.get("spacegroup")
         if space_group:
             commands.append(space_group)
         self.log.info("command: %s", " ".join(commands))
-        result = procrunner.run(
+        exitcode, timed_out, runtime, stdout, stderr = self._run_command(
             commands,
-            timeout=params.get("timeout", 3600),
-            working_directory=working_directory.strpath,
+            working_directory,
+            params.get("timeout", 600),
         )
-        success = not result["exitcode"] and not result["timeout"]
+        success = exitcode == 0 and not timed_out
         if success:
-            self.log.info(
-                "som.strategy successful, took %.1f seconds", result["runtime"]
-            )
+            self.log.info("som.strategy successful, took %.1f seconds", runtime)
         else:
             self.log.info(
                 "som.strategy failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+                exitcode,
+                timed_out,
             )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
+            self.log.debug(stdout)
+            self.log.debug(stderr)
 
-        if working_directory.join("mosflm_index.mat").check():
+        if (working_directory / "mosflm_index.mat").exists():
             self.recwrap.send_to(
                 "indexing-solution",
-                {"index.mat": working_directory.join("mosflm_index.mat").strpath},
+                {"index.mat": str(working_directory / "mosflm_index.mat")},
             )
         if (
-            not working_directory.join("strategy_native.log").check()
-            or working_directory.join("strategy_native.log").size() == 0
+            not (working_directory / "strategy_native.log").exists()
+            or (working_directory / "strategy_native.log").stat().st_size == 0
         ):
             success = False
-            working_directory.join("strategy_native.log").write(
+            (working_directory / "strategy_native.log").write_text(
                 "failed to determine strategy"
             )
 
-        strategy_dat = working_directory.join("strategy.dat")
-        if strategy_dat.check():
+        strategy_dat = working_directory / "strategy.dat"
+        if strategy_dat.exists():
             results = self.parse_strategy_dat(strategy_dat)
             self.recwrap.send_to("strategy", results)
             # insert results into database
@@ -81,17 +93,22 @@ class MosflmStrategyWrapper(Wrapper):
         # copy output files to result directory
         self.log.info(
             "Copying results from %s to %s",
-            working_directory.strpath,
-            results_directory.strpath,
+            working_directory,
+            results_directory,
         )
-        for f in working_directory.listdir():
-            if not f.basename.startswith("."):
-                f.copy(results_directory)
+        for output_file in working_directory.iterdir():
+            if output_file.name.startswith("."):
+                continue
+            destination = results_directory / output_file.name
+            if output_file.is_dir():
+                shutil.copytree(output_file, destination, dirs_exist_ok=True)
+            else:
+                shutil.copy2(output_file, destination)
 
         return success
 
     def parse_strategy_dat(self, strategy_dat):
-        lines = strategy_dat.readlines(cr=False)
+        lines = strategy_dat.read_text().splitlines()
         tokens = [line.strip().split(",") for line in lines]
         self.log.debug(tokens)
 
@@ -123,40 +140,71 @@ class MosflmStrategyWrapper(Wrapper):
 
     def hdf5_to_cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
+        working_directory = Path(params["working_directory"])
         if params.get("temporary_directory"):
-            tmpdir = py.path.local(params["temporary_directory"])
+            tmpdir = Path(params["temporary_directory"])
         else:
-            tmpdir = working_directory.join(".image-tmp")
-        tmpdir.ensure(dir=True)
-        master_h5 = os.path.join(params["image_directory"], params["image_pattern"])
+            tmpdir = working_directory / ".image-tmp"
+        tmpdir.mkdir(parents=True, exist_ok=True)
+        master_h5 = Path(params["image_directory"]) / params["image_pattern"]
         prefix = params["image_pattern"].split("master.h5")[0]
         params["image_pattern"] = prefix + "%04d.cbf"
         self.log.info("Image pattern: %s", params["image_pattern"])
         self.log.info(
-            "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
+            "Converting %s to %s", master_h5, tmpdir / params["image_pattern"]
         )
-        result = procrunner.run(
-            ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
-            working_directory=tmpdir,
-            timeout=params.get("timeout", 3600),
+        exitcode, timed_out, runtime, stdout, stderr = self._run_command(
+            ["dxtbx.dlsnxs2cbf", str(master_h5), "-t", prefix, "-n 4"],
+            tmpdir,
+            params.get("timeout", 600),
         )
-        success = not result["exitcode"] and not result["timeout"]
+        success = exitcode == 0 and not timed_out
         if success:
-            self.log.info(
-                "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
-            )
+            self.log.info("dxtbx.dlsnxs2cbf successful, took %.1f seconds", runtime)
         else:
             self.log.error(
                 "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+                exitcode,
+                timed_out,
             )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
+            self.log.debug(stdout)
+            self.log.debug(stderr)
         params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir.strpath
+        params["image_directory"] = str(tmpdir)
         return success
+
+    def _run_command(self, command, working_directory, timeout):
+        start_time = time.monotonic()
+        try:
+            result = subprocess.run(
+                command,
+                cwd=working_directory,
+                timeout=timeout,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            stdout = error.stdout or ""
+            stderr = error.stderr or ""
+            if isinstance(stdout, bytes):
+                stdout = stdout.decode(errors="replace")
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode(errors="replace")
+            return (
+                None,
+                True,
+                time.monotonic() - start_time,
+                stdout,
+                stderr,
+            )
+        return (
+            result.returncode,
+            False,
+            time.monotonic() - start_time,
+            result.stdout,
+            result.stderr,
+        )
 
     def send_screening_result_to_ispyb(self, dcid, results):
         # example strategy.dat output:
@@ -165,36 +213,26 @@ class MosflmStrategyWrapper(Wrapper):
         # mosflm native,182.0,272.0,1.2,75,1.00,1.47
         # mosflm anomalous,182.0,272.0,1.2,75,0.92,1.47
 
-        assert dcid > 0, "Invalid data collection ID given."
+        # assert dcid > 0, "Invalid data collection ID given."
 
         ispyb_command_list = []
 
         for i, strategy in enumerate(
             [results["strategy_native"], results["strategy_anomalous"]]
         ):
-            # Step 1: Add new record to Screening table, keep the ScreeningId
-            d = {
-                "dcid": dcid,
-                "programversion": "mosflm",
-                "shortcomments": strategy["comments"],
-                "ispyb_command": "insert_screening",
-                "store_result": "ispyb_screening_id_%i" % i,
-            }
-            ispyb_command_list.append(d)
-
-            # Step 2: Store screeningOutput results, linked to the screeningId
+            # Step 1: Store screeningOutput results, linked to the screeningId
             #         Keep the screeningOutputId
             d = {
                 "program": "mosflm",
                 "indexingsuccess": 1,
                 "strategysuccess": 1,
                 "ispyb_command": "insert_screening_output",
-                "screening_id": "$ispyb_screening_id_%i" % i,
+                "screening_id": "$ispyb_screening_id",
                 "store_result": "ispyb_screening_output_id_%i" % i,
             }
             ispyb_command_list.append(d)
 
-            # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
+            # Step 2: Store screeningOutputLattice results, linked to the screeningOutputId
             #         Keep the screeningOutputLatticeId
             d = {
                 "spacegroup": results["space_group"],
@@ -210,7 +248,7 @@ class MosflmStrategyWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 4: Store screeningStrategy results, linked to the screeningOutputId
+            # Step 3: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
                 "program": "mosflm",
@@ -221,7 +259,7 @@ class MosflmStrategyWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 5: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            # Step 4: Store screeningStrategyWedge results, linked to the screeningStrategyId
             #         Keep the screeningStrategyWedgeId
             d = {
                 "wedgenumber": 1,
@@ -235,7 +273,7 @@ class MosflmStrategyWrapper(Wrapper):
             }
             ispyb_command_list.append(d)
 
-            # Step 6: Store screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
+            # Step 5: Store screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
             #         Keep the screeningStrategySubWedgeId
             d = {
                 "subwedgenumber": 1,

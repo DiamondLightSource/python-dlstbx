@@ -169,7 +169,13 @@ def handle_screening(
             source="automatic",
             displayname="align_crystal",
         ),
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="strategy-mosflm"),
+        mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="strategy-mosflm",
+            source="automatic",
+            displayname="strategy-mosflm",
+        ),
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),

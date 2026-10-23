@@ -259,11 +259,13 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             ".sca": None,
             ".ins": None,
             ".hkl": None,
+            ".cif": None,
         }
         keep = {
             "filtered.mtz": "result",
             "filtered.ins": "result",
             "filtered.hkl": "result",
+            "filtered.cif": "result",
             "filtered_unmerged.mtz": "result",
             "filtered.expt": "result",
             "filtered.refl": "result",
@@ -399,6 +401,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                                         "xia2.multiplex_filtering.log",
                                         "filtered.ins",
                                         "filtered.hkl",
+                                        "filtered.cif",
                                     )
                                 )
                                 else 2

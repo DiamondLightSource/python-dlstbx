@@ -297,11 +297,13 @@ class Xia2MultiplexWrapper(Wrapper):
             ".phil": "log",
             ".hkl": None,
             ".ins": None,
+            ".cif": None,
         }
         keep = {
             "scaled.mtz": "result",
             "scaled.ins": "result",
             "scaled.hkl": "result",
+            "scaled.cif": "result",
             "scaled_unmerged.mtz": "result",
             "scaled.expt": "result",
             "scaled.refl": "result",
@@ -490,6 +492,7 @@ class Xia2MultiplexWrapper(Wrapper):
                                     "xia2.multiplex.log",
                                     "scaled.hkl",
                                     "scaled.ins",
+                                    "scaled.cif",
                                 )
                             )
                             else 2

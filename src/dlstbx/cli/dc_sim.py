@@ -127,16 +127,6 @@ def retrieve_sessionid(db_session: sqlalchemy.orm.Session, visit: str) -> int:
     return query_results[0].sessionId
 
 
-def get_data_collection_group_id(
-    db_session: sqlalchemy.orm.Session, dcgid: int
-) -> sqlalchemy.orm.Query:
-    return (
-        db_session.query(DataCollectionGroup)
-        .filter(DataCollectionGroup.dataCollectionGroupId == dcgid)
-        .first()
-    )
-
-
 def copy_data_collection_group(
     source_dcg: DataCollectionGroup,
     new_session_id: int,
@@ -224,6 +214,47 @@ def copy_data_collection(
             setattr(new_dc, attr_name, getattr(source_dc, attr_name, None))
 
     return new_dc
+
+
+def copy_grid_info(
+    source_gi: GridInfo,
+    new_dcid: int,
+    **kwargs,
+) -> DataCollection:
+    """
+    Create a copy of a DataCollection row with different sessionId and/or dataCollectionGroupId.
+
+    Args:
+        source_dc: The DataCollection to copy
+        new_session_id: The new SESSIONID for the copy
+        new_data_collection_group_id: The new dataCollectionGroupId for the copy
+        **kwargs: Additional attributes to override (e.g., startTime, endTime, comments)
+
+    Returns:
+        A new DataCollection object with all attributes copied except
+        the ones specified (which are replaced with the new values)
+    """
+    # Create a new GridInfo object
+    new_gi = GridInfo()
+
+    # Copy all attributes from source to new, except the primary key and fields to update
+    for column in GridInfo.__table__.columns:
+        attr_name = column.name
+
+        # Skip the primary key
+        if attr_name == "gridInfoId":
+            continue
+
+        # Use new values for these attributes
+        if attr_name == "dataCollectionId":
+            setattr(new_gi, attr_name, new_dcid)
+        elif attr_name in kwargs:
+            # Use provided override values
+            setattr(new_gi, attr_name, kwargs[attr_name])
+        else:
+            # Copy from source
+            setattr(new_gi, attr_name, getattr(source_gi, attr_name, None))
+    return new_gi
 
 
 def simulate_data_collection(dcid: int) -> int:
@@ -361,6 +392,14 @@ def simulate_data_collection(dcid: int) -> int:
             comments=f"Simulated data collection copied from dcid {dcid}",
             imageDirectory=str(dest_dir) + "/",
         )
+        session.add(new_dc)
+        session.commit()
+        new_dcid = new_dc.dataCollectionId
+
+        if dc_records.grid_info is not None:
+            new_gi = copy_grid_info(source_gi=dc_records.grid_info, new_dcid=new_dcid)
+            session.add(new_gi)
+            session.commit()
 
         # Create destination directory for JPEG snapshots
         jpgs_dest_dir = (
@@ -401,8 +440,6 @@ def simulate_data_collection(dcid: int) -> int:
                     )
                     missing_snapshots += 1
 
-        session.add(new_dc)
-        session.commit()
         logger.info(
             f"Created destination DataCollection {new_dc.dataCollectionId}; "
             f"copied snapshots={copied_snapshots}, missing snapshots={missing_snapshots}"
@@ -411,7 +448,7 @@ def simulate_data_collection(dcid: int) -> int:
             f"Data collection simulation for dcid={dcid} completed in "
             f"{(datetime.now() - start_time).total_seconds():.1f} seconds"
         )
-    return new_dc.dataCollectionId
+    return new_dcid
 
 
 def get_beamline_visit_and_dir_for_proposal(

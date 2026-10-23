@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import logging
 import os
 import re
 import shutil
+import socket
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +14,9 @@ from pathlib import Path
 import ispyb.sqlalchemy
 import sqlalchemy
 import sqlalchemy.orm
+import workflows.recipe
+import workflows.transport
+import zocalo.configuration
 from ispyb.sqlalchemy import (
     BLSample,
     BLSession,
@@ -221,7 +226,7 @@ def copy_data_collection(
     return new_dc
 
 
-def simulate_data_collection(dcid: int) -> None:
+def simulate_data_collection(dcid: int) -> int:
     """Look up and copy the records needed to simulate data collection."""
     start_time = datetime.now()
     dflt_proposal = "nt44198"
@@ -406,6 +411,7 @@ def simulate_data_collection(dcid: int) -> None:
             f"Data collection simulation for dcid={dcid} completed in "
             f"{(datetime.now() - start_time).total_seconds():.1f} seconds"
         )
+    return new_dc.dataCollectionId
 
 
 def get_beamline_visit_and_dir_for_proposal(
@@ -428,13 +434,50 @@ def get_beamline_visit_and_dir_for_proposal(
 
 def run(args: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    zc = zocalo.configuration.from_file()
+    zc.activate()
     parser = argparse.ArgumentParser(
-        description="Simulate data collection. Takes a dcid as input and copies data and database records to simulate a data collection."
+        description="Simulate data collection. Takes a dcid as input and copies data and database records to simulate a data collection, then triggers mimas.",
+        usage="dlstbx.dc_sim [options] dcid",
     )
     parser.add_argument("dcid", type=int, help="Data collection ID")
-    parsed_args = parser.parse_args(args)
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
 
-    simulate_data_collection(parsed_args.dcid)
+    parsed_args = parser.parse_args(args)
+    new_dcid = simulate_data_collection(parsed_args.dcid)
+
+    logger.info("Triggering Mimas")
+    headers = {
+        "zocalo.go.user": getpass.getuser(),
+        "zocalo.go.host": socket.gethostname(),
+    }
+
+    transport = workflows.transport.lookup(parsed_args.transport)()
+    transport.connect()
+    transport.send(
+        "processing_recipe",
+        {
+            "recipes": ["mimas"],
+            "parameters": {
+                "ispyb_dcid": new_dcid,
+                "event": "start",
+            },
+        },
+        headers=headers,
+    )
+    transport.send(
+        "processing_recipe",
+        {
+            "recipes": ["mimas"],
+            "parameters": {
+                "ispyb_dcid": new_dcid,
+                "event": "end",
+            },
+        },
+        headers=headers,
+    )
+    transport.disconnect()
 
 
 if __name__ == "__main__":

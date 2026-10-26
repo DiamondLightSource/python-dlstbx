@@ -9,10 +9,12 @@ import logging
 import math
 import os
 import pathlib
-from typing import Optional
+from typing import Annotated, Any, Optional
 
 import pydantic
 import requests
+import workflows.recipe
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
@@ -48,6 +50,32 @@ class JobSubmissionParameters(pydantic.BaseModel):
 
 class JobSubmissionValidationError(ValueError):
     pass
+
+
+def _require_absolute(path: pathlib.Path) -> pathlib.Path:
+    if not path.is_absolute():
+        raise ValueError(
+            "No absolute working directory specified. Will not run cluster job"
+        )
+    return path
+
+
+class ClusterServiceParameters(pydantic.BaseModel):
+    """Recipe step parameters for the cluster service"""
+
+    cluster: JobSubmissionParameters
+    workingdir: Annotated[pathlib.Path, pydantic.AfterValidator(_require_absolute)]
+    recipewrapper: str
+    recipefile: Optional[str] = None
+    recipeenvironment: Optional[str] = None
+    cluster_submission_parameters: Any = None
+
+    @pydantic.field_validator("cluster_submission_parameters")
+    @classmethod
+    def _reject_deprecated(cls, value: Any) -> Any:
+        if value:
+            raise ValueError("Deprecated cluster parameters encountered")
+        return value
 
 
 def submit_to_slurm(
@@ -207,22 +235,16 @@ class DLSCluster(CommonService):
             return False
         return True
 
-    def run_submit_job(self, rw, header, message):
+    @typed_handler
+    def run_submit_job(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        header: dict,
+        message: Any,
+        parameters: ClusterServiceParameters,
+    ):
         """Submit cluster job according to message."""
-        parameters = rw.recipe_step["parameters"]
-        if parameters.get("cluster_submission_parameters"):
-            self.log.error(
-                f"Deprecated cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
-            )
-            self._transport.nack(header)
-            return
-
-        try:
-            params = JobSubmissionParameters(**parameters.get("cluster", {}))
-        except pydantic.ValidationError as e:
-            self.log.error(f"Invalid JobSubmissionParameters: {e}")
-            self._transport.nack(header)
-            return
+        params = parameters.cluster
 
         if params.scheduler not in self.schedulers.keys():
             self.log.error(
@@ -234,15 +256,15 @@ class DLSCluster(CommonService):
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)
 
-        if "recipefile" in parameters:
-            recipefile = parameters["recipefile"]
+        if parameters.recipefile is not None:
+            recipefile = parameters.recipefile
             params.commands = params.commands.replace("$RECIPEFILE", recipefile)
             if not self._write_job_file(
                 header, recipefile, "recipe file", rw.recipe.pretty()
             ):
                 return
-        if "recipeenvironment" in parameters:
-            recipeenvironment = parameters["recipeenvironment"]
+        if parameters.recipeenvironment is not None:
+            recipeenvironment = parameters.recipeenvironment
             params.commands = params.commands.replace("$RECIPEENV", recipeenvironment)
             if not self._write_job_file(
                 header,
@@ -253,36 +275,27 @@ class DLSCluster(CommonService):
                 ),
             ):
                 return
-        if "recipewrapper" in parameters:
-            recipewrapper = parameters["recipewrapper"]
-            params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
-            if not self._write_job_file(
-                header,
-                recipewrapper,
-                "recipe wrapper",
-                json.dumps(
-                    {
-                        "recipe": rw.recipe.recipe,
-                        "recipe-pointer": rw.recipe_pointer,
-                        "environment": rw.environment,
-                        "recipe-path": rw.recipe_path,
-                        "payload": rw.payload,
-                    },
-                    indent=2,
-                    separators=(",", ": "),
-                ),
-            ):
-                return
-
-        if "workingdir" not in parameters or not parameters["workingdir"].startswith(
-            "/"
+        recipewrapper = parameters.recipewrapper
+        params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
+        if not self._write_job_file(
+            header,
+            recipewrapper,
+            "recipe wrapper",
+            json.dumps(
+                {
+                    "recipe": rw.recipe.recipe,
+                    "recipe-pointer": rw.recipe_pointer,
+                    "environment": rw.environment,
+                    "recipe-path": rw.recipe_path,
+                    "payload": rw.payload,
+                },
+                indent=2,
+                separators=(",", ": "),
+            ),
         ):
-            self.log.error(
-                "No absolute working directory specified. Will not run cluster job"
-            )
-            self._transport.nack(header)
             return
-        working_directory = pathlib.Path(parameters["workingdir"])
+
+        working_directory = parameters.workingdir
         try:
             working_directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:

@@ -136,3 +136,98 @@ def test_submit_to_slurm_http_error(
     )
 
     assert job_id is None
+
+
+@pytest.fixture
+def cluster_service(mock_config):
+    from dlstbx.services.cluster import DLSCluster
+
+    service = DLSCluster(environment={"config": mock_config})
+    service._transport = mock.Mock()
+    service.initializing()
+    service.schedulers = {"slurm": mock.Mock(return_value=12345)}
+    return service
+
+
+def make_rw(parameters, transport):
+    from workflows.recipe.wrapper import RecipeWrapper
+
+    return RecipeWrapper(
+        message={
+            "recipe": {
+                "1": {"service": "cluster", "queue": "x", "parameters": parameters},
+                "start": [(1, [])],
+            },
+            "recipe-pointer": 1,
+            "environment": {"ID": "abc"},
+            "payload": None,
+        },
+        transport=transport,
+    )
+
+
+HEADER = {"message-id": 1, "subscription": 1}
+
+
+def valid_parameters(tmp_path, **kwargs):
+    return {
+        "cluster": {"commands": ["echo $RECIPEWRAP", "echo $$ $ID"]},
+        "workingdir": str(tmp_path / "work"),
+        "recipewrapper": str(tmp_path / "wrap.json"),
+        **kwargs,
+    }
+
+
+def test_run_submit_job(cluster_service, tmp_path):
+    transport = cluster_service._transport
+    rw = make_rw(valid_parameters(tmp_path), transport)
+    cluster_service.run_submit_job(rw, HEADER, None)
+
+    submit = cluster_service.schedulers["slurm"]
+    submit.assert_called_once()
+    params, working_directory = submit.call_args.args[:2]
+    # Only the service's own placeholders are replaced in the commands
+    assert params.commands == f"echo {tmp_path / 'wrap.json'}\necho $$ $ID"
+    assert working_directory == tmp_path / "work"
+    assert working_directory.is_dir()
+    assert (tmp_path / "wrap.json").is_file()
+    transport.ack.assert_called_once()
+    transport.nack.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"cluster": None},
+        {"cluster": {"partition": "no commands"}},
+        {"workingdir": "relative/path"},
+        {"workingdir": None},
+        {"recipewrapper": None},
+        {"cluster_submission_parameters": {"queue": "old"}},
+    ],
+)
+def test_run_submit_job_rejects_invalid_parameters(cluster_service, tmp_path, change):
+    transport = cluster_service._transport
+    parameters = {
+        k: v
+        for k, v in {**valid_parameters(tmp_path), **change}.items()
+        if v is not None
+    }
+    rw = make_rw(parameters, transport)
+    cluster_service.run_submit_job(rw, HEADER, None)
+
+    cluster_service.schedulers["slurm"].assert_not_called()
+    transport.nack.assert_called_once_with(HEADER, requeue=False)
+    # Rejected before any job files are written
+    assert not (tmp_path / "wrap.json").exists()
+
+
+def test_run_submit_job_unknown_scheduler_is_requeued(cluster_service, tmp_path):
+    transport = cluster_service._transport
+    parameters = valid_parameters(tmp_path)
+    parameters["cluster"]["scheduler"] = "unknown"
+    rw = make_rw(parameters, transport)
+    cluster_service.run_submit_job(rw, HEADER, None)
+
+    cluster_service.schedulers["slurm"].assert_not_called()
+    transport.nack.assert_called_once_with(HEADER)

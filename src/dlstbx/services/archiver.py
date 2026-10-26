@@ -7,10 +7,74 @@ import os.path
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated, Any, Optional
 
+import pydantic
+import workflows.recipe
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import INDUSTRIAL_CODES
+
+
+def _hyphenate(name: str) -> str:
+    return name.replace("_", "-")
+
+
+class _ArchiverModel(pydantic.BaseModel):
+    """Recipe parameters and message fields are named with hyphens"""
+
+    model_config = pydantic.ConfigDict(alias_generator=_hyphenate)
+
+
+class ArchiverParameters(_ArchiverModel):
+    visit: str
+    beamline: str
+    limit_files: int = 0
+    log_file_warnings_as_info: bool = False
+    log_summary_warning_as_info: bool = False
+    dropfile: Optional[str] = None
+    dropfile_dir: Optional[str] = None
+    dropfile_filename: Optional[str] = None
+    dropfile_queue: Optional[str] = None
+
+
+class PatternParameters(ArchiverParameters):
+    pattern: str
+    pattern_start: int
+    pattern_end: int
+    multipart: Optional[int] = None
+
+
+class FilelistParameters(ArchiverParameters):
+    filelist: list[str] = []
+
+
+def _none_unless_dict(value: Any) -> Any:
+    """Messages that are not dictionaries carry no checkpoint state"""
+    return value if isinstance(value, dict) else None
+
+
+class PatternCheckpoint(_ArchiverModel):
+    """State carried over from a previous part of a split archiving job"""
+
+    archive_multipart: Optional[int] = None
+    archive_pattern_start: int = 0
+
+
+class FilelistCheckpoint(_ArchiverModel):
+    """State carried over from a previous part of a split archiving job"""
+
+    archive_multipart: int = 1
+    filelist: list[str] = []
+
+
+PatternMessage = Annotated[
+    Optional[PatternCheckpoint], pydantic.BeforeValidator(_none_unless_dict)
+]
+FilelistMessage = Annotated[
+    Optional[FilelistCheckpoint], pydantic.BeforeValidator(_none_unless_dict)
+]
 
 
 class Dropfile:
@@ -132,15 +196,19 @@ class DLSArchiver(CommonService):
             return False
         return True
 
-    def archive_dcid(self, rw, header, message):
+    @typed_handler
+    def archive_dcid(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        header: dict,
+        message: PatternMessage,
+        parameters: PatternParameters,
+    ):
         """Archive collected datafiles connected to a data collection."""
 
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
-
-        # Extract parameters from the recipe
-        params = rw.recipe_step["parameters"]
 
         allowed_industrial_visit_codes = tuple(
             self.config.storage.get(
@@ -148,37 +216,37 @@ class DLSArchiver(CommonService):
             )
         )
         if not self.visit_is_archivable(
-            params["visit"], allowed_industrial_visit_codes
+            parameters.visit, allowed_industrial_visit_codes
         ):
             self.log.info(
-                f"Skipping archiving of {params['pattern']} because it is from a forbidden visit"
+                f"Skipping archiving of {parameters.pattern} because it is from a forbidden visit"
             )
             self._transport.transaction_commit(txn)
             return
 
-        self.log.info("Attempting to archive %s", params["pattern"])
+        self.log.info("Attempting to archive %s", parameters.pattern)
 
-        settings = params.copy()
-        if isinstance(message, dict):
-            for field in ("multipart", "pattern-start"):
-                if "archive-" + field in message:
-                    settings[field] = message["archive-" + field]
+        multipart = parameters.multipart
+        pattern_start = parameters.pattern_start
+        if message is not None:
+            if "archive_multipart" in message.model_fields_set:
+                multipart = message.archive_multipart
+            if "archive_pattern_start" in message.model_fields_set:
+                pattern_start = message.archive_pattern_start
 
-        file_range_limit = int(settings.get("limit-files", 0))
+        file_range_limit = parameters.limit_files
 
-        filepath = Path(params["pattern"])
+        filepath = Path(parameters.pattern)
         dataset_name = Path(*filepath.parts[6:-1]).as_posix() or "topdir"
-        beamline = params["beamline"]
-        visit_id = params["visit"]
+        beamline = parameters.beamline
+        visit_id = parameters.visit
 
         df = Dropfile(visit_id.upper(), beamline, dataset_name)
 
         message_out = {"success": 0, "failed": 0}
-        files_not_found = []
+        files_not_found: list[str] = []
         files_found_past_missing_file = False
-        for x in range(
-            int(settings["pattern-start"]), int(settings["pattern-end"]) + 1
-        ):
+        for x in range(pattern_start, parameters.pattern_end + 1):
             if file_range_limit and message_out["success"] >= file_range_limit:
                 # Test for limit at beginning, not end, so >= 1 file remains
                 self.log.info(
@@ -186,18 +254,18 @@ class DLSArchiver(CommonService):
                     file_range_limit,
                 )
                 # limit reached - bail out
-                if not settings.get("multipart"):
-                    settings["multipart"] = 1
+                if not multipart:
+                    multipart = 1
                 rw.checkpoint(
                     {
-                        "archive-multipart": settings["multipart"] + 1,
+                        "archive-multipart": multipart + 1,
                         "archive-pattern-start": x,
                     },
                     transaction=txn,
                 )
                 break
 
-            filename = params["pattern"] % x
+            filename = parameters.pattern % x
 
             try:
                 df.add(filename)
@@ -207,7 +275,7 @@ class DLSArchiver(CommonService):
                     files_not_found.append(filename)
                 else:
                     # Report all missing files as warnings unless recipe says otherwise
-                    if params.get("log-file-warnings-as-info"):
+                    if parameters.log_file_warnings_as_info:
                         self.log.info("Could not archive %s", filename, exc_info=True)
                     else:
                         self.log.warning(
@@ -232,26 +300,22 @@ class DLSArchiver(CommonService):
             if not message_out["success"]:
                 rw.send_to("all_files_missing", files_not_found, transaction=txn)
         if message_out["failed"]:
-            if params.get("log-summary-warning-as-info"):
+            if parameters.log_summary_warning_as_info:
                 self.log.info("Failed to archive %d files", message_out["failed"])
             else:
                 self.log.warning("Failed to archive %d files", message_out["failed"])
 
         xml_string = df.to_string()
-        dropfile = params.get("dropfile")
+        dropfile = parameters.dropfile
         if dropfile == "{dropfile_override}":
             dropfile = None
-        if (
-            not dropfile
-            and params.get("dropfile-dir")
-            and params.get("dropfile-filename")
-        ):
-            dropfile = os.path.join(params["dropfile-dir"], params["dropfile-filename"])
+        if not dropfile and parameters.dropfile_dir and parameters.dropfile_filename:
+            dropfile = os.path.join(
+                parameters.dropfile_dir, parameters.dropfile_filename
+            )
         if dropfile:
             timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
-            multipart_label = (
-                "-" + str(settings["multipart"]) if settings.get("multipart") else ""
-            )
+            multipart_label = "-" + str(multipart) if multipart else ""
             dropfile = dropfile.format(
                 visit_id=visit_id,
                 beamline=beamline,
@@ -266,7 +330,7 @@ class DLSArchiver(CommonService):
                 self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
         message_out["xml"] = xml_string.decode("latin-1")
 
-        dropqueue = params.get("dropfile-queue")
+        dropqueue = parameters.dropfile_queue
         if dropqueue:
             self._transport.raw_send(dropqueue, xml_string, ignore_namespace=True)
 
@@ -276,23 +340,22 @@ class DLSArchiver(CommonService):
         self._transport.transaction_commit(txn)
         self.log.info("%d files archived", message_out["success"])
 
-    def archive_filelist(self, rw, header, message):
+    @typed_handler
+    def archive_filelist(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        header: dict,
+        message: FilelistMessage,
+        parameters: FilelistParameters,
+    ):
         """Archive an arbitrary list of files."""
 
-        # Extract parameters
-        params = rw.recipe_step["parameters"]
-        if isinstance(message, dict):
-            multipart = message.get("archive-multipart", 1)
-            filelist = message.get("filelist", params.get("filelist", []))
-        else:
-            multipart = None
-            filelist = params.get("filelist", [])
-        if not isinstance(filelist, list):
-            self.log.error(
-                "Expected list of files to archive. Received %s.", str(type(filelist))
-            )
-            self._transport.nack(header)
-            return
+        multipart: Optional[int] = None
+        filelist = parameters.filelist
+        if message is not None:
+            multipart = message.archive_multipart
+            if "filelist" in message.model_fields_set:
+                filelist = message.filelist
         if not filelist:
             self.log.warning("Attempted to archive an empty list of files.")
             self._transport.nack(header)
@@ -302,14 +365,14 @@ class DLSArchiver(CommonService):
             len(filelist),
             filelist[0],
         )
-        file_range_limit = int(params.get("limit-files", 0))
+        file_range_limit = parameters.limit_files
 
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
-        visit_id = params["visit"]
-        beamline = params["beamline"]
+        visit_id = parameters.visit
+        beamline = parameters.beamline
         allowed_industrial_visit_codes = tuple(
             self.config.storage.get(
                 "zocalo.archiver.allowed_industrial_visit_codes", []
@@ -328,7 +391,7 @@ class DLSArchiver(CommonService):
         df = Dropfile(visit_id.upper(), beamline, dataset_name)
 
         message_out = {"success": 0, "failed": 0}
-        files_not_found = []
+        files_not_found: list[str] = []
         for n, filename in enumerate(filelist):
             if file_range_limit and message_out["success"] >= file_range_limit:
                 # Test for limit at beginning, not end, so >= 1 file remains
@@ -352,7 +415,7 @@ class DLSArchiver(CommonService):
                     files_not_found.append(filename)
                 else:
                     # Report all missing files as warnings unless recipe says otherwise
-                    if params.get("log-file-warnings-as-info"):
+                    if parameters.log_file_warnings_as_info:
                         self.log.info("Could not archive %s", filename, exc_info=True)
                     else:
                         self.log.warning(
@@ -368,19 +431,23 @@ class DLSArchiver(CommonService):
             )
         self.log.info("%d files archived", message_out["success"])
         if message_out["failed"]:
-            if params.get("log-summary-warning-as-info"):
+            if parameters.log_summary_warning_as_info:
                 self.log.info("Failed to archive %d files", message_out["failed"])
             else:
                 self.log.warning("Failed to archive %d files", message_out["failed"])
 
         xml_string = df.to_string()
-        dropfile = params.get("dropfile")
+        dropfile = parameters.dropfile
         if dropfile == "{dropfile_override}":
             dropfile = None
-        if not dropfile and all(
-            k in params for k in ("dropfile-dir", "dropfile-filename")
+        if (
+            not dropfile
+            and parameters.dropfile_dir is not None
+            and parameters.dropfile_filename is not None
         ):
-            dropfile = os.path.join(params["dropfile-dir"], params["dropfile-filename"])
+            dropfile = os.path.join(
+                parameters.dropfile_dir, parameters.dropfile_filename
+            )
         if dropfile:
             timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
             multipart_label = "-" + str(multipart) if multipart else ""
@@ -398,7 +465,7 @@ class DLSArchiver(CommonService):
                 self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
         message_out["xml"] = xml_string.decode("latin-1")
 
-        dropqueue = params.get("dropfile-queue")
+        dropqueue = parameters.dropfile_queue
         if dropqueue:
             self._transport.raw_send(dropqueue, xml_string, ignore_namespace=True)
 

@@ -350,6 +350,7 @@ class TestArchiverDCID:
         dropfile_path = tmp_path / "dropfile.xml"
         parameters = {
             "visit": "in12345-1",
+            "beamline": "i03",
             "pattern": pattern,
             "pattern-start": "1",
             "pattern-end": "1",
@@ -517,3 +518,119 @@ class TestDropfileGeneration:
 
         xml_str = df.to_string().decode("latin-1")
         assert "<visit_id>CM00001-1</visit_id>" in xml_str
+
+
+def create_pattern_files(tmp_path, count):
+    """Helper to create a pattern of image files, returning the pattern."""
+    image_dir = (
+        tmp_path / "data" / "cm" / "cm00001" / "i03" / "2024" / "Jan" / "cm00001-1"
+    )
+    image_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(1, count + 1):
+        (image_dir / f"image_{i:06d}.h5").write_text(f"Image data {i}")
+    return str(image_dir / "image_%06d.h5")
+
+
+HEADER = {"message-id": "test-message-id", "subscription": "test-subscription"}
+
+
+class TestArchiverValidation:
+    """Tests for the validation of recipe parameters and checkpoint messages."""
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"beamline": None},
+            {"pattern-end": None},
+            {"pattern-start": "first"},
+            {"limit-files": "many"},
+        ],
+    )
+    def test_archive_dcid_rejects_invalid_parameters(
+        self, archiver_service, mock_transport, tmp_path, change
+    ):
+        transport, _ = mock_transport
+        parameters = {
+            "visit": "cm00001-1",
+            "beamline": "i03",
+            "pattern": create_pattern_files(tmp_path, 1),
+            "pattern-start": "1",
+            "pattern-end": "1",
+            **change,
+        }
+        parameters = {k: v for k, v in parameters.items() if v is not None}
+        rw = RecipeWrapper(
+            message=create_recipe_message_dcid(parameters), transport=transport
+        )
+        archiver_service.archive_dcid(rw, HEADER, {})
+
+        transport.nack.assert_called_once_with(HEADER, requeue=False)
+        # Rejected before the message is acknowledged in a transaction
+        transport.transaction_begin.assert_not_called()
+
+    def test_archive_dcid_continues_from_checkpoint(
+        self, archiver_service, mock_transport, tmp_path, mocker
+    ):
+        transport, txn = mock_transport
+        parameters = {
+            "visit": "cm00001-1",
+            "beamline": "i03",
+            "pattern": create_pattern_files(tmp_path, 3),
+            "pattern-start": "1",
+            "pattern-end": "3",
+            "limit-files": "1",
+            "dropfile": str(tmp_path / "dropfile{multipart}.xml"),
+        }
+        rw = RecipeWrapper(
+            message=create_recipe_message_dcid(parameters), transport=transport
+        )
+        checkpoint = mocker.patch.object(rw, "checkpoint")
+        archiver_service.archive_dcid(
+            rw, HEADER, {"archive-multipart": 2, "archive-pattern-start": 2}
+        )
+
+        # The second file is archived, as the second part of the job
+        assert "image_000002.h5" in (tmp_path / "dropfile-2.xml").read_text()
+        checkpoint.assert_called_once_with(
+            {"archive-multipart": 3, "archive-pattern-start": 3}, transaction=txn
+        )
+
+    @pytest.mark.parametrize(
+        "message,dropfile_name",
+        [
+            # Without checkpoint state the job is not labelled as a multipart job
+            (None, "dropfile.xml"),
+            ({}, "dropfile-1.xml"),
+            ({"archive-multipart": 3}, "dropfile-3.xml"),
+        ],
+    )
+    def test_archive_filelist_multipart_label(
+        self, archiver_service, tmp_path, message, dropfile_name
+    ):
+        files = create_test_files(tmp_path, ["file1.txt"])
+        parameters = {
+            "visit": "cm00001-1",
+            "beamline": "i03",
+            "dropfile": str(tmp_path / "dropfile{multipart}.xml"),
+            "filelist": files,
+        }
+        rw = RecipeWrapper(
+            message=create_recipe_message_filelist(parameters, files),
+            transport=OfflineTransport(),
+        )
+        archiver_service.archive_filelist(rw, HEADER, message)
+
+        assert (tmp_path / dropfile_name).exists()
+
+    def test_archive_filelist_rejects_invalid_filelist(
+        self, archiver_service, mock_transport
+    ):
+        transport, _ = mock_transport
+        parameters = {"visit": "cm00001-1", "beamline": "i03"}
+        rw = RecipeWrapper(
+            message=create_recipe_message_filelist(parameters, []), transport=transport
+        )
+        archiver_service.archive_filelist(rw, HEADER, {"filelist": "file1.txt"})
+
+        transport.nack.assert_called_once_with(HEADER, requeue=False)
+        transport.transaction_begin.assert_not_called()

@@ -56,13 +56,7 @@ class DLSImages(CommonService):
                 group="zocalo.services.images.plugins"
             )
         }
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "images",
-            self.image_call,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("images", self.image_call)
 
     def image_call(self, rw, header, message):
         """Pass incoming message to the relevant plugin function."""

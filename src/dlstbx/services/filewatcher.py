@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 
 import h5py
-import workflows.recipe
 from workflows.recipe import RecipeWrapper
 from workflows.services.common_service import CommonService
 
@@ -98,13 +97,7 @@ class DLSFileWatcher(CommonService):
         acknowledged.
         """
         self.log.info("Filewatcher starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            self._environment.get("queue") or "filewatcher",
-            self.watch_files,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("filewatcher", self.watch_files)
 
     def watch_files(self, rw, header, message):
         """Check for presence of files."""

@@ -174,13 +174,7 @@ class DLSStrategy(CommonService):
     def initializing(self):
         """Subscribe to channel."""
         self.log.info("Strategy service starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "strategy",
-            self.generate_strategy,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("strategy", self.generate_strategy)
 
     def generate_strategy(
         self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict

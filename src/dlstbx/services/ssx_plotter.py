@@ -74,13 +74,7 @@ class SSXPlotter(CommonService):
     _logger_name = "dlstbx.services.ssx_plotter"
 
     def initializing(self):
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "ssx.plot",
-            self.receive_msg,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("ssx.plot", self.receive_msg)
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def receive_msg(

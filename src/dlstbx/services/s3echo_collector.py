@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import minio
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import iris
@@ -34,21 +33,9 @@ class S3EchoCollector(CommonService):
 
         self._message_delay = 5
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "s3echo.start",
-            self.on_start,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("s3echo.start", self.on_start)
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "s3echo.end",
-            self.on_end,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("s3echo.end", self.on_end)
 
     def on_start(self, rw, header, message):
         """

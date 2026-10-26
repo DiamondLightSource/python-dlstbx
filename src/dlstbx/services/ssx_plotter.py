@@ -5,16 +5,15 @@ import math
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pydantic
 import workflows.recipe
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
-
-from dlstbx.util import ChainMapWithReplacement
 
 matplotlib.use("Agg")
 
@@ -76,78 +75,66 @@ class SSXPlotter(CommonService):
     def initializing(self):
         self.subscribe("ssx.plot", self.receive_msg)
 
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    @typed_handler(parameters_from=("message", "step"), substitute=True)
     def receive_msg(
         self,
         rw: workflows.recipe.RecipeWrapper,
         header: dict,
-        message: dict,
+        message: dict[str, Any],
+        parameters: Payload,
     ):
         commands = {
             "pia": self.plot_pia,
             "index": self.plot_index,
         }
-        parameters = ChainMapWithReplacement(
-            message if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"],
-            substitutions=rw.environment,
-        )
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        try:
-            payload = Payload(**parameters)
-        except pydantic.ValidationError as e:
-            self.log.error(e, exc_info=True)
-            rw.transport.transaction_abort(header, transaction=txn)
-            rw.transport.nack(header)
-            return
-
-        plotter = commands.get(payload.command)
+        plotter = commands.get(parameters.command)
         if not plotter:
             self.log.error(
-                f"Unknown command {payload.command} (available commands: {list(commands.keys())}"
+                f"Unknown command {parameters.command} (available commands: {list(commands.keys())}"
             )
             rw.transport.transaction_abort(header, transaction=txn)
             rw.transport.nack(header)
             return
 
-        if payload.status is None:
-            payload.status = Status(start_time=time.time())
+        if parameters.status is None:
+            parameters.status = Status(start_time=time.time())
 
-        expected_total = payload.files_expected or payload.images_expected
+        expected_total = parameters.files_expected or parameters.images_expected
         # The pydantic validator should ensure this is the case but assert
         # needed to satisfy mypy
         assert expected_total is not None
-        every = payload.every
+        every = parameters.every
         expected_result_count = expected_total // every
         message_delay = 1  # second
 
-        self.log.debug(f"{payload.results_file=}")
+        self.log.debug(f"{parameters.results_file=}")
 
         lines = None
-        self.log.debug(f"{payload.results_file.exists()=}")
-        if payload.results_file.exists():
-            lines = payload.results_file.read_text().splitlines()
+        self.log.debug(f"{parameters.results_file.exists()=}")
+        if parameters.results_file.exists():
+            lines = parameters.results_file.read_text().splitlines()
         self.log.debug(f"{lines is None or len(lines)=}")
 
-        timeout = (payload.status.start_time + payload.timeout) < time.time()
+        timeout = (parameters.status.start_time + parameters.timeout) < time.time()
         if timeout and not lines:
             # Give up waiting for results file to appear
             self.log.info(
-                f"Timed out waiting for results in {payload.results_file} (dcid={payload.dcid})"
+                f"Timed out waiting for results in {parameters.results_file} (dcid={parameters.dcid})"
             )
             rw.transport.transaction_commit(txn)
             return
         elif not timeout and (not lines or len(lines) < expected_result_count):
             # Not found all messages, so checkpoint message with a delay
             self.log.debug(
-                f"Waiting for results in {payload.results_file} (dcid={payload.dcid})"
+                f"Waiting for results in {parameters.results_file} (dcid={parameters.dcid})"
             )
             rw.checkpoint(
-                json.loads(payload.json(by_alias=True)),
+                json.loads(parameters.json(by_alias=True)),
                 delay=message_delay,
                 transaction=txn,
             )
@@ -156,8 +143,8 @@ class SSXPlotter(CommonService):
 
         assert lines is not None
         try:
-            plotter(payload, lines)
-            rw.send({"plot_file": os.fspath(payload.plot_file)})
+            plotter(parameters, lines)
+            rw.send({"plot_file": os.fspath(parameters.plot_file)})
         except pydantic.ValidationError as e:
             self.log.error(e, exc_info=True)
             rw.transport.transaction_abort(header, transaction=txn)

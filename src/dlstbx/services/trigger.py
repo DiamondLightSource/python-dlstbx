@@ -297,7 +297,7 @@ class LigandFitParameters(pydantic.BaseModel):
 class AlignCrystalParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     comment: Optional[str] = None
-    upstream_pipeline: Literal["xia2-dials", "fast_dp"]
+    upstream_pipeline: Literal["xia2-dials", "fast_dp", "mosflm"]
     experiment_type: str
     experiment_file: pathlib.Path
     symlink: str = pydantic.Field(default="")
@@ -3066,13 +3066,20 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type != "Characterization":
+        if (
+            parameters.experiment_type != "Characterization"
+            and parameters.upstream_pipeline != "mosflm"
+        ):
             self.log.info(
                 f"Skipping align_crystal trigger: experiment type {parameters.experiment_type} not supported"
             )
             return {"success": True}
 
-        downstream_pipeline = {"fast_dp": "xoalign", "xia2-dials": "align-crystal"}
+        downstream_pipeline = {
+            "fast_dp": "xoalign",
+            "xia2-dials": "align-crystal",
+            "mosflm": "xoalign",
+        }
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["comments"] = parameters.comment

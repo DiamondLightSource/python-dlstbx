@@ -536,10 +536,10 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         params["totalintegratedsignal"] = parameters("total_intensity")
         params["good_bragg_candidates"] = parameters("n_spots_no_ice")
-        params["method1_res"] = parameters("method1_res") or parameters(
+        params["method1_res"] = parameters("method1_res")
+        params["method2_res"] = parameters("method2_res") or parameters(
             "estimated_d_min"
         )
-        params["method2_res"] = parameters("method2_res")
 
         self.log.debug(
             "Writing PIA record for image %r in DCID %s",

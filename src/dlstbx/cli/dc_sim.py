@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import socket
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -17,7 +16,6 @@ import sqlalchemy.orm
 import workflows.transport
 import zocalo.configuration
 from ispyb.sqlalchemy import (
-    BLSample,
     BLSession,
     DataCollection,
     DataCollectionGroup,
@@ -26,25 +24,16 @@ from ispyb.sqlalchemy import (
 )
 from sqlalchemy.orm import Load
 
+from dlstbx.crud import get_dcids_for_data_collection_group
 from dlstbx.util import INDUSTRIAL_CODES, DowngradeErrorsFilter
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class DataCollectionRecords:
-    """Related ISPyB records needed to simulate one data collection."""
-
-    data_collection: DataCollection
-    data_collection_group: DataCollectionGroup
-    bl_session: BLSession
-    proposal: Proposal
-    grid_info: GridInfo | None
-    bl_sample: BLSample | None
-
-
-def big_query(session: sqlalchemy.orm.Session, dcid: int) -> DataCollectionRecords:
+def get_dc_and_grid_info_from_dcid(
+    session: sqlalchemy.orm.Session, dcid: int
+) -> tuple[DataCollection, GridInfo | None]:
     """Fetch a data collection and its related records in one database query.
 
     GridInfo is optional and may be associated directly with the data collection
@@ -57,41 +46,76 @@ def big_query(session: sqlalchemy.orm.Session, dcid: int) -> DataCollectionRecor
     result = (
         session.query(
             DataCollection,
-            DataCollectionGroup,
-            BLSession,
-            Proposal,
             GridInfo,
-            BLSample,
         )
-        .join(
-            DataCollectionGroup,
-            DataCollection.dataCollectionGroupId
-            == DataCollectionGroup.dataCollectionGroupId,
-        )
-        .join(BLSession, DataCollectionGroup.sessionId == BLSession.sessionId)
-        .join(Proposal, BLSession.proposalId == Proposal.proposalId)
         .outerjoin(
             GridInfo, GridInfo.dataCollectionId == DataCollection.dataCollectionId
-        )
-        .outerjoin(
-            BLSample,
-            BLSample.blSampleId
-            == sqlalchemy.func.coalesce(
-                DataCollection.BLSAMPLEID, DataCollectionGroup.blSampleId
-            ),
         )
         .filter(DataCollection.dataCollectionId == dcid)
         .one_or_none()
     )
     if result is None:
+        logger.error(f"No data collection found for dcid={dcid}")
+        raise ValueError(f"Could not find data collection for dcid={dcid}")
+
+    return result
+
+
+def get_data_collection_group_from_dcgid(
+    db_session: sqlalchemy.orm.Session, dcgid: int
+) -> DataCollectionGroup:
+    dcg = (
+        db_session.query(DataCollectionGroup).filter(
+            DataCollectionGroup.dataCollectionGroupId == dcgid
+        )
+    ).one_or_none()
+    if dcg is None:
+        logger.error(
+            f"No data collection or related ISPyB records found for dcgid={dcgid}"
+        )
+        raise ValueError(
+            f"Could not find a data collection and its related records for dcgid {dcgid}"
+        )
+    return dcg
+
+
+def get_data_collection_group_from_dcid(
+    db_session: sqlalchemy.orm.Session, dcid: int
+) -> DataCollectionGroup:
+    dcg = (
+        db_session.query(DataCollectionGroup)
+        .join(
+            DataCollection,
+            DataCollection.dataCollectionGroupId
+            == DataCollectionGroup.dataCollectionGroupId,
+        )
+        .filter(DataCollection.dataCollectionId == dcid)
+    ).one_or_none()
+    if dcg is None:
         logger.error(
             f"No data collection or related ISPyB records found for dcid={dcid}"
         )
         raise ValueError(
-            f"Could not find a data collection and its related records for dcid {dcid}"
+            f"Could not find a data collection and its related records for dcgid={dcid}"
         )
+    return dcg
 
-    return DataCollectionRecords(*result)
+
+def get_bl_session_and_proposal_code_from_dcgid(
+    db_session: sqlalchemy.orm.Session, dcgid: int
+) -> tuple[str, BLSession]:
+    results = (
+        db_session.query(Proposal.proposalCode, BLSession)
+        .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+        .join(DataCollectionGroup, DataCollectionGroup.sessionId == BLSession.sessionId)
+        .filter(DataCollectionGroup.dataCollectionGroupId == dcgid)
+        .one_or_none()
+    )
+
+    if results is None:
+        logger.error(f"No proposal code or BLSession found for dcgid={dcgid}")
+        raise ValueError(f"Could not find proposal code or BLSession for dcgid={dcgid}")
+    return results
 
 
 def retrieve_sessionid(db_session: sqlalchemy.orm.Session, visit: str) -> int:
@@ -257,11 +281,9 @@ def copy_grid_info(
     return new_gi
 
 
-def simulate_data_collection(dcid: int) -> int:
+def simulate(dcid_or_dcgid: int, is_dcg: bool = False) -> list[int]:
     """Look up and copy the records needed to simulate data collection."""
-    start_time = datetime.now()
     dflt_proposal = "nt44198"
-    logger.info(f"Starting data collection simulation for dcid={dcid}")
 
     sessionmaker = sqlalchemy.orm.sessionmaker(
         bind=sqlalchemy.create_engine(
@@ -269,29 +291,33 @@ def simulate_data_collection(dcid: int) -> int:
         )
     )
     with sessionmaker() as session:
-        logger.info("Loading source data collection and related ISPyB records")
-        dc_records = big_query(session, dcid)
-
-        if dc_records.proposal.proposalCode in INDUSTRIAL_CODES:
-            logger.error(
-                f"Source data collection {dcid} is industrial; simulation is not allowed"
+        if is_dcg:
+            logger.info(
+                f"Starting data collection simulation for dcgid={dcid_or_dcgid}"
             )
+            dcg = get_data_collection_group_from_dcgid(session, dcid_or_dcgid)
+            dcgid = dcid_or_dcgid
+            dcids = get_dcids_for_data_collection_group(dcgid, session)
+        else:
+            logger.info(f"Starting data collection simulation for dcid={dcid_or_dcgid}")
+            dcg = get_data_collection_group_from_dcid(session, dcid_or_dcgid)
+            dcgid = dcg.dataCollectionGroupId
+            dcids = [dcid_or_dcgid]
+
+        proposal_code, bl_session = get_bl_session_and_proposal_code_from_dcgid(
+            session, dcgid
+        )
+
+        if proposal_code in INDUSTRIAL_CODES:
+            logger.error("Source data is industrial; simulation is not allowed")
             raise SystemExit(1)
 
-        beamline = dc_records.bl_session.beamLineName
+        beamline = bl_session.beamLineName
         dest_visit_dir, dest_visit = get_beamline_visit_and_dir_for_proposal(
             dflt_proposal, beamline
         )
 
-        dc = dc_records.data_collection
-        dcg = dc_records.data_collection_group
-        logger.info(
-            f"Source records loaded: dcid={dcid}, beamline={beamline}, "
-            f"destination visit={dest_visit}"
-        )
-
         now = datetime.now()
-        source_image_dir = Path(dc.imageDirectory)
         random_uuid = os.urandom(4).hex()  # Generate a random UUID for uniqueness
         dest_dir = (
             dest_visit_dir
@@ -301,106 +327,6 @@ def simulate_data_collection(dcid: int) -> int:
         )
         dest_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created image destination directory {dest_dir}")
-        # Get the session id for the destination visit
-        logger.info(f"Finding ISPyB session for destination visit {dest_visit}")
-        new_bl_session_id = retrieve_sessionid(session, dest_visit)
-        # Create a copy with new sessionId and times
-        new_dcg = copy_data_collection_group(
-            dcg,
-            new_session_id=new_bl_session_id,
-            new_start_time=start_time,
-            new_end_time=datetime.now(),
-        )
-
-        # Add and commit the new DataCollectionGroup
-        session.add(new_dcg)
-        session.commit()
-        logger.info(
-            f"Created destination DataCollectionGroup {new_dcg.dataCollectionGroupId}"
-        )
-
-        # Copy the image files to the new destination directory
-        image_suffix = dc.imageSuffix
-        if image_suffix == "cbf":
-            file_template = dc.fileTemplate
-            match = re.search(r"(#+)(?=\.cbf$)", file_template)
-            if not match:
-                raise ValueError(
-                    f"File template {file_template} does not contain a valid '#' pattern for image numbering."
-                )
-            n_digits = len(match.group(1))
-            start_image_number = dc.startImageNumber
-            number_of_images = dc.numberOfImages
-            copied_images = 0
-            missing_images = 0
-            logger.info(
-                f"Copying {number_of_images} CBF images from {source_image_dir} "
-                f"to {dest_dir}"
-            )
-            for image_number in range(
-                start_image_number, start_image_number + number_of_images
-            ):
-                image_filename = (
-                    file_template[: match.start()]
-                    + str(image_number).zfill(n_digits)
-                    + file_template[match.end() :]
-                )
-                src_image_path = source_image_dir / image_filename
-                dest_image_path = dest_dir / image_filename
-                if src_image_path.exists():
-                    shutil.copy2(src_image_path, dest_image_path)
-                    copied_images += 1
-                else:
-                    logger.warning(
-                        f"Source image {src_image_path} does not exist; skipping copy"
-                    )
-                    missing_images += 1
-            logger.info(
-                f"Finished copying CBF images: copied={copied_images}, "
-                f"missing={missing_images}"
-            )
-
-        elif image_suffix in ["h5", "nxs"]:
-            file_prefix = f"{dc.imagePrefix}_{dc.dataCollectionNumber}"
-            files = {
-                path
-                for pattern in (f"{file_prefix}_*.h5", f"{file_prefix}.nxs")
-                for path in source_image_dir.glob(pattern)
-            }
-            logger.info(
-                f"Copying {len(files)} HDF5/Nexus file(s) from {source_image_dir} "
-                f"to {dest_dir}"
-            )
-            for file in files:
-                shutil.copy2(file, dest_dir)
-            logger.info("Finished copying image data files")
-        else:
-            logger.error(
-                f"Unsupported image suffix {image_suffix!r} for source dcid={dcid}"
-            )
-            raise ValueError(
-                f"Invalid image suffix {image_suffix} for source data collection"
-            )
-
-        # Create new DataCollection
-        new_dc = copy_data_collection(
-            dc,
-            new_session_id=new_bl_session_id,
-            new_data_collection_group_id=new_dcg.dataCollectionGroupId,
-            startTime=start_time,
-            endTime=datetime.now(),
-            comments=f"Simulated data collection copied from dcid {dcid}",
-            imageDirectory=str(dest_dir) + "/",
-        )
-        session.add(new_dc)
-        session.commit()
-        new_dcid = new_dc.dataCollectionId
-
-        if dc_records.grid_info is not None:
-            new_gi = copy_grid_info(source_gi=dc_records.grid_info, new_dcid=new_dcid)
-            session.add(new_gi)
-            session.commit()
-
         # Create destination directory for JPEG snapshots
         jpgs_dest_dir = (
             dest_visit_dir
@@ -411,43 +337,164 @@ def simulate_data_collection(dcid: int) -> int:
         )
         jpgs_dest_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created snapshot destination directory {jpgs_dest_dir}")
+        # Get the session id for the destination visit
+        logger.info(f"Finding ISPyB session for destination visit {dest_visit}")
+        new_bl_session_id = retrieve_sessionid(session, dest_visit)
+        # Create a copy with new sessionId and times
+        logger.info("Copying data collection group")
+        new_dcg = copy_data_collection_group(
+            dcg,
+            new_session_id=new_bl_session_id,
+            new_start_time=datetime.now(),
+            new_end_time=datetime.now(),
+        )
+
+        # Add and commit the new DataCollectionGroup
+        session.add(new_dcg)
+        session.commit()
+        new_dcgid = new_dcg.dataCollectionGroupId
+        logger.info(f"Created destination DataCollectionGroup dcgid={new_dcgid}")
+
+        logger.info("Loading source data collection and related ISPyB records")
+        new_dcids = []
+        for dcid in dcids:
+            new_dcid = simulate_datacollection(
+                session, dcid, dest_dir, jpgs_dest_dir, new_bl_session_id, new_dcgid
+            )
+            new_dcids.append(new_dcid)
+    return new_dcids
+
+
+def simulate_datacollection(
+    db_session: sqlalchemy.orm.Session,
+    dcid: int,
+    dest_dir: Path,
+    jpgs_dest_dir: Path,
+    new_bl_session_id: int,
+    new_dcgid: int,
+) -> int:
+    dc, gi = get_dc_and_grid_info_from_dcid(db_session, dcid)
+    source_image_dir = Path(dc.imageDirectory)
+    start_time = datetime.now()
+
+    # Copy the image files to the new destination directory
+    image_suffix = dc.imageSuffix
+    if image_suffix == "cbf":
+        file_template = dc.fileTemplate
+        match = re.search(r"(#+)(?=\.cbf$)", file_template)
+        if not match:
+            raise ValueError(
+                f"File template {file_template} does not contain a valid '#' pattern for image numbering."
+            )
+        n_digits = len(match.group(1))
+        start_image_number = dc.startImageNumber
+        number_of_images = dc.numberOfImages
+        copied_images = 0
+        missing_images = 0
+        logger.info(
+            f"Copying {number_of_images} CBF images from {source_image_dir} "
+            f"to {dest_dir}"
+        )
+        for image_number in range(
+            start_image_number, start_image_number + number_of_images
+        ):
+            image_filename = (
+                file_template[: match.start()]
+                + str(image_number).zfill(n_digits)
+                + file_template[match.end() :]
+            )
+            src_image_path = source_image_dir / image_filename
+            dest_image_path = dest_dir / image_filename
+            if src_image_path.exists():
+                shutil.copy2(src_image_path, dest_image_path)
+                copied_images += 1
+            else:
+                logger.warning(
+                    f"Source image {src_image_path} does not exist; skipping copy"
+                )
+                missing_images += 1
+        logger.info(
+            f"Finished copying CBF images: copied={copied_images}, "
+            f"missing={missing_images}"
+        )
+
+    elif image_suffix in ["h5", "nxs"]:
+        file_prefix = f"{dc.imagePrefix}_{dc.dataCollectionNumber}"
+        files = {
+            path
+            for pattern in (f"{file_prefix}_*.h5", f"{file_prefix}.nxs")
+            for path in source_image_dir.glob(pattern)
+        }
+        logger.info(
+            f"Copying {len(files)} HDF5/Nexus file(s) from {source_image_dir} "
+            f"to {dest_dir}"
+        )
+        for file in files:
+            shutil.copy2(file, dest_dir)
+        logger.info("Finished copying image data files")
+    else:
+        logger.error(
+            f"Unsupported image suffix {image_suffix!r} for source dcid={dcid}"
+        )
+        raise ValueError(
+            f"Invalid image suffix {image_suffix} for source data collection"
+        )
+
+        # Create new DataCollection
+    new_dc = copy_data_collection(
+        dc,
+        new_session_id=new_bl_session_id,
+        new_data_collection_group_id=new_dcgid,
+        startTime=start_time,
+        endTime=datetime.now(),
+        comments=f"Simulated data collection copied from dcid {dcid}",
+        imageDirectory=str(dest_dir) + "/",
+    )
+    db_session.add(new_dc)
+    db_session.commit()
+    new_dcid = new_dc.dataCollectionId
+
+    if gi is not None:
+        new_gi = copy_grid_info(source_gi=gi, new_dcid=new_dcid)
+        db_session.add(new_gi)
+        db_session.commit()
 
         # Mapping of snapshot attributes to their names
-        snapshot_attrs = [
-            "xtalSnapshotFullPath1",
-            "xtalSnapshotFullPath2",
-            "xtalSnapshotFullPath3",
-            "xtalSnapshotFullPath4",
-        ]
+    snapshot_attrs = [
+        "xtalSnapshotFullPath1",
+        "xtalSnapshotFullPath2",
+        "xtalSnapshotFullPath3",
+        "xtalSnapshotFullPath4",
+    ]
 
-        # Copy and update snapshot paths
-        copied_snapshots = 0
-        missing_snapshots = 0
-        for attr_name in snapshot_attrs:
-            src_snapshot_path = getattr(dc, attr_name, None)
-            if src_snapshot_path is not None:
-                src_snapshot = Path(src_snapshot_path)
-                if src_snapshot.exists():
-                    # Create a unique filename for the snapshot
-                    dest_snapshot_path = jpgs_dest_dir / src_snapshot.name
-                    shutil.copy2(src_snapshot, dest_snapshot_path)
-                    # Update the new DataCollection with the new snapshot path
-                    setattr(new_dc, attr_name, str(dest_snapshot_path))
-                    copied_snapshots += 1
-                else:
-                    logger.warning(
-                        f"Crystal snapshot {src_snapshot} does not exist; skipping copy"
-                    )
-                    missing_snapshots += 1
+    # Copy and update snapshot paths
+    copied_snapshots = 0
+    missing_snapshots = 0
+    for attr_name in snapshot_attrs:
+        src_snapshot_path = getattr(dc, attr_name, None)
+        if src_snapshot_path is not None:
+            src_snapshot = Path(src_snapshot_path)
+            if src_snapshot.exists():
+                # Create a unique filename for the snapshot
+                dest_snapshot_path = jpgs_dest_dir / src_snapshot.name
+                shutil.copy2(src_snapshot, dest_snapshot_path)
+                # Update the new DataCollection with the new snapshot path
+                setattr(new_dc, attr_name, str(dest_snapshot_path))
+                copied_snapshots += 1
+            else:
+                logger.warning(
+                    f"Crystal snapshot {src_snapshot} does not exist; skipping copy"
+                )
+                missing_snapshots += 1
 
-        logger.info(
-            f"Created destination DataCollection {new_dc.dataCollectionId}; "
-            f"copied snapshots={copied_snapshots}, missing snapshots={missing_snapshots}"
-        )
-        logger.info(
-            f"Data collection simulation for dcid={dcid} completed in "
-            f"{(datetime.now() - start_time).total_seconds():.1f} seconds"
-        )
+    logger.info(
+        f"Created destination DataCollection {new_dc.dataCollectionId}; "
+        f"copied snapshots={copied_snapshots}, missing snapshots={missing_snapshots}"
+    )
+    logger.info(
+        f"Data collection simulation for dcid={dcid} completed in "
+        f"{(datetime.now() - start_time).total_seconds():.1f} seconds"
+    )
     return new_dcid
 
 
@@ -493,45 +540,51 @@ def run(args: list[str] | None = None) -> None:
         description="Simulate data collection. Takes a dcid as input and copies data and database records to simulate a data collection, then triggers mimas.",
         usage="dlstbx.dc_sim [options] dcid",
     )
-    parser.add_argument("dcid", type=int, help="Data collection ID")
+    parser.add_argument(
+        "dcid_or_dcgid",
+        type=int,
+        help="Data collection ID or Data collection group ID - To use Data collection group id, set --dcgid option",
+    )
+    parser.add_argument("--is-dcgid", action="store_true")
     parser.add_argument("--suppress-mimas", action="store_true")
     zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser, transport_argument=True)
 
     parsed_args = parser.parse_args(args)
-    new_dcid = simulate_data_collection(parsed_args.dcid)
+    new_dcids = simulate(parsed_args.dcid_or_dcgid, parsed_args.is_dcgid)
 
     if not parsed_args.suppress_mimas:
-        logger.info("Triggering Mimas")
-        headers = {
-            "zocalo.go.user": getpass.getuser(),
-            "zocalo.go.host": socket.gethostname(),
-        }
-
         transport = workflows.transport.lookup(parsed_args.transport)()
         transport.connect()
-        transport.send(
-            "processing_recipe",
-            {
-                "recipes": ["mimas"],
-                "parameters": {
-                    "ispyb_dcid": new_dcid,
-                    "event": "start",
+        for new_dcid in new_dcids:
+            logger.info(f"Triggering Mimas for dcid={new_dcid}")
+            headers = {
+                "zocalo.go.user": getpass.getuser(),
+                "zocalo.go.host": socket.gethostname(),
+            }
+
+            transport.send(
+                "processing_recipe",
+                {
+                    "recipes": ["mimas"],
+                    "parameters": {
+                        "ispyb_dcid": new_dcid,
+                        "event": "start",
+                    },
                 },
-            },
-            headers=headers,
-        )
-        transport.send(
-            "processing_recipe",
-            {
-                "recipes": ["mimas"],
-                "parameters": {
-                    "ispyb_dcid": new_dcid,
-                    "event": "end",
+                headers=headers,
+            )
+            transport.send(
+                "processing_recipe",
+                {
+                    "recipes": ["mimas"],
+                    "parameters": {
+                        "ispyb_dcid": new_dcid,
+                        "event": "end",
+                    },
                 },
-            },
-            headers=headers,
-        )
+                headers=headers,
+            )
         transport.disconnect()
 
 

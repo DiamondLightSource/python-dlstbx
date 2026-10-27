@@ -539,9 +539,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         params["method1_res"] = parameters("method1_res") or parameters(
             "estimated_d_min"
         )
-        params["method2_res"] = parameters("method2_res") or parameters(
-            "estimated_d_min"
-        )
+        params["method2_res"] = parameters("method2_res")
 
         self.log.debug(
             "Writing PIA record for image %r in DCID %s",

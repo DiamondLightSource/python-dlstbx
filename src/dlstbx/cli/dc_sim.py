@@ -14,7 +14,6 @@ from pathlib import Path
 import ispyb.sqlalchemy
 import sqlalchemy
 import sqlalchemy.orm
-import workflows.recipe
 import workflows.transport
 import zocalo.configuration
 from ispyb.sqlalchemy import (
@@ -27,7 +26,8 @@ from ispyb.sqlalchemy import (
 )
 from sqlalchemy.orm import Load
 
-from dlstbx.util import INDUSTRIAL_CODES
+from dlstbx.util import INDUSTRIAL_CODES, DowngradeErrorsFilter
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 logger = logging.getLogger(__name__)
 
@@ -470,7 +470,23 @@ def get_beamline_visit_and_dir_for_proposal(
 
 
 def run(args: list[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    # Enable logging to console
+    console = ColorStreamHandler()
+    console.setLevel(logging.INFO)
+    logging.getLogger("dlstbx").setLevel(logging.INFO)
+    for pika_logger in (
+        "base_connection",
+        "blocking_connection",
+        "utils.connection_workflow",
+        "utils.io_services_utils",
+    ):
+        logging.getLogger(f"pika.adapters.{pika_logger}").addFilter(
+            DowngradeErrorsFilter()
+        )
+    logging.getLogger("workflows").setLevel(logging.INFO)
+    logging.getLogger("zocalo").setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.WARNING)
+    logging.getLogger().addHandler(console)
     zc = zocalo.configuration.from_file()
     zc.activate()
     parser = argparse.ArgumentParser(
@@ -478,43 +494,45 @@ def run(args: list[str] | None = None) -> None:
         usage="dlstbx.dc_sim [options] dcid",
     )
     parser.add_argument("dcid", type=int, help="Data collection ID")
+    parser.add_argument("--suppress-mimas", action="store_true")
     zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser, transport_argument=True)
 
     parsed_args = parser.parse_args(args)
     new_dcid = simulate_data_collection(parsed_args.dcid)
 
-    logger.info("Triggering Mimas")
-    headers = {
-        "zocalo.go.user": getpass.getuser(),
-        "zocalo.go.host": socket.gethostname(),
-    }
+    if not parsed_args.suppress_mimas:
+        logger.info("Triggering Mimas")
+        headers = {
+            "zocalo.go.user": getpass.getuser(),
+            "zocalo.go.host": socket.gethostname(),
+        }
 
-    transport = workflows.transport.lookup(parsed_args.transport)()
-    transport.connect()
-    transport.send(
-        "processing_recipe",
-        {
-            "recipes": ["mimas"],
-            "parameters": {
-                "ispyb_dcid": new_dcid,
-                "event": "start",
+        transport = workflows.transport.lookup(parsed_args.transport)()
+        transport.connect()
+        transport.send(
+            "processing_recipe",
+            {
+                "recipes": ["mimas"],
+                "parameters": {
+                    "ispyb_dcid": new_dcid,
+                    "event": "start",
+                },
             },
-        },
-        headers=headers,
-    )
-    transport.send(
-        "processing_recipe",
-        {
-            "recipes": ["mimas"],
-            "parameters": {
-                "ispyb_dcid": new_dcid,
-                "event": "end",
+            headers=headers,
+        )
+        transport.send(
+            "processing_recipe",
+            {
+                "recipes": ["mimas"],
+                "parameters": {
+                    "ispyb_dcid": new_dcid,
+                    "event": "end",
+                },
             },
-        },
-        headers=headers,
-    )
-    transport.disconnect()
+            headers=headers,
+        )
+        transport.disconnect()
 
 
 if __name__ == "__main__":

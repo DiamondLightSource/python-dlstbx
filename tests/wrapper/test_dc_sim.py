@@ -257,6 +257,7 @@ def test_simulate_datacollection_copies_hdf5_and_nexus_files(tmp_path, monkeypat
     dest_dir.mkdir()
     jpgs_dest_dir.mkdir()
     for name in (
+        "sample_2_master.h5",
         "sample_2_000001.h5",
         "sample_2_000002.h5",
         "sample_2.nxs",
@@ -267,6 +268,7 @@ def test_simulate_datacollection_copies_hdf5_and_nexus_files(tmp_path, monkeypat
         imageDirectory=str(source_dir),
         imageSuffix="h5",
         imagePrefix="sample",
+        fileTemplate="sample_2_master.h5",
         dataCollectionNumber=2,
         xtalSnapshotFullPath1=None,
         xtalSnapshotFullPath2=None,
@@ -286,6 +288,7 @@ def test_simulate_datacollection_copies_hdf5_and_nexus_files(tmp_path, monkeypat
         FakeSession(), 25, dest_dir, jpgs_dest_dir, 30, 40
     ) == (502, True)
     assert {path.name for path in dest_dir.iterdir()} == {
+        "sample_2_master.h5",
         "sample_2_000001.h5",
         "sample_2_000002.h5",
         "sample_2.nxs",

@@ -266,7 +266,7 @@ class DCSimWrapper(Wrapper):
             start_image_number = dc.startImageNumber
             number_of_images = dc.numberOfImages
             copied_images = 0
-            missing_images = 0
+            missing_images = []
             self.log.info(
                 f"Copying {number_of_images} CBF images from {source_image_dir} "
                 f"to {dest_dir}"
@@ -285,16 +285,22 @@ class DCSimWrapper(Wrapper):
                     shutil.copy2(src_image_path, dest_image_path)
                     copied_images += 1
                 else:
-                    self.log.warning(
-                        f"Source image {src_image_path} does not exist; skipping copy"
-                    )
-                    missing_images += 1
+                    missing_images.append(image_number)
+            if not copied_images:
+                raise FileNotFoundError(
+                    f"Image files not found for dcid={dcid}, data may have been archived"
+                )
             self.log.info(
                 f"Finished copying CBF images: copied={copied_images}, "
-                f"missing={missing_images}"
+                f"missing_images={missing_images}"
             )
 
         elif image_suffix in ["h5", "nxs"]:
+            main_file_path = source_image_dir / dc.fileTemplate
+            if not main_file_path.exists():
+                raise FileNotFoundError(
+                    f"Image files not found for dcid={dcid}, data may have been archived"
+                )
             file_prefix = f"{dc.imagePrefix}_{dc.dataCollectionNumber}"
             files = {
                 path

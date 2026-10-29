@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import ispyb.sqlalchemy
+import pydantic
 import sqlalchemy
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
@@ -20,6 +21,26 @@ from sqlalchemy.orm import Load
 
 from dlstbx.util import INDUSTRIAL_CODES
 from dlstbx.wrapper import Wrapper
+
+
+@pydantic.dataclasses.dataclass(config=pydantic.ConfigDict(extra="allow"))
+class DataCollectionInfo:
+    dataCollectionGroupId: pydantic.PositiveInt
+
+
+@pydantic.dataclasses.dataclass
+class DCSimParameters:
+    beamline: str
+    src_visit: str
+    src_allowed_visits: list[str]
+    dest_allowed_visits: list[str]
+    dflt_proposal: str
+    dflt_i02_visits: dict[str, int]
+    dc_info: DataCollectionInfo
+    dcg_dcids: list[pydantic.PositiveInt]
+    dcid: pydantic.PositiveInt
+    dest_visit: str | None = None
+    copy_dcg: bool | None = False
 
 
 class DCSimWrapper(Wrapper):
@@ -226,8 +247,9 @@ class DCSimWrapper(Wrapper):
         jpgs_dest_dir: Path,
         new_bl_session_id: int,
         new_dcgid: int,
-    ) -> int:
+    ) -> tuple[int, bool]:
         dc, gi = self.get_dc_and_grid_info_from_dcid(db_session, dcid)
+        is_grid_scan = gi is not None
         source_image_dir = Path(dc.imageDirectory)
         start_time = datetime.now()
 
@@ -334,7 +356,7 @@ class DCSimWrapper(Wrapper):
             **dc_extra_params,
         )
 
-        if gi is not None:
+        if is_grid_scan:
             self.copy_grid_info(db_session=db_session, source_gi=gi, new_dcid=new_dcid)
 
         self.log.info(f"Created DataCollection {new_dcid}; ")
@@ -342,7 +364,7 @@ class DCSimWrapper(Wrapper):
             f"Data collection simulation for dcid={dcid} completed in "
             f"{(datetime.now() - start_time).total_seconds():.1f} seconds"
         )
-        return new_dcid
+        return new_dcid, is_grid_scan
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -360,30 +382,30 @@ class DCSimWrapper(Wrapper):
             if value in placeholders:
                 params[key] = None
 
-        beamline = params["beamline"]
-        src_visit = params["src_visit"]
-        dest_visit = params.get("dest_visit")
-        dcid = int(params["dcid"])
+        params = DCSimParameters(**params)
+
+        beamline = params.beamline
+        src_visit = params.src_visit
+        dest_visit = params.dest_visit
+        dcid = params.dcid
         now = datetime.now()
         random_uuid = os.urandom(4).hex()  # Generate a random UUID for uniqueness
 
         if src_visit.startswith(tuple(INDUSTRIAL_CODES)) or not src_visit.startswith(
-            tuple(params["src_allowed_visits"])
+            tuple(params.src_allowed_visits)
         ):
             raise ValueError(f"{src_visit} is not an allowed source visit")
 
         if dest_visit is not None:
-            if not params["dest_visit"].startswith(
-                tuple(params["dest_allowed_visits"])
-            ):
+            if not dest_visit.startswith(tuple(params.dest_allowed_visits)):
                 raise ValueError(f"{dest_visit} is not an allowed destination visit")
             proposal = dest_visit.split("-")[0]
         else:
-            proposal = params["dflt_proposal"]
+            proposal = params.dflt_proposal
         if beamline.startswith("i02"):
             if dest_visit is None:
                 try:
-                    dest_visit = f"{proposal}-{params['dflt_i02_visits'][beamline]}"
+                    dest_visit = f"{proposal}-{params.dflt_i02_visits[beamline]}"
                 except KeyError:
                     self.log.error("Could not determine which destination visit to use")
                     raise
@@ -401,15 +423,15 @@ class DCSimWrapper(Wrapper):
             f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
         )
 
-        dcgid = params["dc_info"]["dataCollectionGroupId"]
+        dcgid = params.dc_info.dataCollectionGroupId
         dcids = [dcid]
         # Set whether to copy entire dcg
-        copy_dcg = params["copy_dcg"]
+        copy_dcg = params.copy_dcg
         if copy_dcg:
             dcids = (
-                params["dcg_dcids"]
-                if dcid in params["dcg_dcids"]
-                else [dcid] + params["dcg_dcids"]
+                params.dcg_dcids
+                if dcid in params.dcg_dcids
+                else [dcid] + params.dcg_dcids
             )
             dcids.sort()
 
@@ -446,9 +468,9 @@ class DCSimWrapper(Wrapper):
                 dcgid=dcgid,
                 new_session_id=dest_bl_session_id,
             )
-
+            grid_scan_dcids: list[int] = []
             for dcid in dcids:
-                new_dcid = self.simulate_datacollection(
+                new_dcid, is_grid_scan = self.simulate_datacollection(
                     db_session=session,
                     dcid=dcid,
                     dest_dir=dest_dir,
@@ -456,22 +478,31 @@ class DCSimWrapper(Wrapper):
                     new_bl_session_id=dest_bl_session_id,
                     new_dcgid=new_dcgid,
                 )
-
-                self.log.info(f"Triggering mimas start event for dcid={new_dcid}")
-                self.recwrap.send_to(
-                    "mimas",
-                    {
-                        "recipes": ["mimas"],
-                        "parameters": {"ispyb_dcid": new_dcid, "event": "start"},
-                    },
-                )
-                self.log.info(f"Triggering mimas end event for dcid={new_dcid}")
-                self.recwrap.send_to(
-                    "mimas",
-                    {
-                        "recipes": ["mimas"],
-                        "parameters": {"ispyb_dcid": new_dcid, "event": "end"},
-                    },
-                )
-
+                # 3D grid scans expect all dcids in dcg to be registered before processing
+                if is_grid_scan:
+                    grid_scan_dcids.append(new_dcid)
+                # Trigger processing for non grid scans as soon as they are ready.
+                else:
+                    self.trigger_mimas_for_dcid(new_dcid)
+            # Process grid scans once all new dcids are in the database
+            for grid_scan_dcid in grid_scan_dcids:
+                self.trigger_mimas_for_dcid(grid_scan_dcid)
         return True
+
+    def trigger_mimas_for_dcid(self, new_dcid):
+        self.log.info(f"Triggering mimas start event for dcid={new_dcid}")
+        self.recwrap.send_to(
+            "mimas",
+            {
+                "recipes": ["mimas"],
+                "parameters": {"ispyb_dcid": new_dcid, "event": "start"},
+            },
+        )
+        self.log.info(f"Triggering mimas end event for dcid={new_dcid}")
+        self.recwrap.send_to(
+            "mimas",
+            {
+                "recipes": ["mimas"],
+                "parameters": {"ispyb_dcid": new_dcid, "event": "end"},
+            },
+        )

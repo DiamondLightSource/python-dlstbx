@@ -33,6 +33,7 @@ class Xia2MultiplexWrapper(Wrapper):
         cluster_num=None,
         attachments=[],
         multiplex_filtering=False,
+        phil_path=None,
     ):
         ispyb_command_list = []
 
@@ -98,21 +99,14 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # Step 3.5: Ammend paths in HTML for synchweb interactivity
 
-        for attachment in attachments:
-            html_path = pathlib.Path(attachment["file_path"]) / attachment["file_name"]
-            # pipeline-final is in file_path, but we want the /processed for data processing
-            parts = list(html_path.parts)
-            if "pipeline-final" in parts:
-                parts.remove("pipeline-final")
-            desired_path = pathlib.Path(*parts)
-            if attachment["file_name"] == "xia2.multiplex.html":
-                path_to_insert = desired_path.parent / "xia2-multiplex-working.phil"
-                self.fix_paths_in_html_output(html_path, path_to_insert)
-            elif attachment["file_name"] == "xia2.multiplex_clustering.html":
-                path_to_insert = (
-                    desired_path.parent.parent / "xia2-multiplex-working.phil"
-                )
-                self.fix_paths_in_html_output(html_path, path_to_insert)
+        if phil_path:
+            files_to_change = ["xia2.multiplex.html", "xia2.multiplex_clustering.html"]
+            for attachment in attachments:
+                if attachment["file_name"] in files_to_change:
+                    html_path = (
+                        pathlib.Path(attachment["file_path"]) / attachment["file_name"]
+                    )
+                    self.fix_paths_in_html_output(html_path, phil_path)
 
         # Step 4: Upload attachments
         if attachments:
@@ -342,6 +336,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         allfiles = []
         cluster_count = 0
+        phil_path = None
 
         if success:
             with multiplex_json.open("r") as fh:
@@ -455,6 +450,8 @@ class Xia2MultiplexWrapper(Wrapper):
                             filetype = keep[file_pattern]
                     if filetype is None:
                         continue
+                    if filename.name == "xia2-multiplex-working.phil":
+                        phil_path = results_directory / filename.name
 
                     # Work out if in Processing, DataFiles or LogFiles (parent_dir)
 
@@ -594,6 +591,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_num=cluster_num,
                     attachments=attachments,
                     multiplex_filtering=filtering,
+                    phil_path=phil_path,
                 )
 
             self._success_counter.inc()

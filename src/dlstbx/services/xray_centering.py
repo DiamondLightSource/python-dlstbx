@@ -4,7 +4,7 @@ import logging
 import pathlib
 import threading
 import time
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import numpy as np
 import prometheus_client
@@ -57,6 +57,8 @@ class Parameters(pydantic.BaseModel):
     threshold_absolute: pydantic.NonNegativeFloat = 0
     threshold_msp: pydantic.NonNegativeFloat = 0.25
     threshold_absolute_msp: pydantic.NonNegativeFloat = 3
+    metric: str = "n_spots_total"
+    search_for: Literal["maximal", "minimal"] = "maximal"
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -69,6 +71,8 @@ class Message(pydantic.BaseModel):
     n_spots_total: pydantic.NonNegativeInt
     file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
 
+    model_config = ConfigDict(extra="allow")
+
 
 class CenteringData(pydantic.BaseModel):
     gridinfo: GridInfo
@@ -77,10 +81,12 @@ class CenteringData(pydantic.BaseModel):
     last_activity: float = pydantic.Field(default_factory=time.time)
     last_image_seen_at: pydantic.PositiveFloat
     data: np.ndarray = None
+    spots: np.ndarray = None
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.data = np.empty(self.gridinfo.image_count, dtype=int)
+        self.data = np.zeros(self.gridinfo.image_count, dtype=float)
+        self.spots = np.zeros(self.gridinfo.image_count, dtype=int)
 
     @property
     def images_seen(self):
@@ -239,8 +245,26 @@ class DLSXRayCentering(CommonService):
                 cd.images_seen,
                 gridinfo.image_count,
             )
+            metric_val = getattr(message, parameters.metric, None)
+            if metric_val is None:
+                self.log.error(
+                    "X-ray centering service called with invalid payload: metric %s missing",
+                    parameters.metric,
+                )
+                rw.transport.nack(header)
+                return
+
             try:
-                cd.data[message.file_number - 1] = message.n_spots_total
+                cd.data[message.file_number - 1] = float(metric_val)
+                cd.spots[message.file_number - 1] = message.n_spots_total
+            except (ValueError, TypeError):
+                self.log.error(
+                    "X-ray centering service called with invalid metric value for %s: %r",
+                    parameters.metric,
+                    metric_val,
+                )
+                rw.transport.nack(header)
+                return
             except IndexError:
                 # Cannot analyse images with an inconsistent metadata
                 self.log.exception(
@@ -272,9 +296,14 @@ class DLSXRayCentering(CommonService):
                         data = []
                         for _dcid in dcids:
                             _cd = self._centering_data.get(_dcid)
+                            arr = _cd.data
+                            if parameters.search_for == "minimal":
+                                arr = np.where(
+                                    (arr > 0) & np.isfinite(arr), 1.0 / arr, 0.0
+                                )
                             data.append(
                                 dlstbx.util.xray_centering.reshape_grid(
-                                    _cd.data,
+                                    arr,
                                     (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
                                     _cd.gridinfo.snaked,
                                     _cd.gridinfo.orientation,
@@ -304,6 +333,17 @@ class DLSXRayCentering(CommonService):
                             multipin_sample_ids=parameters.msp_sample_ids,
                             well_limits=well_limits,
                         )
+                        if parameters.search_for == "minimal":
+                            for r in result:
+                                if r.max_count:
+                                    inv = 1.0 / r.max_count
+                                    r.max_count = int(inv) if inv.is_integer() else inv
+                                if r.total_count:
+                                    inv = 1.0 / r.total_count
+                                    r.total_count = (
+                                        int(inv) if inv.is_integer() else inv
+                                    )
+
                         self.log.info(f"3D X-ray centering result: {result}")
 
                         # Acknowledge all messages
@@ -335,8 +375,15 @@ class DLSXRayCentering(CommonService):
                     self.log.info(
                         "All records arrived for X-ray centering on DCID %d", dcid
                     )
+                    grid_data = cd.data
+                    if parameters.search_for == "minimal":
+                        grid_data = np.where(
+                            (grid_data > 0) & np.isfinite(grid_data),
+                            1.0 / grid_data,
+                            0.0,
+                        )
                     result, output = dlstbx.util.xray_centering.gridscan2d(
-                        cd.data,
+                        grid_data,
                         sample_id=parameters.sample_id,
                         steps=(gridinfo.steps_x, gridinfo.steps_y),
                         box_size_px=(
@@ -351,7 +398,15 @@ class DLSXRayCentering(CommonService):
                         orientation=gridinfo.orientation,
                         multipin_sample_ids=parameters.msp_sample_ids,
                         well_limits=well_limits,
+                        spots_data=cd.spots,
                     )
+                    if parameters.search_for == "minimal":
+                        if result.max_count:
+                            inv = 1.0 / result.max_count
+                            result.max_count = int(inv) if inv.is_integer() else inv
+                        if result.total_count:
+                            inv = 1.0 / result.total_count
+                            result.total_count = int(inv) if inv.is_integer() else inv
                     self.log.debug(output)
 
                     # Write result file

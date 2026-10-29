@@ -221,20 +221,20 @@ def test_simulate_datacollection_copies_cbf_images_and_snapshots(tmp_path, monke
         xtalSnapshotFullPath3=None,
         xtalSnapshotFullPath4=None,
     )
-    grid_info = SimpleNamespace(gridInfoId=4)
     monkeypatch.setattr(
-        wrapper, "get_dc_and_grid_info_from_dcid", lambda *_: (dc, grid_info)
+        wrapper, "get_dc_and_grid_info_from_dcid", lambda *_: (dc, None)
     )
     copy_dc = Mock(return_value=501)
     copy_grid = Mock()
     monkeypatch.setattr(wrapper, "copy_data_collection", copy_dc)
     monkeypatch.setattr(wrapper, "copy_grid_info", copy_grid)
 
-    new_dcid = wrapper.simulate_datacollection(
+    new_dcid, is_grid_scan = wrapper.simulate_datacollection(
         FakeSession(), 25, dest_dir, jpgs_dest_dir, 30, 40
     )
 
     assert new_dcid == 501
+    assert not is_grid_scan
     assert sorted(path.name for path in dest_dir.iterdir()) == [
         "image_0001.cbf",
         "image_0003.cbf",
@@ -245,7 +245,7 @@ def test_simulate_datacollection_copies_cbf_images_and_snapshots(tmp_path, monke
     )
     assert copy_dc.call_args.kwargs["new_session_id"] == 30
     assert copy_dc.call_args.kwargs["new_data_collection_group_id"] == 40
-    copy_grid.assert_called_once_with(db_session=ANY, source_gi=grid_info, new_dcid=501)
+    copy_grid.assert_not_called()
 
 
 def test_simulate_datacollection_copies_hdf5_and_nexus_files(tmp_path, monkeypatch):
@@ -273,26 +273,24 @@ def test_simulate_datacollection_copies_hdf5_and_nexus_files(tmp_path, monkeypat
         xtalSnapshotFullPath3=None,
         xtalSnapshotFullPath4=None,
     )
+    grid_info = SimpleNamespace(gridInfoId=4)
     monkeypatch.setattr(
-        wrapper, "get_dc_and_grid_info_from_dcid", lambda *_: (dc, None)
+        wrapper, "get_dc_and_grid_info_from_dcid", lambda *_: (dc, grid_info)
     )
     copy_dc = Mock(return_value=502)
     copy_grid = Mock()
     monkeypatch.setattr(wrapper, "copy_data_collection", copy_dc)
     monkeypatch.setattr(wrapper, "copy_grid_info", copy_grid)
 
-    assert (
-        wrapper.simulate_datacollection(
-            FakeSession(), 25, dest_dir, jpgs_dest_dir, 30, 40
-        )
-        == 502
-    )
+    assert wrapper.simulate_datacollection(
+        FakeSession(), 25, dest_dir, jpgs_dest_dir, 30, 40
+    ) == (502, True)
     assert {path.name for path in dest_dir.iterdir()} == {
         "sample_2_000001.h5",
         "sample_2_000002.h5",
         "sample_2.nxs",
     }
-    copy_grid.assert_not_called()
+    copy_grid.assert_called_once_with(db_session=ANY, source_gi=grid_info, new_dcid=502)
 
 
 @pytest.mark.parametrize(

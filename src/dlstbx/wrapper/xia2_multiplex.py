@@ -33,6 +33,7 @@ class Xia2MultiplexWrapper(Wrapper):
         cluster_num=None,
         attachments=[],
         multiplex_filtering=False,
+        phil_path=None,
     ):
         ispyb_command_list = []
 
@@ -95,6 +96,17 @@ class Xia2MultiplexWrapper(Wrapper):
             #'refined_ybeam': z['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
+
+        # Step 3.5: Ammend paths in HTML for synchweb interactivity
+
+        if phil_path:
+            files_to_change = ["xia2.multiplex.html", "xia2.multiplex_clustering.html"]
+            for attachment in attachments:
+                if attachment["file_name"] in files_to_change:
+                    html_path = (
+                        pathlib.Path(attachment["file_path"]) / attachment["file_name"]
+                    )
+                    self.fix_paths_in_html_output(html_path, phil_path)
 
         # Step 4: Upload attachments
         if attachments:
@@ -185,6 +197,15 @@ class Xia2MultiplexWrapper(Wrapper):
             command.append("output.cluster_html=True")
 
         return command
+
+    def fix_paths_in_html_output(self, html_path, phil_path):
+        # Use this to make sure viewing the HTML in SynchWeb gives useful and helpful file paths for subset selection.
+        text = html_path.read_text(encoding="utf-8")
+        old = 'var PHIL_PATH_OVERRIDE = "";'
+        new = f"var PHIL_PATH_OVERRIDE = {json.dumps(str(phil_path))};"
+        if old in text:
+            # if old not in text, this is likely because it's a cluster and it's already been written
+            html_path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -315,11 +336,11 @@ class Xia2MultiplexWrapper(Wrapper):
 
         allfiles = []
         cluster_count = 0
+        phil_path = None
 
         if success:
             with multiplex_json.open("r") as fh:
                 d = json.load(fh)
-
             for dataset_name, dataset in d["datasets"].items():
                 base_dir_logs = working_directory / "LogFiles"
                 base_dir_results = working_directory / "DataFiles"
@@ -429,6 +450,8 @@ class Xia2MultiplexWrapper(Wrapper):
                             filetype = keep[file_pattern]
                     if filetype is None:
                         continue
+                    if filename.name == "xia2-multiplex-working.phil":
+                        phil_path = results_directory / filename.name
 
                     # Work out if in Processing, DataFiles or LogFiles (parent_dir)
 
@@ -568,6 +591,7 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_num=cluster_num,
                     attachments=attachments,
                     multiplex_filtering=filtering,
+                    phil_path=phil_path,
                 )
 
             self._success_counter.inc()

@@ -476,3 +476,25 @@ def insert_xray_centring(
         session.add(db_result)
     session.commit()
     return db_xrc.xrayCentringId
+
+
+def upsert_resonet_resolution(
+    iqi: schemas.ImageQualityIndicators,
+    session: sqlalchemy.orm.session.Session,
+) -> int:
+    db_iqi = (
+        session.query(models.ImageQualityIndicators)
+        .filter_by(dataCollectionId=iqi.dcid, imageNumber=iqi.imageNumber)
+        .first()
+    )
+    if db_iqi:
+        db_iqi.binPopCutOffMethod2Res = iqi.binPopCutOffMethod2Res
+    else:
+        db_iqi = models.ImageQualityIndicators(
+            dataCollectionId=iqi.dcid,
+            imageNumber=iqi.imageNumber,
+            binPopCutOffMethod2Res=iqi.binPopCutOffMethod2Res,
+        )
+        session.add(db_iqi)
+    session.commit()
+    return db_iqi.imageNumber

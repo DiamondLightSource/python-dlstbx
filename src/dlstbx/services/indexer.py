@@ -81,13 +81,8 @@ class DLSIndexer(CommonService):
 
     def initializing(self):
         logging.getLogger("dials").setLevel(logging.WARNING)
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "index",
-            self.index,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-            mangle_for_receiving=msgpack_mangle_for_receiving,
+        self.subscribe(
+            "index", self.index, mangle_for_receiving=msgpack_mangle_for_receiving
         )
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})

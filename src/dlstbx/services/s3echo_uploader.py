@@ -4,7 +4,6 @@ from pathlib import Path
 from pprint import pformat
 
 import prometheus_client
-import workflows.recipe
 from minio.error import S3Error
 from workflows.services.common_service import CommonService
 
@@ -83,29 +82,11 @@ class S3EchoUploader(CommonService):
 
         self._message_delay = 5
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "s3echo.upload.rpid",
-            self.on_upload_rpid,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("s3echo.upload.rpid", self.on_upload_rpid)
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "s3echo.upload.dcid",
-            self.on_upload_dcid,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("s3echo.upload.dcid", self.on_upload_dcid)
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "s3echo.download",
-            self.on_download,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("s3echo.download", self.on_download)
 
         # Initialise metrics if requested
         if self._environment.get("metrics"):

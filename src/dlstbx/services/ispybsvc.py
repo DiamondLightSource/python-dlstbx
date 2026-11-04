@@ -11,7 +11,6 @@ import ispyb.sqlalchemy
 import mysql.connector
 import pydantic
 import sqlalchemy.orm
-import workflows.recipe
 from ispyb.sqlalchemy import PDB, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
@@ -68,12 +67,9 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
         self.log.info("ISPyB service ready")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "ispyb_connector",  # will become 'ispyb' in far future
             self.receive_msg,
-            acknowledgement=True,
-            log_extender=self.extend_log,
             allow_non_recipe_messages=True,
         )
 

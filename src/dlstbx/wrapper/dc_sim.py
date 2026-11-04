@@ -48,13 +48,10 @@ class DCSimWrapper(Wrapper):
 
     def retrieve_sessionid(self, db_session: sqlalchemy.orm.Session, visit: str) -> int:
         query = (
-            db_session.query(BLSession, Proposal)
+            db_session.query(BLSession)
             .options(
                 Load(BLSession).load_only(
                     BLSession.sessionId, BLSession.visit_number, BLSession.proposalId
-                ),
-                Load(Proposal).load_only(
-                    Proposal.proposalId, Proposal.proposalCode, Proposal.proposalNumber
                 ),
             )
             .join(
@@ -71,12 +68,8 @@ class DCSimWrapper(Wrapper):
                 == visit
             )
         )
-        query_results = query.first()
-        if query_results is None:
-            raise ValueError(f"Query to obtain sessionid failed for {visit}")
-        if query_results[0].sessionId is None:
-            raise ValueError(f"Could not find sessionid for visit {visit}")
-        return query_results[0].sessionId
+        query_results = query.one()
+        return query_results.sessionId
 
     def copy_data_collection_group(
         self, db_session: sqlalchemy.orm.Session, dcgid: int, new_session_id: int
@@ -87,10 +80,7 @@ class DCSimWrapper(Wrapper):
             db_session.query(DataCollectionGroup).filter(
                 DataCollectionGroup.dataCollectionGroupId == dcgid
             )
-        ).one_or_none()
-        if src_dcg is None:
-            self.log.error(f"No data collection group found for dcgid={dcgid}")
-            raise ValueError(f"Could not find data collection group dcgid={dcgid}")
+        ).one()
 
         new_dcg = DataCollectionGroup()
         # Copy all attributes from source to new, except the primary key and fields to update
@@ -119,7 +109,7 @@ class DCSimWrapper(Wrapper):
 
     def get_dc_and_grid_info_from_dcid(
         self, db_session: sqlalchemy.orm.Session, dcid: int
-    ) -> tuple[DataCollection, GridInfo | None]:
+    ) -> sqlalchemy.Row[tuple[DataCollection, GridInfo | None]]:
         """Fetch a data collection and its related records in one database query.
 
         GridInfo is optional and may be associated directly with the data collection
@@ -138,12 +128,8 @@ class DCSimWrapper(Wrapper):
                 GridInfo, GridInfo.dataCollectionId == DataCollection.dataCollectionId
             )
             .filter(DataCollection.dataCollectionId == dcid)
-            .one_or_none()
+            .one()
         )
-        if result is None:
-            self.log.error(f"No data collection found for dcid={dcid}")
-            raise ValueError(f"Could not find data collection for dcid={dcid}")
-
         return result
 
     def copy_data_collection(
@@ -153,7 +139,7 @@ class DCSimWrapper(Wrapper):
         new_session_id: int,
         new_data_collection_group_id: int,
         **kwargs,
-    ) -> DataCollection:
+    ) -> int:
         """
         Create a copy of a DataCollection row with different sessionId and dataCollectionGroupId.
         and insert into the database
@@ -202,7 +188,7 @@ class DCSimWrapper(Wrapper):
         source_gi: GridInfo,
         new_dcid: int,
         **kwargs,
-    ) -> DataCollection:
+    ) -> None:
         """
         Create a copy of a DataCollection row with different sessionId and/or dataCollectionGroupId.
 
@@ -315,9 +301,6 @@ class DCSimWrapper(Wrapper):
                 shutil.copy2(file, dest_dir)
             self.log.info("Finished copying image data files")
         else:
-            self.log.error(
-                f"Unsupported image suffix {image_suffix!r} for source dcid={dcid}"
-            )
             raise ValueError(
                 f"Invalid image suffix {image_suffix} for source data collection"
             )
@@ -424,6 +407,8 @@ class DCSimWrapper(Wrapper):
                     if visit_dir.name.startswith(proposal):
                         dest_visit = visit_dir.name
                         break
+                if not dest_visit:
+                    raise KeyError("Could not determine which destination visit to use")
             dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
         assert dest_visit_dir.is_dir(), (
             f"Could not find {dest_visit_dir} directory for the specified visit and beamline."

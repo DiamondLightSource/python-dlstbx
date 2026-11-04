@@ -35,7 +35,7 @@ class FakeSession:
     def first(self):
         return self.query_result
 
-    def one_or_none(self):
+    def one(self):
         return self.query_result
 
     def add(self, instance):
@@ -98,26 +98,9 @@ def test_dc_sim_parameters_reject_invalid_values():
 
 def test_retrieve_sessionid_returns_session_id():
     wrapper = DCSimWrapper()
-    session = FakeSession((SimpleNamespace(sessionId=123), SimpleNamespace()))
+    session = FakeSession(SimpleNamespace(sessionId=123))
 
     assert wrapper.retrieve_sessionid(session, "nt44198-1") == 123
-
-
-@pytest.mark.parametrize(
-    ("result", "message"),
-    [
-        (None, "Query to obtain sessionid failed"),
-        (
-            (SimpleNamespace(sessionId=None), SimpleNamespace()),
-            "Could not find sessionid",
-        ),
-    ],
-)
-def test_retrieve_sessionid_raises_when_visit_is_not_found(result, message):
-    wrapper = DCSimWrapper()
-
-    with pytest.raises(ValueError, match=message):
-        wrapper.retrieve_sessionid(FakeSession(result), "nt44198-1")
 
 
 def test_get_dc_and_grid_info_returns_records():
@@ -129,13 +112,6 @@ def test_get_dc_and_grid_info_returns_records():
         dc,
         grid_info,
     )
-
-
-def test_get_dc_and_grid_info_raises_for_missing_record():
-    wrapper = DCSimWrapper()
-
-    with pytest.raises(ValueError, match="Could not find data collection for dcid=42"):
-        wrapper.get_dc_and_grid_info_from_dcid(FakeSession(None), 42)
 
 
 def test_copy_data_collection_overrides_ids_and_fields():

@@ -33,7 +33,6 @@ class Xia2MultiplexWrapper(Wrapper):
         cluster_num=None,
         attachments=[],
         multiplex_filtering=False,
-        phil_path=None,
     ):
         ispyb_command_list = []
 
@@ -96,17 +95,6 @@ class Xia2MultiplexWrapper(Wrapper):
             #'refined_ybeam': z['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
-
-        # Step 3.5: Ammend paths in HTML for synchweb interactivity
-
-        if phil_path:
-            files_to_change = ["xia2.multiplex.html", "xia2.multiplex_clustering.html"]
-            for attachment in attachments:
-                if attachment["file_name"] in files_to_change:
-                    html_path = (
-                        pathlib.Path(attachment["file_path"]) / attachment["file_name"]
-                    )
-                    self.fix_paths_in_html_output(html_path, phil_path)
 
         # Step 4: Upload attachments
         if attachments:
@@ -336,7 +324,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         allfiles = []
         cluster_count = 0
-        phil_path = None
+        html_files_to_edit = ["xia2.multiplex.html", "xia2.multiplex_clustering.html"]
 
         if success:
             with multiplex_json.open("r") as fh:
@@ -450,8 +438,6 @@ class Xia2MultiplexWrapper(Wrapper):
                             filetype = keep[file_pattern]
                     if filetype is None:
                         continue
-                    if filename.name == "xia2-multiplex-working.phil":
-                        phil_path = results_directory / filename.name
 
                     # Work out if in Processing, DataFiles or LogFiles (parent_dir)
 
@@ -474,6 +460,13 @@ class Xia2MultiplexWrapper(Wrapper):
                                 continue
                         else:
                             destination = results_directory / parent_dir / filename.name
+
+                    # Edit path in HTML files so the cluster interface gives correct paths in SynchWeb
+
+                    if filename.name in html_files_to_edit:
+                        phil_path = results_directory / "xia2-multiplex-working.phil"
+
+                        self.fix_paths_in_html_output(filename, phil_path)
 
                     if destination.as_posix() not in allfiles:
                         self.log.debug(f"Copying {filename} to {destination}")
@@ -591,7 +584,6 @@ class Xia2MultiplexWrapper(Wrapper):
                     cluster_num=cluster_num,
                     attachments=attachments,
                     multiplex_filtering=filtering,
-                    phil_path=phil_path,
                 )
 
             self._success_counter.inc()

@@ -325,47 +325,52 @@ class Xia2MultiplexWrapper(Wrapper):
         if success:
             with multiplex_json.open("r") as fh:
                 d = json.load(fh)
+            datasets = d["datasets"].items()
+        else:
+            datasets = [("All data", None)]
 
-            for dataset_name, dataset in d["datasets"].items():
+        for dataset_name, dataset in datasets:
+            base_dir_results = working_directory / "DataFiles"
+
+            if dataset_name == "All data":
+                base_dir_processing = working_directory / "Processing"
                 base_dir_logs = working_directory / "LogFiles"
-                base_dir_results = working_directory / "DataFiles"
+                dimple_symlink = "dimple-xia2.multiplex"
+                cluster_prefix = ""
+                cluster_num = None
+                cluster_results = None
+            elif "coordinate cluster" in dataset_name:
+                cluster_count += 1
+                cluster_num = dataset_name.split(" ")[-1]
+                cluster_prefix = f"coordinate_cluster_{cluster_num}_"
+                base_dir_processing = (
+                    working_directory
+                    / "Processing"
+                    / f"coordinate_cluster_{cluster_num}"
+                )
+                base_dir_logs = (
+                    working_directory / "LogFiles" / f"coordinate_cluster_{cluster_num}"
+                )
+                dimple_symlink = (
+                    f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
+                )
+                cluster_results = (
+                    results_directory
+                    / "Processing"
+                    / f"coordinate_cluster_{cluster_num}"
+                )
+                cluster_results.mkdir(parents=True, exist_ok=True)
+                cluster_final = (
+                    final_directory / "Processing" / f"coordinate_cluster_{cluster_num}"
+                )
+                cluster_final.mkdir(parents=True, exist_ok=True)
+            else:
+                self.log.warning(
+                    f"Ignoring unrecognised dataset pattern {dataset_name}"
+                )
+                continue
 
-                if dataset_name == "All data":
-                    base_dir_processing = working_directory / "Processing"
-                    dimple_symlink = "dimple-xia2.multiplex"
-                    cluster_prefix = ""
-                    cluster_num = None
-                    cluster_results = None
-                elif "coordinate cluster" in dataset_name:
-                    cluster_count += 1
-                    cluster_num = dataset_name.split(" ")[-1]
-                    cluster_prefix = f"coordinate_cluster_{cluster_num}_"
-                    base_dir_processing = (
-                        working_directory
-                        / "Processing"
-                        / f"coordinate_cluster_{cluster_num}"
-                    )
-                    dimple_symlink = (
-                        f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
-                    )
-                    cluster_results = (
-                        results_directory
-                        / "Processing"
-                        / f"coordinate_cluster_{cluster_num}"
-                    )
-                    cluster_results.mkdir(parents=True, exist_ok=True)
-                    cluster_final = (
-                        final_directory
-                        / "Processing"
-                        / f"coordinate_cluster_{cluster_num}"
-                    )
-                    cluster_final.mkdir(parents=True, exist_ok=True)
-                else:
-                    self.log.warning(
-                        f"Ignoring unrecognised dataset pattern {dataset_name}"
-                    )
-                    continue
-
+            if dataset is not None:
                 scaled_unmerged_mtz = (
                     base_dir_results / f"{cluster_prefix}scaled_unmerged.mtz"
                 )
@@ -417,120 +422,125 @@ class Xia2MultiplexWrapper(Wrapper):
                     }
 
                 xtriage_results = dataset.get("xtriage")
-                attachments = []
 
-                for filename in set(
-                    primary_log_files
-                    + list(base_dir_processing.iterdir())
-                    + list(base_dir_results.iterdir())
-                    + list(base_dir_logs.iterdir())
-                    + list(working_directory.iterdir())
-                ):
-                    filetype = None
-                    if not filename.is_file():
-                        continue  # primary log files may not actually exist
-                    filetype = keep_ext.get(filename.suffix)
-                    for file_pattern in keep:
-                        if filename.name.endswith(file_pattern):
-                            filetype = keep[file_pattern]
-                    if filetype is None:
-                        continue
+            attachments = []
 
-                    # Work out if in Processing, DataFiles or LogFiles (parent_dir)
+            for filename in set(
+                primary_log_files
+                + list(base_dir_processing.iterdir())
+                + list(base_dir_results.iterdir())
+                + list(base_dir_logs.iterdir())
+                + list(working_directory.iterdir())
+            ):
+                filetype = None
+                if not filename.is_file():
+                    continue  # primary log files may not actually exist
+                filetype = keep_ext.get(filename.suffix)
+                for file_pattern in keep:
+                    if filename.name.endswith(file_pattern):
+                        filetype = keep[file_pattern]
+                if filetype is None:
+                    continue
 
-                    parent_dir = None
+                # Work out if in Processing, DataFiles or LogFiles (parent_dir)
 
-                    for i in subdirs:
-                        if i in filename.parts:
-                            parent_dir = i
+                parent_dir = None
 
-                    if not parent_dir:
-                        destination = results_directory / filename.name
-                    else:
-                        # Get folder of clustering results (subdir of Processing)
+                for i in subdirs:
+                    if i in filename.parts:
+                        parent_dir = i
 
-                        if cluster_results and parent_dir == "Processing":
-                            if cluster_results.name in filename.parts:
-                                destination = cluster_results / filename.name
-                            else:
-                                self.log.warning(f"Broken paths for {filename}")
-                                continue
+                if not parent_dir:
+                    destination = results_directory / filename.name
+                else:
+                    # Get folder of clustering results (subdir of Processing)
+
+                    if cluster_results and parent_dir == "Processing":
+                        if cluster_results.name in filename.parts:
+                            destination = cluster_results / filename.name
                         else:
-                            destination = results_directory / parent_dir / filename.name
+                            self.log.warning(f"Broken paths for {filename}")
+                            continue
+                    else:
+                        destination = results_directory / parent_dir / filename.name
 
-                    if destination.as_posix() not in allfiles:
+                if destination.as_posix() not in allfiles:
+                    self.log.debug(f"Copying {filename} to {destination}")
+                    shutil.copy(filename, destination)
+                    allfiles.append(destination.as_posix())
+
+                if pipeline_final_params and is_final_result(destination):
+                    if any(i in destination.parts for i in subdirs):
+                        destination = (
+                            final_directory / destination.parent.name / destination.name
+                        )
+                    else:
+                        destination = final_directory / destination.name
+                    if destination not in allfiles:
                         self.log.debug(f"Copying {filename} to {destination}")
                         shutil.copy(filename, destination)
                         allfiles.append(destination.as_posix())
 
-                    if pipeline_final_params and is_final_result(destination):
-                        if any(i in destination.parts for i in subdirs):
-                            destination = (
-                                final_directory
-                                / destination.parent.name
-                                / destination.name
+                # Files uploaded separately for each cluster
+
+                file_data = {
+                    "file_path": destination.parent.as_posix(),
+                    "file_name": destination.name,
+                    "file_type": filetype,
+                    "importance_rank": (
+                        1
+                        if destination.name.endswith(
+                            (
+                                "scaled.mtz",
+                                "xia2.multiplex.html",
+                                "xia2.multiplex.log",
+                                "scaled.hkl",
+                                "scaled.ins",
+                                "scaled.cif",
                             )
-                        else:
-                            destination = final_directory / destination.name
-                        if destination not in allfiles:
-                            self.log.debug(f"Copying {filename} to {destination}")
-                            shutil.copy(filename, destination)
-                            allfiles.append(destination.as_posix())
+                        )
+                        else 2
+                    ),
+                }
 
-                    # Files uploaded separately for each cluster
+                if "DataFiles" in destination.parts and filetype:
+                    # if it is a cluster, only append cluster files
+                    if cluster_results and cluster_results.name in destination.name:
+                        attachments.append(file_data)
+                    # if it is not a cluster, only append non-cluster files
+                    elif (
+                        not cluster_results
+                        and "coordinate_cluster" not in destination.name
+                    ):
+                        attachments.append(file_data)
 
-                    file_data = {
-                        "file_path": destination.parent.as_posix(),
-                        "file_name": destination.name,
-                        "file_type": filetype,
-                        "importance_rank": (
-                            1
-                            if destination.name.endswith(
-                                (
-                                    "scaled.mtz",
-                                    "xia2.multiplex.html",
-                                    "xia2.multiplex.log",
-                                    "scaled.hkl",
-                                    "scaled.ins",
-                                    "scaled.cif",
-                                )
-                            )
-                            else 2
-                        ),
-                    }
+                elif "LogFiles" in destination.parts and filetype:
+                    # attach all log files for clusters and non-clusters
+                    attachments.append(file_data)
 
-                    if "DataFiles" in destination.parts and filetype:
-                        # if it is a cluster, only append cluster files
-                        if cluster_results and "coordinate_cluster" in destination.name:
+                elif "Processing" in destination.parts and filetype:
+                    # If cluster, only attach files that are in a cluster folder
+                    if cluster_results and cluster_results.name in destination.parts:
+                        attachments.append(file_data)
+                    # it not a cluster, make sure file is not in a cluster folder
+                    elif (
+                        not cluster_results and destination.parent.name == "Processing"
+                    ):
+                        attachments.append(file_data)
+                else:
+                    # Anything in the parent folder (ie main logs) should be attached for clusters and non-clusters except for the merging-stats json files which are dataset specific
+                    if destination.name.endswith(".json"):
+                        if cluster_results and cluster_results.name in destination.name:
                             attachments.append(file_data)
-                        # if it is not a cluster, only append non-cluster files
                         elif (
                             not cluster_results
                             and "coordinate_cluster" not in destination.name
                         ):
                             attachments.append(file_data)
-
-                    elif "LogFiles" in destination.parts and filetype:
-                        # attach all log files for clusters and non-clusters
-                        attachments.append(file_data)
-
-                    elif "Processing" in destination.parts and filetype:
-                        # If cluster, only attach files that are in a cluster folder
-                        if (
-                            cluster_results
-                            and cluster_results.name in destination.parts
-                        ):
-                            attachments.append(file_data)
-                        # it not a cluster, make sure file is not in a cluster folder
-                        elif (
-                            not cluster_results
-                            and destination.parent.name == "Processing"
-                        ):
-                            attachments.append(file_data)
                     else:
-                        # Anything in the parent folder (ie main logs) should be attached for clusters and non-clusters
                         attachments.append(file_data)
 
+            if dataset is not None:
                 # Add parameters to the environment to be picked up downstream by trigger function
                 self.recwrap.environment.update(
                     {
@@ -579,54 +589,15 @@ class Xia2MultiplexWrapper(Wrapper):
                     multiplex_filtering=filtering,
                 )
 
+            else:
+                for attachment in attachments:
+                    self.record_result_individual_file(attachment)
+
+        if success:
             self._success_counter.inc()
             if cluster_count >= 2:
                 self.recwrap.send_to("email", True)
         else:
-            primary_log = working_directory / "xia2.multiplex.log"
-            processing_dir = working_directory / "Processing"
-            results_processing = results_directory / "Processing"
-            processing_logs = working_directory / "LogFiles"
-            results_logs = results_directory / "LogFiles"
-            if primary_log.exists():
-                shutil.copy(
-                    working_directory / "xia2.multiplex.log",
-                    results_directory / "xia2.multiplex.log",
-                )
-                location = results_directory
-                self.record_result_individual_file(
-                    {
-                        "file_path": location.as_posix(),
-                        "file_name": "xia2.multiplex.log",
-                        "file_type": "log",
-                        "importance_rank": 1,
-                    }
-                )
-
-                for output in set(
-                    list(processing_dir.iterdir()) + list(processing_logs.iterdir())
-                ):
-                    if output.suffix == ".log":
-                        if "LogFiles" in output.parts:
-                            initial_location = processing_logs
-                            results_location = results_logs
-                        else:
-                            initial_location = processing_dir
-                            results_location = results_processing
-
-                        shutil.copy(
-                            initial_location / output.name,
-                            results_location / output.name,
-                        )
-                        self.record_result_individual_file(
-                            {
-                                "file_path": results_location.as_posix(),
-                                "file_name": output.name,
-                                "file_type": "log",
-                                "importance_rank": 2,
-                            }
-                        )
-
             self._failure_counter.inc()
 
         return success

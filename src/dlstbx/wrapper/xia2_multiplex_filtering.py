@@ -289,8 +289,12 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 d = json.load(fh)
 
             dataset = d["datasets"]["Filtered"]
-            dimple_symlink = "dimple-xia2.multiplex_filtering"
+        else:
+            dataset = None
 
+        dimple_symlink = "dimple-xia2.multiplex_filtering"
+
+        if dataset is not None:
             filtered_unmerged_mtz = (
                 working_directory / "DataFiles" / "filtered_unmerged.mtz"
             )
@@ -335,80 +339,82 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                     ),
                 }
             xtriage_results = dataset.get("xtriage")
-            attachments = []
 
-            base_dir_processing = working_directory / "Processing"
-            base_dir_logs = working_directory / "LogFiles"
-            base_dir_results = working_directory / "DataFiles"
+        attachments = []
 
-            for filename in set(
-                primary_log_files
-                + list(working_directory.iterdir())
-                + list(base_dir_processing.iterdir())
-                + list(base_dir_logs.iterdir())
-                + list(base_dir_results.iterdir())
-            ):
-                filetype = None
-                if not filename.is_file():
-                    continue
-                filetype = keep_ext.get(filename.suffix)
-                for file_pattern in keep:
-                    if filename.name.endswith(file_pattern):
-                        filetype = keep[file_pattern]
-                if filetype is None:
-                    continue
+        base_dir_processing = working_directory / "Processing"
+        base_dir_logs = working_directory / "LogFiles"
+        base_dir_results = working_directory / "DataFiles"
 
-                parent_dir = None
+        for filename in set(
+            primary_log_files
+            + list(working_directory.iterdir())
+            + list(base_dir_processing.iterdir())
+            + list(base_dir_logs.iterdir())
+            + list(base_dir_results.iterdir())
+        ):
+            filetype = None
+            if not filename.is_file():
+                continue
+            filetype = keep_ext.get(filename.suffix)
+            for file_pattern in keep:
+                if filename.name.endswith(file_pattern):
+                    filetype = keep[file_pattern]
+            if filetype is None:
+                continue
 
-                for i in subdirs:
-                    if i in filename.parts:
-                        parent_dir = i
+            parent_dir = None
 
-                if not parent_dir:
-                    destination = results_directory / filename.name
+            for i in subdirs:
+                if i in filename.parts:
+                    parent_dir = i
+
+            if not parent_dir:
+                destination = results_directory / filename.name
+            else:
+                destination = results_directory / parent_dir / filename.name
+
+            if destination.as_posix() not in allfiles:
+                self.log.debug(f"Copying {filename} to {destination}")
+                shutil.copy(filename, destination)
+                allfiles.append(destination.as_posix())
+            if pipeline_final_params and is_final_result(destination):
+                if any(i in destination.parts for i in subdirs):
+                    destination = (
+                        final_directory / destination.parent.name / destination.name
+                    )
                 else:
-                    destination = results_directory / parent_dir / filename.name
+                    destination = final_directory / destination.name
 
-                if destination.as_posix() not in allfiles:
+                if destination not in allfiles:
                     self.log.debug(f"Copying {filename} to {destination}")
                     shutil.copy(filename, destination)
                     allfiles.append(destination.as_posix())
-                if pipeline_final_params and is_final_result(destination):
-                    if any(i in destination.parts for i in subdirs):
-                        destination = (
-                            final_directory / destination.parent.name / destination.name
-                        )
-                    else:
-                        destination = final_directory / destination.name
 
-                    if destination not in allfiles:
-                        self.log.debug(f"Copying {filename} to {destination}")
-                        shutil.copy(filename, destination)
-                        allfiles.append(destination.as_posix())
-
-                if filetype:
-                    attachments.append(
-                        {
-                            "file_path": destination.parent.as_posix(),
-                            "file_name": destination.name,
-                            "file_type": filetype,
-                            "importance_rank": (
-                                1
-                                if destination.name.endswith(
-                                    (
-                                        "filtered.mtz",
-                                        "xia2.multiplex_filtering.html",
-                                        "xia2.multiplex_filtering.log",
-                                        "filtered.ins",
-                                        "filtered.hkl",
-                                        "filtered.cif",
-                                    )
+            if filetype:
+                attachments.append(
+                    {
+                        "file_path": destination.parent.as_posix(),
+                        "file_name": destination.name,
+                        "file_type": filetype,
+                        "importance_rank": (
+                            1
+                            if destination.name.endswith(
+                                (
+                                    "filtered.mtz",
+                                    "xia2.multiplex_filtering.html",
+                                    "xia2.multiplex_filtering.log",
+                                    "filtered.ins",
+                                    "filtered.hkl",
+                                    "filtered.cif",
                                 )
-                                else 2
-                            ),
-                        }
-                    )
+                            )
+                            else 2
+                        ),
+                    }
+                )
 
+        if dataset is not None:
             # Add parameters to the environment to be picked up downstream by trigger function
 
             # As using the same downstream triggers, update "scaled_mtz" rather than calling it by "filtered.mtz"
@@ -439,48 +445,8 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             )
             self._success_counter.inc()
         else:
-            primary_log = working_directory / "xia2.multiplex_filtering.log"
-            processing_dir = working_directory / "Processing"
-            results_processing = results_directory / "Processing"
-            processing_logs = working_directory / "LogFiles"
-            results_logs = results_directory / "LogFiles"
-            if primary_log.exists():
-                shutil.copy(
-                    working_directory / "xia2.multiplex_filtering.log",
-                    results_directory / "xia2.multiplex_filtering.log",
-                )
-                location = results_directory
-                self.record_result_individual_file(
-                    {
-                        "file_path": location.as_posix(),
-                        "file_name": "xia2.multiplex_filtering.log",
-                        "file_type": "log",
-                        "importance_rank": 1,
-                    }
-                )
-
-                for output in set(
-                    list(processing_dir.iterdir()) + list(processing_logs.iterdir())
-                ):
-                    if output.suffix == ".log":
-                        if "LogFiles" in output.parts:
-                            initial_location = processing_logs
-                            results_location = results_logs
-                        else:
-                            initial_location = processing_dir
-                            results_location = results_processing
-                        shutil.copy(
-                            initial_location / output.name,
-                            results_location / output.name,
-                        )
-                        self.record_result_individual_file(
-                            {
-                                "file_path": results_location.as_posix(),
-                                "file_name": output.name,
-                                "file_type": "log",
-                                "importance_rank": 2,
-                            }
-                        )
+            for attachment in attachments:
+                self.record_result_individual_file(attachment)
             self._failure_counter.inc()
 
         return success

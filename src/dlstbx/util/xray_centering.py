@@ -224,3 +224,53 @@ def gridscan2d(
         reflections_in_best_image=reflections_in_best_image,
         sample_id=tagged_sample_id,
     ), "\n".join(output)
+
+
+def plot_resolution_grid(results, grid_info, label, output_path):
+    """Save a 2D heatmap of per-frame metric estimates.
+
+    Frames are mapped onto the scan grid using grid_info geometry, including
+    unsnaking of bidirectional scans and handling of horizontal/vertical orientation.
+    Missing frames are shown as NaN (white gaps in the colormap).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    n_frames = grid_info.steps_x * grid_info.steps_y
+
+    data = np.full(n_frames, np.nan)
+    for item in results:
+        idx = item["frame"]
+        if 0 <= idx < n_frames:
+            val = item.get(label)
+            if val is None:
+                val = item.get(
+                    "value",
+                    item.get("resolution", item.get("multilattice_probability")),
+                )
+            data[idx] = val
+
+    grid = reshape_grid(
+        data,
+        (grid_info.steps_x, grid_info.steps_y),
+        grid_info.snaked,
+        grid_info.orientation,
+    ).T
+
+    w = max(4, grid_info.steps_x / 4)
+    h = max(4, grid_info.steps_y / 4)
+    fig, ax = plt.subplots(figsize=(w, h))
+    cmap = (
+        "viridis_r" if "res" in label.lower() or "d_min" in label.lower() else "viridis"
+    )
+    im = ax.imshow(grid, cmap=cmap, interpolation="none", aspect="equal")
+    fig.colorbar(im, ax=ax, label=label)
+    ax.set_xlabel(f"x steps  (Δ={grid_info.dx_mm * 1000:.1f} µm)")
+    ax.set_ylabel(f"y steps  (Δ={grid_info.dy_mm * 1000:.1f} µm)")
+    clean_label = label.replace("_", " ")
+    ax.set_title(f"{clean_label} ({grid_info.steps_x}×{grid_info.steps_y})")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)

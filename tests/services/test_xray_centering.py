@@ -508,3 +508,54 @@ def test_xray_centering_custom_metric_3d_minimal(mocker):
     # Check max_count was inverted back:
     # Outer product for index 0 was (1/2.0)*(1/2.0) = 0.25 -> inverted back is 4.0
     assert results[0]["max_count"] == 4.0
+
+
+def test_xray_centering_plot_heatmap_grid(mocker, tmp_path):
+    parameters = {
+        "dcid": "6153461",
+        "experiment_type": "SAD",
+        "output": tmp_path / "Dials5AResults.json",
+        "log": tmp_path / "Dials5AResults.txt",
+        "beamline": "i03",
+        "sample_id": 3351191,
+        "plot_heatmap_grid": True,
+    }
+    gridinfo = {
+        "orientation": "horizontal",
+        "snapshot_offsetYPixel": 57.0822,
+        "gridInfoId": 1337162,
+        "dx_mm": 0.04,
+        "steps_y": 2.0,
+        "micronsPerPixelX": 0.438,
+        "steps_x": 2.0,
+        "micronsPerPixelY": 0.438,
+        "snaked": 0,
+        "snapshot_offsetXPixel": 79.9863,
+        "dy_mm": 0.04,
+    }
+    m = generate_recipe_message(parameters, gridinfo)
+    header = {
+        "message-id": mocker.sentinel,
+        "subscription": mocker.sentinel,
+    }
+    t = OfflineTransport()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    xc.transport = t
+    xc.start()
+    rw = RecipeWrapper(message=m, transport=t)
+
+    mock_plot = mocker.patch("dlstbx.util.xray_centering.plot_resolution_grid")
+    for i in range(4):
+        message = {
+            "n_spots_total": 10 * (i + 1),
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
+        xc.add_pia_result(rw, header, message)
+
+    mock_plot.assert_called_once()
+    args, kwargs = mock_plot.call_args
+    assert len(args[0]) == 4
+    assert args[1].steps_x == 2
+    assert args[2] == "n_spots_total"
+    assert "_grid.png" in args[3]

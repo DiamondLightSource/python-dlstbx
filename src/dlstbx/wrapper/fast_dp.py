@@ -71,9 +71,9 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             "cell_alpha": z["unit_cell"][3],
             "cell_beta": z["unit_cell"][4],
             "cell_gamma": z["unit_cell"][5],
-            # fast_dp refined_beam is in (y, x) order.
-            "refined_xbeam": z["refined_beam"][1],
-            "refined_ybeam": z["refined_beam"][0],
+            # Temporarily swapped x and y until SynchWeb changes made historic database data swapped
+            "refined_xbeam": z["refined_beam"][0],
+            "refined_ybeam": z["refined_beam"][1],
         }
         ispyb_command_list.append(integration)
 

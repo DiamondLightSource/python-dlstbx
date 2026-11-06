@@ -186,6 +186,15 @@ class Xia2MultiplexWrapper(Wrapper):
 
         return command
 
+    def fix_paths_in_html_output(self, html_path, phil_path):
+        # Use this to make sure viewing the HTML in SynchWeb gives useful and helpful file paths for subset selection.
+        text = html_path.read_text(encoding="utf-8")
+        old = 'var PHIL_PATH_OVERRIDE = "";'
+        new = f"var PHIL_PATH_OVERRIDE = {json.dumps(str(phil_path))};"
+        if old in text:
+            # if old not in text, this is likely because it's a cluster and it's already been written
+            html_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -321,6 +330,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         allfiles = []
         cluster_count = 0
+        html_files_to_edit = ["xia2.multiplex.html", "xia2.multiplex_clustering.html"]
 
         if success:
             with multiplex_json.open("r") as fh:
@@ -463,6 +473,11 @@ class Xia2MultiplexWrapper(Wrapper):
                             continue
                     else:
                         destination = results_directory / parent_dir / filename.name
+
+                # Edit path in HTML files so the cluster interface gives correct paths in SynchWeb
+                if filename.name in html_files_to_edit:
+                    phil_path = results_directory / "xia2-multiplex-working.phil"
+                    self.fix_paths_in_html_output(filename, phil_path)
 
                 if destination.as_posix() not in allfiles:
                     self.log.debug(f"Copying {filename} to {destination}")

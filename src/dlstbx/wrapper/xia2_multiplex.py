@@ -437,9 +437,17 @@ class Xia2MultiplexWrapper(Wrapper):
 
             for filename in set(
                 primary_log_files
-                + list(base_dir_processing.iterdir())
-                + list(base_dir_results.iterdir())
-                + list(base_dir_logs.iterdir())
+                + (
+                    list(base_dir_processing.iterdir())
+                    if base_dir_processing.is_dir()
+                    else []
+                )
+                + (
+                    list(base_dir_results.iterdir())
+                    if base_dir_results.is_dir()
+                    else []
+                )
+                + (list(base_dir_logs.iterdir()) if base_dir_logs.is_dir() else [])
                 + list(working_directory.iterdir())
             ):
                 filetype = None

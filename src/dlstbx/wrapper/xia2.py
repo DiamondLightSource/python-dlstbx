@@ -105,6 +105,12 @@ class Xia2Wrapper(Wrapper):
 
         # Step 3: Store integration results, linking them to ScalingID
         for n, integration in enumerate(z["integrations"]):
+            # Temporarily swapped x and y until SynchWeb changes made historic database data swapped
+            if "refined_xbeam" in integration and "refined_ybeam" in integration:
+                integration["refined_xbeam"], integration["refined_ybeam"] = (
+                    integration["refined_ybeam"],
+                    integration["refined_xbeam"],
+                )
             integration.update(
                 {
                     "ispyb_command": "upsert_integration",

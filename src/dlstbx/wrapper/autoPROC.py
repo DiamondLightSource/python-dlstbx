@@ -401,8 +401,9 @@ class autoPROCWrapper(Wrapper):
                     "rot_axis_x": int_result["rotationAxisX"],
                     "rot_axis_y": int_result["rotationAxisY"],
                     "rot_axis_z": int_result["rotationAxisZ"],
-                    "refined_xbeam": int_result["refinedXBeam"],
-                    "refined_ybeam": int_result["refinedYBeam"],
+                    # Temporarily swapped x and y until SynchWeb changes made historic database data swapped
+                    "refined_xbeam": int_result["refinedYBeam"],
+                    "refined_ybeam": int_result["refinedXBeam"],
                     "refined_detector_dist": int_result["refinedDetectorDistance"],
                 }
 

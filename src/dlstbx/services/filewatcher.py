@@ -4,12 +4,75 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Annotated, Any
 
 import h5py
+import pydantic
 from workflows.recipe import RecipeWrapper
+from workflows.recipe.typed import NonEmpty, typed_handler
 from workflows.services.common_service import CommonService
 
 from dlstbx.swmr import h5check
+
+logger = logging.getLogger("dlstbx.services.filewatcher")
+
+
+def _float_or_none(value: Any) -> float | None:
+    """Ignore expected-per-image-delay values that are not numbers, eg. None"""
+    if not value:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        logger.warning("Ignored invalid expected-per-image-delay value (%r)", value)
+        return None
+
+
+class WatchParameters(pydantic.BaseModel):
+    """Recipe parameters common to all filewatcher modes"""
+
+    model_config = pydantic.ConfigDict(
+        alias_generator=lambda name: name.replace("_", "-")
+    )
+
+    burst_limit: int = 100
+    burst_wait: float | None = None
+    timeout: float = 3600
+    timeout_first: float | None = None
+    log_timeout_as_info: bool = False
+    expected_per_image_delay: Annotated[
+        float | None, pydantic.BeforeValidator(_float_or_none)
+    ] = None
+
+    @property
+    def first_timeout(self) -> float:
+        """The timeout for the first file, falling back to the general timeout"""
+        if self.timeout_first is None:
+            return self.timeout
+        return self.timeout_first
+
+
+class WatchListParameters(WatchParameters):
+    filelist: list[str | None] = pydantic.Field(alias="list")
+
+
+class WatchPatternParameters(WatchParameters):
+    pattern: Annotated[str, NonEmpty]
+    pattern_start: int
+    pattern_end: int
+
+    @pydantic.field_validator("pattern")
+    @classmethod
+    def check_pattern(cls, pattern: str) -> str:
+        try:
+            pattern % 0
+        except TypeError:
+            raise ValueError(f"non-conforming pattern string: {pattern}")
+        return pattern
+
+
+class WatchHDF5Parameters(WatchParameters):
+    hdf5: Annotated[str, NonEmpty]
 
 
 def is_file_selected(file_number, selection, total_files):
@@ -187,17 +250,24 @@ class DLSFileWatcher(CommonService):
             if (nth_file - 1) % m == 0:
                 notify_function(dest)
 
-    def watch_files_list(self, rw: RecipeWrapper, header, message):
+    @typed_handler
+    def watch_files_list(
+        self,
+        rw: RecipeWrapper,
+        header,
+        message,
+        parameters: WatchListParameters,
+    ):
         """
         Watch for a given list of files.
         """
         # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": time.time()}
+        status: dict[str, Any] = {"seen-files": 0, "start-time": time.time()}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
         # List files to wait for
-        filelist = rw.recipe_step["parameters"]["list"]
+        filelist = parameters.filelist
         filecount = len(filelist)
 
         # If the only entry in the list is 'None' then there are no files to
@@ -231,7 +301,7 @@ class DLSFileWatcher(CommonService):
         files_found = 0
         while (
             status["seen-files"] < filecount
-            and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+            and files_found < parameters.burst_limit
             and filelist[status["seen-files"]]
         ):
             if not os_stat_profiler.is_file(filelist[status["seen-files"]]):
@@ -329,25 +399,23 @@ class DLSFileWatcher(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        message_delay = rw.recipe_step["parameters"].get("burst-wait")
+        message_delay = parameters.burst_wait
         if files_found == 0:
             # If no files were found, check timeout conditions.
             if status["seen-files"] == 0:
                 # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get(
-                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
-                )
+                timeout = parameters.first_timeout
                 timed_out = (status["start-time"] + timeout) < time.time()
             else:
                 # For subsequent files: relevant timeout is 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
+                timeout = parameters.timeout
                 timed_out = (status["last-seen"] + timeout) < time.time()
             if timed_out:
                 # File watch operation has timed out.
 
                 # Report all timeouts as warnings unless the recipe specifies otherwise
                 timeoutlog = self.log.warning
-                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
+                if parameters.log_timeout_as_info:
                     timeoutlog = self.log.info
 
                 timeoutlog(
@@ -439,46 +507,27 @@ class DLSFileWatcher(CommonService):
         )
         rw.transport.transaction_commit(txn)
 
-    def watch_files_pattern(self, rw: RecipeWrapper, header, message):
+    @typed_handler
+    def watch_files_pattern(
+        self,
+        rw: RecipeWrapper,
+        header,
+        message,
+        parameters: WatchPatternParameters,
+    ):
         """
         Watch for files where the names follow a linear numeric pattern,
         eg. "template%05d.cbf" with indices 0 to 1800.
         """
         # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": time.time()}
+        status: dict[str, Any] = {"seen-files": 0, "start-time": time.time()}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
         # List files to wait for
-        try:
-            pattern = rw.recipe_step["parameters"]["pattern"]
-            pattern_start = int(rw.recipe_step["parameters"]["pattern-start"])
-            filecount = (
-                int(rw.recipe_step["parameters"]["pattern-end"]) - pattern_start + 1
-            )
-        except (ValueError, TypeError) as e:
-            self.log.error(
-                "Rejecting message with bad pattern start: %s, end: %s as %s",
-                rw.recipe_step["parameters"].get("pattern-start"),
-                rw.recipe_step["parameters"].get("pattern-end"),
-                e,
-            )
-            rw.transport.nack(header)
-            return
-        except KeyError as e:
-            self.log.error("Rejecting message with missing pattern data: %s", e)
-            rw.transport.nack(header)
-            return
-
-        # Sanity check received message
-        try:
-            pattern % 0
-        except TypeError:
-            self.log.error(
-                "Rejecting message with non-conforming pattern string: %s", pattern
-            )
-            rw.transport.nack(header)
-            return
+        pattern = parameters.pattern
+        pattern_start = parameters.pattern_start
+        filecount = parameters.pattern_end - pattern_start + 1
 
         # Identify everys ('every-N' targets) to notify for
         everys = self._parse_everys(rw.recipe_step["output"])
@@ -495,9 +544,7 @@ class DLSFileWatcher(CommonService):
 
         # Look for files
         files_found = 0
-        while status["seen-files"] < filecount and files_found < rw.recipe_step[
-            "parameters"
-        ].get("burst-limit", 100):
+        while status["seen-files"] < filecount and files_found < parameters.burst_limit:
             filename = pattern % (pattern_start + status["seen-files"])
             if not os_stat_profiler.is_file(filename):
                 break
@@ -539,28 +586,17 @@ class DLSFileWatcher(CommonService):
                 "stat-time-max": os_stat_profiler.max,
                 "stat-time-mean": os_stat_profiler.mean,
             }
-            if rw.recipe_step["parameters"].get("expected-per-image-delay"):
+            if parameters.expected_per_image_delay:
                 # Estimate unexpected delay
-                try:
-                    expected_delay = (
-                        float(rw.recipe_step["parameters"]["expected-per-image-delay"])
-                        * filecount
-                    )
-                except ValueError:
-                    # in case the field contains "None" or equivalent un-floatable nonsense
-                    self.log.warning(
-                        "Ignored invalid expected-per-image-delay value (%r)",
-                        rw.recipe_step["parameters"]["expected-per-image-delay"],
-                    )
-                else:
-                    extra_log["unexpected_delay"] = max(
-                        0, extra_log["delay"] - expected_delay
-                    )
+                expected_delay = parameters.expected_per_image_delay * filecount
+                extra_log["unexpected_delay"] = max(
+                    0, extra_log["delay"] - expected_delay
+                )
 
             self.log.info(
                 "All %d files found for %s after %.1f seconds.",
                 filecount,
-                rw.recipe_step["parameters"]["pattern"],
+                pattern,
                 time.time() - status["start-time"],
                 extra=extra_log,
             )
@@ -583,30 +619,28 @@ class DLSFileWatcher(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        message_delay = rw.recipe_step["parameters"].get("burst-wait")
+        message_delay = parameters.burst_wait
         if files_found == 0:
             # If no files were found, check timeout conditions.
             if status["seen-files"] == 0:
                 # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get(
-                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
-                )
+                timeout = parameters.first_timeout
                 timed_out = (status["start-time"] + timeout) < time.time()
             else:
                 # For subsequent files: relevant timeout is 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
+                timeout = parameters.timeout
                 timed_out = (status["last-seen"] + timeout) < time.time()
             if timed_out:
                 # File watch operation has timed out.
 
                 # Report all timeouts as warnings unless the recipe specifies otherwise
                 timeoutlog = self.log.warning
-                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
+                if parameters.log_timeout_as_info:
                     timeoutlog = self.log.info
 
                 timeoutlog(
                     "Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",
-                    rw.recipe_step["parameters"]["pattern"],
+                    pattern,
                     time.time() - status["start-time"],
                     status["seen-files"],
                     time.time() - status.get("last-seen", status["start-time"]),
@@ -663,7 +697,7 @@ class DLSFileWatcher(CommonService):
                     "{files_seen} of {files_total} files seen so far"
                 ).format(
                     time=time.time() - status["start-time"],
-                    pattern=rw.recipe_step["parameters"]["pattern"],
+                    pattern=pattern,
                     files_seen=status["seen-files"],
                     files_total=filecount,
                 ),
@@ -678,7 +712,7 @@ class DLSFileWatcher(CommonService):
             self.log.info(
                 "%d files found for %s with indices %d-%d (total: %d out of %d) within %.1f seconds",
                 files_found,
-                rw.recipe_step["parameters"]["pattern"],
+                pattern,
                 pattern_start + status["seen-files"] - files_found,
                 pattern_start + status["seen-files"] - 1,
                 status["seen-files"],
@@ -696,7 +730,14 @@ class DLSFileWatcher(CommonService):
         )
         rw.transport.transaction_commit(txn)
 
-    def watch_files_swmr(self, rw, header, message):
+    @typed_handler
+    def watch_files_swmr(
+        self,
+        rw: RecipeWrapper,
+        header,
+        message,
+        parameters: WatchHDF5Parameters,
+    ):
         """
         Watch for hdf5 files written in SWMR mode.
 
@@ -705,14 +746,18 @@ class DLSFileWatcher(CommonService):
         to file.
         """
         # Check if message body contains partial results from a previous run
-        status = {"seen-images": 0, "start-time": time.time(), "image-count": None}
+        status: dict[str, Any] = {
+            "seen-images": 0,
+            "start-time": time.time(),
+            "image-count": None,
+        }
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
         # Keep a record of os.stat timings
         os_stat_profiler = _StatProfiler(self.log)
 
-        hdf5 = rw.recipe_step["parameters"]["hdf5"]
+        hdf5 = parameters.hdf5
         image_count = None
         if os_stat_profiler.is_file(hdf5):
             self.log.debug(f"Opening {hdf5}")
@@ -751,7 +796,7 @@ class DLSFileWatcher(CommonService):
             while (
                 image_count is not None
                 and status["seen-images"] < image_count
-                and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+                and images_found < parameters.burst_limit
             ):
                 m, frame = file_map[status["seen-images"]]
                 h5_data_file, dsetname = dataset_files[m]
@@ -827,28 +872,17 @@ class DLSFileWatcher(CommonService):
                 "stat-time-max": os_stat_profiler.max,
                 "stat-time-mean": os_stat_profiler.mean,
             }
-            if rw.recipe_step["parameters"].get("expected-per-image-delay"):
+            if parameters.expected_per_image_delay:
                 # Estimate unexpected delay
-                try:
-                    expected_delay = (
-                        float(rw.recipe_step["parameters"]["expected-per-image-delay"])
-                        * image_count
-                    )
-                except ValueError:
-                    # in case the field contains "None" or equivalent un-floatable nonsense
-                    self.log.warning(
-                        "Ignored invalid expected-per-image-delay value (%r)",
-                        rw.recipe_step["parameters"]["expected-per-image-delay"],
-                    )
-                else:
-                    extra_log["unexpected_delay"] = max(
-                        0, extra_log["delay"] - expected_delay
-                    )
+                expected_delay = parameters.expected_per_image_delay * image_count
+                extra_log["unexpected_delay"] = max(
+                    0, extra_log["delay"] - expected_delay
+                )
 
             self.log.info(
                 "All %d images found for %s after %.2f seconds.",
                 image_count,
-                rw.recipe_step["parameters"]["hdf5"],
+                hdf5,
                 time.time() - status["start-time"],
                 extra=extra_log,
             )
@@ -871,30 +905,28 @@ class DLSFileWatcher(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        message_delay = rw.recipe_step["parameters"].get("burst-wait")
+        message_delay = parameters.burst_wait
         if images_found == 0:
             # If no images were found, check timeout conditions.
             if status["seen-images"] == 0:
                 # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get(
-                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
-                )
+                timeout = parameters.first_timeout
                 timed_out = (status["start-time"] + timeout) < time.time()
             else:
                 # For subsequent images: relevant timeout is 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
+                timeout = parameters.timeout
                 timed_out = (status["last-seen"] + timeout) < time.time()
             if timed_out:
                 # File watch operation has timed out.
 
                 # Report all timeouts as warnings unless the recipe specifies otherwise
                 timeoutlog = self.log.warning
-                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
+                if parameters.log_timeout_as_info:
                     timeoutlog = self.log.info
 
                 timeoutlog(
                     "Filewatcher for %s timed out after %.2f seconds (%d images found, nothing seen for %.2f seconds)",
-                    rw.recipe_step["parameters"]["hdf5"],
+                    hdf5,
                     time.time() - status["start-time"],
                     status["seen-images"],
                     time.time() - status.get("last-seen", status["start-time"]),
@@ -950,7 +982,7 @@ class DLSFileWatcher(CommonService):
                     "{images_seen} of {image_count} images seen so far"
                 ).format(
                     time=time.time() - status["start-time"],
-                    hdf5=rw.recipe_step["parameters"]["hdf5"],
+                    hdf5=hdf5,
                     images_seen=status["seen-images"],
                     image_count=image_count,
                 ),
@@ -965,7 +997,7 @@ class DLSFileWatcher(CommonService):
             self.log.info(
                 "%d images found for %s (total: %d out of %d) within %.2f seconds",
                 images_found,
-                rw.recipe_step["parameters"]["hdf5"],
+                hdf5,
                 status["seen-images"],
                 image_count,
                 time.time() - status["start-time"],

@@ -153,10 +153,9 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path):
     xc.add_pia_result(rw, header, message)
     # Ideally we would use the caplog fixture, but the way services sets up
     # logging seems to mess with the caplog fixture
-    assert (
-        "X-ray centering service called with invalid parameters"
-        in spy_log_error.call_args.args[0]
-    )
+    log_format, _, error = spy_log_error.call_args.args
+    assert log_format.startswith("Rejecting message failing validation")
+    assert "dcid" in str(error)
 
 
 def test_xray_centering_3d(mocker):

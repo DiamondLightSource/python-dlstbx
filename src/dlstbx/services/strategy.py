@@ -1,15 +1,31 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated, Any
 
 import workflows.recipe
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, BeforeValidator, Field, ValidationError
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 
-from dlstbx.util import ChainMapWithReplacement
-
 type Limits = tuple[float, float]
+
+
+def _first_if_list(value: Any) -> Any:
+    """ISPyB parameters may be lists, of which only the first value is used"""
+    return value[0] if isinstance(value, list) else value
+
+
+FirstIfList = BeforeValidator(_first_if_list)
+
+
+class StrategyParameters(BaseModel):
+    beamline: Annotated[str, FirstIfList]
+    wavelength: Annotated[float, FirstIfList]
+    resolution: Annotated[float, FirstIfList]
+    transmission: float = 100
+    scaled_transmission: float = 1.0
 
 
 def scale_parameter(
@@ -179,40 +195,29 @@ class DLSStrategy(CommonService):
             self.generate_strategy,
         )
 
+    @typed_handler(
+        parameters_from=("message.parameters", "step.ispyb_parameters", "step"),
+        substitute=True,
+    )
     def generate_strategy(
-        self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        header: dict,
+        message: Any,
+        parameters: StrategyParameters,
     ):
         """Generate a strategy from the results of an upstream pipeline"""
         self.log.info("Received strategy request, generating strategy")
 
-        recipe_params = rw.recipe_step["parameters"]
-        parameters = ChainMapWithReplacement(
-            message.get("parameters", {}) if isinstance(message, dict) else {},
-            recipe_params.get("ispyb_parameters", {}),
-            recipe_params,
-            substitutions=rw.environment,
-        )
         self.log.info(f"Received parameters for strategy generation:\n{parameters}")
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
-        beamline = (
-            parameters["beamline"][0]
-            if isinstance(parameters["beamline"], list)
-            else parameters["beamline"]
-        )
-        wavelength = (
-            float(parameters["wavelength"][0])
-            if isinstance(parameters["wavelength"], list)
-            else float(parameters["wavelength"])
-        )
-        resolution_estimate = (
-            float(parameters["resolution"][0])
-            if isinstance(parameters["resolution"], list)
-            else float(parameters["resolution"])
-        )
-        dc_transmission = float(parameters.get("transmission", 100)) / 100
+        beamline = parameters.beamline
+        wavelength = parameters.wavelength
+        resolution_estimate = parameters.resolution
+        dc_transmission = parameters.transmission / 100
         resolution_offset = 0.5
         min_resolution = 0.9
         resolution = max((resolution_estimate) - resolution_offset, min_resolution)
@@ -229,7 +234,7 @@ class DLSStrategy(CommonService):
             )
         beamline_config = parse_config_file(beamline_config_file)
 
-        recommended_max_transmission = parameters.get("scaled_transmission", 1.0)
+        recommended_max_transmission = parameters.scaled_transmission
         base_recipe_home = Path(f"/dls_sw/{beamline}/etc/agamemnon-recipes")
         agamemnon_recipe_config = base_recipe_home / "recipe_config.yaml"
         agamemnon_limits: dict[str, AgamemnonLimits] = parse_agamemnon_config(

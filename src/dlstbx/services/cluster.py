@@ -13,7 +13,6 @@ from typing import Optional
 
 import pydantic
 import requests
-import workflows.recipe
 from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
@@ -179,12 +178,9 @@ class DLSCluster(CommonService):
             )
         }
         self.log.debug(f"Supported schedulers: {', '.join(self.schedulers.keys())}")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "cluster.submission",
             self.run_submit_job,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def _write_job_file(

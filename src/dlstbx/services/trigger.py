@@ -329,12 +329,9 @@ class DLSTrigger(CommonService):
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
             )
         )
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "trigger",
             self.trigger,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
         self.ispyb = ispyb.open()
 

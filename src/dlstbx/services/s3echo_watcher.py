@@ -4,7 +4,6 @@ from pathlib import Path
 from pprint import pformat
 
 import minio
-import workflows.recipe
 from minio.error import S3Error
 from workflows.services.common_service import CommonService
 
@@ -41,12 +40,9 @@ class S3EchoWatcher(CommonService):
 
         self._message_delay = 5
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "s3echo.watch",
             self.watch,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def watch(self, rw, header, message):

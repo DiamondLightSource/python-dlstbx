@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import ispyb
 import sqlalchemy.exc
@@ -18,12 +20,16 @@ from pydantic import BaseModel, validate_call
 
 class MovieParams(BaseModel):
     dcid: int
-    movie_number: int = None  # image number
-    movie_path: str = None  # micrograph full path
-    timestamp: float = None
+    movie_number: int | None = None  # image number
+    movie_path: str | None = None  # micrograph full path
+    timestamp: float | None = None
 
 
 class EM_Mixin:
+    # Provided by the service class this is mixed into
+    log: logging.Logger
+    ispyb: Any
+
     def do_insert_ctf(self, parameters, message=None, **kwargs):
         if message is None:
             message = {}

@@ -864,13 +864,13 @@ def test_filewatcher_bad_pattern(mocker):
 
     # Pattern-start="None", missing -end
     filewatcher.watch_files(rw, header, mock.sentinel.message)
-    t.nack.assert_called_once_with(header)
+    t.nack.assert_called_once_with(header, requeue=False)
 
     # -start="1", missing -end
     t.reset_mock()
     rw.recipe_step["parameters"]["pattern-start"] = "1"
     filewatcher.watch_files(rw, header, mock.sentinel.message)
-    t.nack.assert_called_once_with(header)
+    t.nack.assert_called_once_with(header, requeue=False)
 
     # -start=2, -end=2
     t.reset_mock()
@@ -883,4 +883,4 @@ def test_filewatcher_bad_pattern(mocker):
     t.reset_mock()
     rw.recipe_step["parameters"]["pattern-start"] = None
     filewatcher.watch_files(rw, header, mock.sentinel.message)
-    t.nack.assert_called_once_with(header)
+    t.nack.assert_called_once_with(header, requeue=False)

@@ -5,16 +5,15 @@ import math
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pydantic
 import workflows.recipe
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
-
-from dlstbx.util import ChainMapWithReplacement
 
 matplotlib.use("Agg")
 
@@ -40,7 +39,7 @@ class IndexingResult(pydantic.BaseModel):
 
 
 class Payload(pydantic.BaseModel):
-    command: str
+    command: Literal["pia", "index"]
     dcid: pydantic.NonNegativeInt
     results_file: Path
     plot_file: Path
@@ -79,43 +78,24 @@ class SSXPlotter(CommonService):
             self.receive_msg,
         )
 
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    @typed_handler(parameters_from=("message", "step"), substitute=True)
     def receive_msg(
         self,
         rw: workflows.recipe.RecipeWrapper,
         header: dict,
         message: dict,
+        parameters: Payload,
     ):
         commands = {
             "pia": self.plot_pia,
             "index": self.plot_index,
         }
-        parameters = ChainMapWithReplacement(
-            message if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"],
-            substitutions=rw.environment,
-        )
+        payload = parameters
+        plotter = commands[payload.command]
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
-
-        try:
-            payload = Payload(**parameters)
-        except pydantic.ValidationError as e:
-            self.log.error(e, exc_info=True)
-            rw.transport.transaction_abort(header, transaction=txn)
-            rw.transport.nack(header)
-            return
-
-        plotter = commands.get(payload.command)
-        if not plotter:
-            self.log.error(
-                f"Unknown command {payload.command} (available commands: {list(commands.keys())}"
-            )
-            rw.transport.transaction_abort(header, transaction=txn)
-            rw.transport.nack(header)
-            return
 
         if payload.status is None:
             payload.status = Status(start_time=time.time())

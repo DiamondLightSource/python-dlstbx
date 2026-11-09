@@ -3,10 +3,12 @@ from __future__ import annotations
 import functools
 import os.path
 import pathlib
+from typing import Annotated
 
 import dxtbx.model.experiment_list
 import h5py
 import numpy as np
+import pydantic
 import pytest
 
 try:
@@ -15,9 +17,14 @@ except ImportError:
     # backwards compatibility for dials 3.10.X
     from dxtbx.format.FormatNexusEigerDLS import find_meta_filename
 
+from workflows.recipe.typed import NonEmpty, typed_handler
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.hdf5 as hdf5_util
+
+
+class ValidationMessage(pydantic.BaseModel):
+    file: Annotated[str, NonEmpty]
 
 
 class DLSValidation(CommonService):
@@ -51,7 +58,8 @@ class DLSValidation(CommonService):
             reason,
         )
 
-    def validate(self, rw, header, message):
+    @typed_handler
+    def validate(self, rw, header, message: ValidationMessage):
         """Validate an image or a data set
 
         Recipe parameters:
@@ -74,7 +82,7 @@ class DLSValidation(CommonService):
         }
         """
 
-        filename = message["file"]
+        filename = message.file
         rw.set_default_channel("validation_error")
         output = rw.recipe_step.get("parameters", {})
         output["file"] = filename

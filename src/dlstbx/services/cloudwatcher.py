@@ -3,12 +3,36 @@ from __future__ import annotations
 import time
 from math import log2
 from pprint import pformat
+from typing import Annotated, Any, Literal
 
+import pydantic
 from requests.exceptions import HTTPError
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 from zocalo.util import slurm
 
 from dlstbx.util.profiler import Profiler
+
+
+def _list_of_jobs(jobid: Any) -> Any:
+    return [jobid] if isinstance(jobid, int) else jobid
+
+
+class CloudWatcherMessage(pydantic.BaseModel):
+    # A list containing only None means there are no jobs to watch
+    jobid: Annotated[list[int | None], pydantic.BeforeValidator(_list_of_jobs)]
+    scheduler: Literal["slurm", "iris"]
+    first_seen: float | None = pydantic.Field(None, alias="first-seen")
+
+
+class CloudWatcherParameters(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(
+        alias_generator=lambda name: name.replace("_", "-")
+    )
+
+    burst_wait: float | None = None
+    timeout: float = 3600
+    log_timeout_as_info: bool = False
 
 
 class CloudWatcher(CommonService):
@@ -47,14 +71,20 @@ class CloudWatcher(CommonService):
             self.watch_jobs,
         )
 
-    def watch_jobs(self, rw, header, message):
+    @typed_handler(on_invalid="drop")
+    def watch_jobs(
+        self,
+        rw,
+        header,
+        message: CloudWatcherMessage,
+        parameters: CloudWatcherParameters,
+    ):
         """
         Watch for a given list of jobs.
         """
         # Check if message body contains partial results from a previous run
         start_time = time.time()
-        if isinstance(message, dict):
-            first_seen = message.get("first-seen", start_time)
+        first_seen = start_time if message.first_seen is None else message.first_seen
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
@@ -64,28 +94,9 @@ class CloudWatcher(CommonService):
         os_stat_profiler = Profiler()
 
         # List jobs to wait for
-        try:
-            joblist = rw.payload["jobid"]
-            if isinstance(joblist, int):
-                joblist = [joblist]
-            jobcount = len(joblist)
-        except KeyError:
-            self.log.error("Field 'jobid' is missing from the received message.")
-            rw.transport.transaction_commit(txn)
-            return
-        except TypeError:
-            self.log.error(f"Invalid received message type: {type(rw.payload)}.")
-            rw.transport.transaction_commit(txn)
-            return
-        # Get scheduler jobs to wait for
-        try:
-            scheduler = rw.payload["scheduler"]
-        except KeyError:
-            self.log.error(
-                f"Field 'scheduler' is missing from the received message. Cannot watch {joblist} job states."
-            )
-            rw.transport.transaction_commit(txn)
-            return
+        joblist = message.jobid
+        jobcount = len(joblist)
+        scheduler = message.scheduler
 
         # If the only entry in the list is 'None' then there are no jobs to
         # watch for. Bail out early and only notify on 'finally'.
@@ -100,12 +111,6 @@ class CloudWatcher(CommonService):
             return
 
         seen_jobs = []
-        if scheduler not in self.cluster_api:
-            self.log.error(
-                f"Invalid scheduler '{scheduler}' specified in recipe step parameters. Cannot watch {joblist} job states."
-            )
-            rw.transport.transaction_commit(txn)
-            return
         for jobid in joblist:
             # while (
             #    status["seen-jobs"] < jobcount
@@ -177,16 +182,16 @@ class CloudWatcher(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        message_delay = rw.recipe_step["parameters"].get("burst-wait")
+        message_delay = parameters.burst_wait
         if seen_jobs:
             # Check timeout conditions.
-            timeout = rw.recipe_step["parameters"].get("timeout", 3600)
+            timeout = parameters.timeout
             timed_out = (first_seen + timeout) < time.time()
             runtime = time.time() - first_seen
             if timed_out:
                 # Report all timeouts as warnings unless the recipe specifies otherwise
                 timeoutlog = self.log.warning
-                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
+                if parameters.log_timeout_as_info:
                     timeoutlog = self.log.info
 
                 timeoutlog(

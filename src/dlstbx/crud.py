@@ -148,6 +148,18 @@ def get_protein_for_dcid(
     return query.first()
 
 
+def get_protein_for_sample_id(
+    sample_id: int, session: sqlalchemy.orm.session.Session
+) -> models.Protein | None:
+    query = (
+        session.query(models.Protein)
+        .join(models.Crystal)
+        .join(models.BLSample)
+        .filter(models.BLSample.blSampleId == sample_id)
+    )
+    return query.first()
+
+
 def get_visit_team_leader_email(
     visit: str, session: sqlalchemy.orm.session.Session
 ) -> str | None:

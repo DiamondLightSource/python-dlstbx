@@ -194,9 +194,7 @@ class ispybtbx:
         elif template.endswith(".cbf"):
             return "pilatus"
 
-    def dc_info_to_detectorname(
-        self, dc_info, session: sqlalchemy.orm.session.Session
-    ):
+    def dc_info_to_detectorname(self, dc_info, session: sqlalchemy.orm.session.Session):
         ## Get a detector name if it is one of a set of allowed values for fast feedback service.
         det_id = dc_info.get("detectorId")
         if det_id is not None and (det := crud.get_detector(det_id, session)):
@@ -322,6 +320,16 @@ class ispybtbx:
         if not sample:
             return None
         return sample.SMILES
+
+    def get_sample_protein_type(
+        self, sample_id, session: sqlalchemy.orm.session.Session
+    ) -> str | None:
+        if not sample_id:
+            return None
+        protein = crud.get_protein_for_sample_id(sample_id, session)
+        if not protein:
+            return None
+        return protein.proteinType
 
     def get_related_dcids_same_directory(
         self, dcid: int, session: sqlalchemy.orm.session.Session
@@ -882,6 +890,7 @@ def ispyb_filter(
     start, end = i.dc_info_to_start_end(dc_info)
     sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
     parameters["ispyb_smiles"] = i.get_sample_smiles(sample_id, session)
+    parameters["ispyb_protein_type"] = i.get_sample_protein_type(sample_id, session)
     priority_processing = crud.get_priority_processing_for_sample_id(sample_id, session)
     if not priority_processing:
         priority_processing = "xia2/DIALS"

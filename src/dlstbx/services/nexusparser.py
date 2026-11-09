@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os.path
 
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.hdf5
@@ -20,12 +19,9 @@ class DLSNexusParser(CommonService):
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
         self.log.info("Nexusparser starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "nexusparser.find_related_files",
             self.find_related_files,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def find_related_files(self, rw, header, message):

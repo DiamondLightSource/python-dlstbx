@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.gda
@@ -21,12 +20,9 @@ class DLSNotifyGDA(CommonService):
         Received messages must be acknowledged.
         """
         self.log.debug("GDA Bridge starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "notify_gda",  # consider transient queue
             self.notify_gda,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def notify_gda(self, rw, header, message):

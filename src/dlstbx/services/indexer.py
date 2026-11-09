@@ -81,12 +81,9 @@ class DLSIndexer(CommonService):
 
     def initializing(self):
         logging.getLogger("dials").setLevel(logging.WARNING)
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "index",
             self.index,
-            acknowledgement=True,
-            log_extender=self.extend_log,
             mangle_for_receiving=msgpack_mangle_for_receiving,
         )
 

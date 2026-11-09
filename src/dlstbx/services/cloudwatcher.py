@@ -4,7 +4,6 @@ import time
 from math import log2
 from pprint import pformat
 
-import workflows.recipe
 from requests.exceptions import HTTPError
 from workflows.services.common_service import CommonService
 from zocalo.util import slurm
@@ -43,12 +42,9 @@ class CloudWatcher(CommonService):
             "iris": self.iris_api,
         }
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "cloudwatcher",
             self.watch_jobs,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def watch_jobs(self, rw, header, message):

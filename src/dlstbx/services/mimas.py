@@ -4,7 +4,6 @@ import time
 from pprint import pformat
 from typing import Any
 
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 from dlstbx import mimas
@@ -40,12 +39,9 @@ class DLSMimas(CommonService):
             "s3echo": {"total": 0.0, "last_cluster_update": time.time()},
         }
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "mimas",
             self.process,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
         # Subscribe to the transient.statistics.cluster topic, which we will

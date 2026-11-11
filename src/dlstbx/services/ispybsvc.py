@@ -334,10 +334,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         upstream_source = parameters("upstream_source") or ""
         scaling_id = parameters("scaling_id") or environment.get("scaling_id")
         job_uuid = parameters("job_uuid") or rw.environment.get("ID", None)
-        if job_uuid:
-            job_uuid_bytes = uuid.UUID(job_uuid).bytes
-        else:
-            job_uuid_bytes = None
+        job_uuid_bytes = uuid.UUID(job_uuid).bytes if job_uuid else None
         if isinstance(scaling_id, list):
             scaling_id = scaling_id[0]
         parent_appid = (

@@ -4,6 +4,7 @@ import json
 import os.path
 import pathlib
 import time
+import uuid
 from datetime import datetime
 from typing import List
 
@@ -325,13 +326,18 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
     def do_register_processing(
-        self, parameters, session: sqlalchemy.orm.Session, **kwargs
+        self, parameters, session: sqlalchemy.orm.Session, rw=None, **kwargs
     ):
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or {}
         upstream_source = parameters("upstream_source") or ""
         scaling_id = parameters("scaling_id") or environment.get("scaling_id")
+        job_uuid = parameters("job_uuid") or rw.environment.get("ID", None)
+        if job_uuid:
+            job_uuid_bytes = uuid.UUID(job_uuid).bytes
+        else:
+            job_uuid_bytes = None
         if isinstance(scaling_id, list):
             scaling_id = scaling_id[0]
         parent_appid = (
@@ -358,6 +364,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 processingPipelineId=processingpipelineid,
                 parentAutoProcProgramId=parent_appid,
                 recordTimeStamp=datetime.now(),
+                jobUuid=job_uuid_bytes,
             )
             session.add(new_app)
             session.commit()

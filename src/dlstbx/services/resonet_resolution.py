@@ -18,11 +18,23 @@ from tqdm import tqdm
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util.resonet import plot_detector_image, plot_resolution_grid
+from dlstbx.util.xray_centering import Orientation
+
+
+class GridInfo(pydantic.BaseModel):
+    steps_x: int
+    steps_y: int
+    dx_mm: float
+    dy_mm: float
+    snaked: bool
+    orientation: Orientation
 
 
 class ResonetResolutionParameters(pydantic.BaseModel):
     glob_pattern: str
     max_proc: Optional[int] = None
+    grid_info: Optional[GridInfo] = None
 
 
 class DLSResonetResolution(CommonService):
@@ -71,7 +83,15 @@ class DLSResonetResolution(CommonService):
         )
 
     def load_image_from_file(self, image_file):
-        """Generator yielding (raw_image, frame_index) for each frame in an HDF5 file."""
+        """Generator yielding (raw_image, frame_index) for each frame in an image file."""
+        if not h5py.is_hdf5(image_file):
+            for frame_idx, path in enumerate(sorted(glob_module.glob(image_file))):
+                loader = dxtbx.load(path)
+                raw = loader.get_raw_data()
+                if isinstance(raw, tuple):
+                    raw = raw[0]
+                yield raw, frame_idx
+            return
         with h5py.File(image_file, swmr=True) as f:
             nxmx_obj = nxmx.NXmx(f)
             nxsample = nxmx_obj.entries[0].samples[0]
@@ -132,11 +152,51 @@ class DLSResonetResolution(CommonService):
                 self.log.warning("Skipping %s: multi-panel detectors not supported", f)
                 continue
 
-            self._predictor.xdim, self._predictor.ydim = det[0].get_image_size()
             self._predictor.pixsize_mm = det[0].get_pixel_size()[0]
             self._predictor.detdist_mm = abs(det[0].get_distance())
             self._predictor.wavelen_Angstrom = beam.get_wavelength()
+            beam_x, beam_y = det[0].get_beam_centre_px(beam.get_unit_s0())
+            xdim, ydim = det[0].get_image_size()
+
+            bx = min(max(int(round(beam_x)), 0), xdim)
+            by = min(max(int(round(beam_y)), 0), ydim)
+
+            valid_quads = []
+            pred_xdim = xdim
+            for ds in [4, 2]:
+                n = 512 * ds
+                candidate = [
+                    q
+                    for q, (dx, dy) in [
+                        (0, (-n, -n)),
+                        (1, (n, -n)),
+                        (2, (-n, n)),
+                        (3, (n, n)),
+                    ]
+                    if 0 <= bx + dx <= xdim and 0 <= by + dy <= ydim
+                ]
+                if candidate:
+                    valid_quads = candidate
+                    if ds == 2 and xdim != 2463:
+                        pred_xdim = 2463
+                    break
+
+            if not valid_quads:
+                self.log.warning(
+                    "No valid quads for %s (beam=(%d,%d), img=%dx%d); skipping file",
+                    f,
+                    bx,
+                    by,
+                    xdim,
+                    ydim,
+                )
+                continue
+
+            self._predictor.xdim = pred_xdim
+            self._predictor.ydim = ydim
             self._predictor._set_geom_tensor()
+            self._predictor.cent = float(bx), float(by)
+            self._predictor.quads = valid_quads[:2]
 
             frame_count = 0
             for raw_image, frame_idx in self.load_image_from_file(f):
@@ -145,12 +205,18 @@ class DLSResonetResolution(CommonService):
 
                 t = time.time()
                 raw_image = raw_image.as_numpy_array()
-                if raw_image.dtype != np.float32:
-                    raw_image = raw_image.astype(np.float32)
+                if raw_image.dtype != np.int16:
+                    raw_image = raw_image.astype(np.int16)
                 t_reads.append(time.time() - t)
 
+                plot_detector_image(
+                    raw_image,
+                    f"/tmp/frame_{frame_idx:04d}.png",
+                    title=f"{os.path.basename(f)} frame {frame_idx}",
+                )
+
                 t = time.time()
-                self._predictor._set_pixel_tensor(raw_image)
+                self._predictor._set_pixel_tensor(raw_image.astype(np.float32))
                 if self._kind == "reso":
                     d = self._predictor.detect_resolution()
                     t_infers.append(time.time() - t)
@@ -220,6 +286,17 @@ class DLSResonetResolution(CommonService):
             rw.transport.nack(header, transaction=txn)
             rw.transport.transaction_commit(txn)
             return
+
+        if payload.grid_info and results:
+            glob_s = payload.glob_pattern
+            if "*" in glob_s or "?" in glob_s:
+                plot_path = os.path.join(os.path.dirname(glob_s), "resonet_grid.png")
+            else:
+                plot_path = os.path.splitext(glob_s)[0] + "_resonet_grid.png"
+            try:
+                plot_resolution_grid(results, payload.grid_info, self._kind, plot_path)
+            except Exception as e:
+                self.log.warning("Could not save resolution grid plot: %s", e)
 
         result_message = {
             "glob_pattern": payload.glob_pattern,

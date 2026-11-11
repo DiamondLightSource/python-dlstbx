@@ -337,3 +337,174 @@ def test_xray_centering_3d_multisample_pin(mocker):
         },
         transaction=mock.ANY,
     )
+
+
+def test_xray_centering_custom_metric_minimal_2d(mocker, tmp_path):
+    parameters = {
+        "dcid": "6153461",
+        "experiment_type": "SAD",
+        "output": tmp_path / "Dials5AResults.json",
+        "log": tmp_path / "Dials5AResults.txt",
+        "beamline": "i03",
+        "sample_id": 3351191,
+        "metric": "estimated_d_min",
+        "search_for": "minimal",
+    }
+    gridinfo = {
+        "orientation": "horizontal",
+        "snapshot_offsetYPixel": 57.0822,
+        "gridInfoId": 1337162,
+        "dx_mm": 0.04,
+        "steps_y": 2.0,
+        "micronsPerPixelX": 0.438,
+        "steps_x": 3.0,
+        "micronsPerPixelY": 0.438,
+        "snaked": 1,
+        "snapshot_offsetXPixel": 79.9863,
+        "dy_mm": 0.04,
+    }
+    m = generate_recipe_message(parameters, gridinfo)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+    t = OfflineTransport()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    xc.transport = t
+    xc.start()
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+
+    # 6 images; image 3 has the lowest (best) resolution: 1.5 Å
+    resolutions = [4.0, 3.0, 1.5, 2.5, 3.5, 5.0]
+    n_spots = [10, 20, 150, 40, 30, 5]
+    for i, (res, spots) in enumerate(zip(resolutions, n_spots)):
+        message = {
+            "estimated_d_min": res,
+            "n_spots_total": spots,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
+        xc.add_pia_result(rw, header, message)
+
+    results_json = tmp_path / "Dials5AResults.json"
+    assert results_json.exists()
+    results = json.loads(results_json.read_bytes())
+    # Best image should be image 3 (minimal d_min)
+    assert results["best_image"] == 3
+    # The max_count should be inverted back to 1.5
+    assert results["max_count"] == 1.5
+    # reflections_in_best_image should be set from n_spots_total of image 3
+    assert results["reflections_in_best_image"] == 150
+    assert send_to.called
+
+
+def test_xray_centering_missing_metric_nacks(mocker):
+    parameters = {
+        "dcid": "6153461",
+        "experiment_type": "SAD",
+        "beamline": "i03",
+        "metric": "custom_metric",
+    }
+    gridinfo = {
+        "orientation": "horizontal",
+        "snapshot_offsetYPixel": 57.0822,
+        "gridInfoId": 1337162,
+        "dx_mm": 0.04,
+        "steps_y": 1.0,
+        "micronsPerPixelX": 0.438,
+        "steps_x": 1.0,
+        "micronsPerPixelY": 0.438,
+        "snaked": 0,
+        "snapshot_offsetXPixel": 79.9863,
+        "dy_mm": 0.04,
+    }
+    t = OfflineTransport()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    xc.transport = t
+    xc.start()
+    m = generate_recipe_message(parameters, gridinfo)
+    rw = RecipeWrapper(message=m, transport=t)
+    message = {"n_spots_total": 10, "file-number": 1, "file-seen-at": time.time()}
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+    spy_nack = mocker.spy(t, "nack")
+    xc.add_pia_result(rw, header, message)
+    spy_nack.assert_called_once_with(header)
+
+
+def test_xray_centering_custom_metric_3d_minimal(mocker):
+    dcids = (5476360, 5476366)
+    parameters = {
+        "dcid": f"{dcids[0]}",
+        "dcg_dcids": [dcids[1]],
+        "experiment_type": "Mesh3D",
+        "beamline": "i03",
+        "sample_id": 2077076,
+        "metric": "resolution",
+        "search_for": "minimal",
+    }
+
+    gridinfo = {
+        "dx_mm": 0.02,
+        "dy_mm": 0.02,
+        "gridInfoId": 1061461,
+        "orientation": "horizontal",
+        "micronsPerPixelX": 0.438,
+        "micronsPerPixelY": 0.438,
+        "snaked": 0,
+        "snapshot_offsetXPixel": 363.352,
+        "snapshot_offsetYPixel": 274.936,
+        "steps_x": 2.0,
+        "steps_y": 1.0,
+    }
+
+    t = OfflineTransport()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    xc.transport = t
+    xc.start()
+
+    res_m45 = [2.0, 5.0]
+    res_p45 = [2.0, 4.0]
+
+    m = generate_recipe_message(parameters, gridinfo)
+    rw = RecipeWrapper(message=m, transport=t)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+    send_to = mocker.spy(rw, "send_to")
+    for i, res in enumerate(res_m45):
+        message = {
+            "resolution": res,
+            "n_spots_total": 5,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
+        xc.add_pia_result(rw, header, message)
+    send_to.assert_not_called()
+
+    m = generate_recipe_message(
+        {**parameters, "dcg_dcids": [dcids[0]], "dcid": dcids[1]}, gridinfo
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+    for i, res in enumerate(res_p45):
+        message = {
+            "resolution": res,
+            "n_spots_total": 5,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
+        xc.add_pia_result(rw, header, message)
+
+    assert send_to.called
+    call_args = send_to.call_args[0]
+    assert call_args[0] == "success"
+    results = call_args[1]["results"]
+    assert len(results) >= 1
+    # Check max_count was inverted back:
+    # Outer product for index 0 was (1/2.0)*(1/2.0) = 0.25 -> inverted back is 4.0
+    assert results[0]["max_count"] == 4.0

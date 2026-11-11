@@ -147,6 +147,7 @@ def gridscan2d(
     snapshot_offset: tuple[float, float],
     snaked: bool,
     orientation: Orientation,
+    spots_data: np.ndarray,
     sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
     well_limits: list[tuple[float, float]] = [],
@@ -157,9 +158,10 @@ def gridscan2d(
         f"snapshot_offset: {snapshot_offset}",
     ]
     idx = np.argmax(data)
-    maximum_spots = int(data[np.unravel_index(idx, data.shape)])
+    val = data[np.unravel_index(idx, data.shape)]
+    maximum_count = int(val) if np.issubdtype(data.dtype, np.integer) else float(val)
     best_image = int(idx + 1)
-    if maximum_spots == 0:
+    if maximum_count == 0:
         return GridScan2DResult(
             steps=steps,
             box_size_px=box_size_px,
@@ -168,11 +170,14 @@ def gridscan2d(
             message="No good images found",
         ), "\n".join(output)
 
+    reflections_in_best_image = int(spots_data.flat[best_image - 1])
     data = reshape_grid(data, steps, snaked, orientation).T
 
-    output.append(f"There are {maximum_spots} reflections in image #{best_image}.")
+    output.append(
+        f"There are {reflections_in_best_image} reflections in image #{best_image}."
+    )
 
-    threshold = (data >= 0.5 * maximum_spots) * data
+    threshold = (data >= 0.5 * maximum_count) * data
     # Count corner-corner contacts as a contiguous region
     structure = np.ones((3, 3))
     labels, _ = scipy.ndimage.label(threshold, structure=structure)
@@ -188,7 +193,8 @@ def gridscan2d(
         reversed(scipy.ndimage.maximum_position(threshold, labels == best))
     )
     n_voxels = np.count_nonzero(labels == best)
-    total_count = int(scipy.ndimage.sum_labels(threshold, labels=labels, index=best))
+    tot = scipy.ndimage.sum_labels(threshold, labels=labels, index=best)
+    total_count = int(tot) if np.issubdtype(data.dtype, np.integer) else float(tot)
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
     best_region = list(zip(*(w.tolist() for w in np.where(labels == best))))
 
@@ -199,7 +205,7 @@ def gridscan2d(
 
     return GridScan2DResult(
         centre_of_mass=(centre_x_box, centre_y_box),
-        max_count=maximum_spots,
+        max_count=maximum_count,
         max_voxel=max_voxel,
         n_voxels=n_voxels,
         total_count=total_count,
@@ -215,6 +221,6 @@ def gridscan2d(
         centre_y_box=centre_y_box,
         best_region=best_region,
         best_image=best_image,
-        reflections_in_best_image=maximum_spots,
+        reflections_in_best_image=reflections_in_best_image,
         sample_id=tagged_sample_id,
     ), "\n".join(output)

@@ -326,7 +326,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
     def do_register_processing(
-        self, parameters, session: sqlalchemy.orm.Session, rw=None, **kwargs
+        self, parameters, session: sqlalchemy.orm.Session, rw, **kwargs
     ):
         program = parameters("program")
         cmdline = parameters("cmdline")

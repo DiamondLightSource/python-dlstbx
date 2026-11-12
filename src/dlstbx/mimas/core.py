@@ -10,6 +10,7 @@ from dlstbx.mimas.specification import (
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
+    VisitSpecification,
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
@@ -34,6 +35,7 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION) | DCClassSpecifi
 )
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 is_characterization = DCClassSpecification(mimas.MimasDCClass.CHARACTERIZATION)
+is_commissioning = VisitSpecification({"cm"})
 
 XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(
@@ -199,6 +201,28 @@ def handle_characterization(
             DCID=scenario.DCID, recipe="generate-diffraction-preview"
         ),
     ]
+
+
+def _ffs_gpu_processing(
+    scenario: mimas.MimasScenario,
+) -> mimas.MimasISPyBJobInvocation:
+    return mimas.MimasISPyBJobInvocation(
+        DCID=scenario.DCID,
+        autostart=True,
+        recipe="autoprocessing-gpu-processing",
+        source="automatic",
+        displayname="FFS GPU",
+    )
+
+
+@mimas.match_specification(
+    is_eiger & is_end & is_i03 & is_commissioning & is_rotation & ~is_characterization
+)
+def handle_ffs_i03_commissioning(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> list[mimas.Invocation]:
+    return [_ffs_gpu_processing(scenario)]
 
 
 def has_related_data_collections(scenario: mimas.MimasScenario):

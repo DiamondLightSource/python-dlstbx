@@ -130,6 +130,60 @@ def test_eiger_screening(get_zocalo_commands):
     return
 
 
+def _ffs_gpu_command(dcid: int) -> str:
+    return (
+        f"ispyb.job --new --dcid={dcid} --source=automatic"
+        " --recipe=autoprocessing-gpu-processing --display='FFS GPU' --trigger"
+    )
+
+
+def test_i03_commissioning_rotation_launches_the_gpu_pipeline(get_zocalo_commands):
+    dcid = 5918093
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        beamline="i03",
+        visit="cm31136-2",
+        runstatus="DataCollection Successful",
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=3600),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    start = get_zocalo_commands(scenario(event=MimasEvent.START))
+    assert _ffs_gpu_command(dcid) not in start, "GPU pipeline launched at START"
+    end = get_zocalo_commands(scenario(event=MimasEvent.END))
+    assert _ffs_gpu_command(dcid) in end, "GPU pipeline missing at END"
+
+
+@pytest.mark.parametrize(
+    "beamline,visit,dcclass",
+    [
+        ("i03", "nt28218-3", MimasDCClass.ROTATION),
+        ("i03", "cm31136-2", MimasDCClass.CHARACTERIZATION),
+        ("i04", "cm31136-2", MimasDCClass.ROTATION),
+    ],
+)
+def test_gpu_pipeline_does_not_launch_outside_its_conditions(
+    beamline, visit, dcclass, get_zocalo_commands
+):
+    dcid = 6123722
+    scenario = MimasScenario(
+        DCID=dcid,
+        dcclass=dcclass,
+        event=MimasEvent.END,
+        beamline=beamline,
+        visit=visit,
+        runstatus="DataCollection Successful",
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=3600),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert _ffs_gpu_command(dcid) not in get_zocalo_commands(scenario), (
+        f"GPU pipeline launched for {dcclass.name} on {beamline} in {visit}"
+    )
+
+
 def test_eiger_gridscan(get_zocalo_commands):
     dcid = 6138194
     scenario = functools.partial(

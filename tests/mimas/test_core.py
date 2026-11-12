@@ -156,12 +156,33 @@ def test_i03_commissioning_rotation_launches_the_gpu_pipeline(get_zocalo_command
     assert _ffs_gpu_command(dcid) in end, "GPU pipeline missing at END"
 
 
+def test_i04_screening_launches_the_gpu_pipeline(get_zocalo_commands):
+    dcid = 6017522
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.SCREENING,
+        beamline="i04",
+        visit="nt28218-3",
+        runstatus="DataCollection Successful",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    start = get_zocalo_commands(scenario(event=MimasEvent.START))
+    assert _ffs_gpu_command(dcid) not in start, "GPU pipeline launched at START"
+    end = get_zocalo_commands(scenario(event=MimasEvent.END))
+    assert _ffs_gpu_command(dcid) in end, "GPU pipeline missing at END"
+    assert any("strategy-align-crystal" in c for c in end), (
+        "align_crystal no longer runs alongside the GPU pipeline"
+    )
+
+
 @pytest.mark.parametrize(
     "beamline,visit,dcclass",
     [
         ("i03", "nt28218-3", MimasDCClass.ROTATION),
         ("i03", "cm31136-2", MimasDCClass.CHARACTERIZATION),
         ("i04", "cm31136-2", MimasDCClass.ROTATION),
+        ("i03", "cm31136-2", MimasDCClass.SCREENING),
     ],
 )
 def test_gpu_pipeline_does_not_launch_outside_its_conditions(

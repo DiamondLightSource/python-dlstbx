@@ -225,6 +225,14 @@ def handle_ffs_i03_commissioning(
     return [_ffs_gpu_processing(scenario)]
 
 
+@mimas.match_specification(is_eiger & is_end & is_i04 & is_screening)
+def handle_ffs_i04_screening(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> list[mimas.Invocation]:
+    return [_ffs_gpu_processing(scenario)]
+
+
 def has_related_data_collections(scenario: mimas.MimasScenario):
     return (
         scenario.dcclass is mimas.MimasDCClass.ROTATION

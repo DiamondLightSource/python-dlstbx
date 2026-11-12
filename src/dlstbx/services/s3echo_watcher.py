@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from pprint import pformat
+from typing import Annotated
 
 import minio
-import workflows.recipe
+import pydantic
 from minio.error import S3Error
+from workflows.recipe.typed import NonEmpty, typed_handler
 from workflows.services.common_service import CommonService
 
 from dlstbx.util.iris import (
@@ -13,6 +15,11 @@ from dlstbx.util.iris import (
     get_presigned_urls,
     update_dcid_info_file,
 )
+
+
+class WatchParameters(pydantic.BaseModel):
+    bucket: Annotated[str, NonEmpty]
+    dcid: int
 
 
 class S3EchoWatcher(CommonService):
@@ -41,15 +48,13 @@ class S3EchoWatcher(CommonService):
 
         self._message_delay = 5
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "s3echo.watch",
             self.watch,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
-    def watch(self, rw, header, message):
+    @typed_handler
+    def watch(self, rw, header, message, parameters: WatchParameters):
         """
         Upload images from DLS filesystem to S3 Echo object store.
         """
@@ -57,11 +62,10 @@ class S3EchoWatcher(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        params = rw.recipe_step["parameters"]
-        dcid = int(params["dcid"])
+        dcid = parameters.dcid
         minio_client = get_minio_client(S3EchoWatcher._s3echo_credentials)
 
-        bucket_name = params["bucket"]
+        bucket_name = parameters.bucket
         if not minio_client.bucket_exists(bucket_name):
             # Stop processing message. No files to watch
             rw.transport.transaction_commit(txn)
@@ -80,7 +84,7 @@ class S3EchoWatcher(CommonService):
         if response_info and response_info["status"] == -1:
             rw.send_to("failure", message, transaction=txn)
             raise RuntimeError(
-                f"Upload of the following files to S3 bucket {params['bucket']} reported in error state:\n{pformat(rw.environment['s3echo_upload'])}"
+                f"Upload of the following files to S3 bucket {parameters.bucket} reported in error state:\n{pformat(rw.environment['s3echo_upload'])}"
             )
 
         upload_file_list = s3echo_upload_files.keys()
@@ -130,7 +134,7 @@ class S3EchoWatcher(CommonService):
         try:
             upload_s3_url = get_presigned_urls(
                 minio_client,
-                params["bucket"],
+                parameters.bucket,
                 dcid,
                 [
                     filepath,
@@ -140,7 +144,7 @@ class S3EchoWatcher(CommonService):
             )
         except S3Error as err:
             self.log.exception(
-                f"Error retrieving following file from S3 bucket {params['bucket']}:\n{filepath}"
+                f"Error retrieving following file from S3 bucket {parameters.bucket}:\n{filepath}"
             )
             rw.send_to("failure", message, transaction=txn)
             raise err

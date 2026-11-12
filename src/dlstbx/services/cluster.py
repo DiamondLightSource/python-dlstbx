@@ -9,11 +9,11 @@ import logging
 import math
 import os
 import pathlib
-from typing import Optional
+from typing import Annotated, Any, Optional
 
 import pydantic
 import requests
-import workflows.recipe
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
@@ -37,7 +37,10 @@ class JobSubmissionParameters(pydantic.BaseModel):
     exclusive: bool = False
     nice: Optional[int] = None
     account: Optional[str] = None  # account in slurm terminology
-    commands: list[str] | str
+    commands: Annotated[
+        str,
+        pydantic.BeforeValidator(lambda v: "\n".join(v) if isinstance(v, list) else v),
+    ]
     constraints: Optional[str] = None
     prefer: Optional[str] = None
     qos: Optional[str] = None
@@ -51,19 +54,44 @@ class JobSubmissionValidationError(ValueError):
     pass
 
 
+def _absolute_path(path: pathlib.Path) -> pathlib.Path:
+    if not path.is_absolute():
+        raise ValueError("must be an absolute path")
+    return path
+
+
+class ClusterParameters(pydantic.BaseModel):
+    """Recipe parameters for a cluster job submission"""
+
+    cluster: JobSubmissionParameters
+    workingdir: Annotated[pathlib.Path, pydantic.AfterValidator(_absolute_path)]
+    recipefile: Optional[str] = None
+    recipeenvironment: Optional[str] = None
+    recipewrapper: Optional[str] = None
+    cluster_submission_parameters: Any = None
+
+    @pydantic.field_validator("cluster_submission_parameters")
+    @classmethod
+    def reject_deprecated_parameters(cls, value: Any) -> Any:
+        if value:
+            raise ValueError("deprecated cluster parameters are no longer supported")
+        return value
+
+
 def submit_to_slurm(
     params: JobSubmissionParameters,
     working_directory: pathlib.Path,
     logger: logging.Logger,
     zc: Configuration,
     scheduler: str,
-    recipewrapper: str,
+    recipewrapper: str | None,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
     script = params.commands
-    if not isinstance(script, str):
-        script = "\n".join(script)
     if scheduler == "iris":
+        if not recipewrapper:
+            logger.error("Jobs submitted to iris require a recipewrapper parameter")
+            return None
         tmp_script = [
             "#!/bin/bash",
             f"cat > {pathlib.Path(recipewrapper).name} << 'EOF'",
@@ -179,12 +207,9 @@ class DLSCluster(CommonService):
             )
         }
         self.log.debug(f"Supported schedulers: {', '.join(self.schedulers.keys())}")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "cluster.submission",
             self.run_submit_job,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def _write_job_file(
@@ -214,22 +239,10 @@ class DLSCluster(CommonService):
             return False
         return True
 
-    def run_submit_job(self, rw, header, message):
+    @typed_handler
+    def run_submit_job(self, rw, header, message, parameters: ClusterParameters):
         """Submit cluster job according to message."""
-        parameters = rw.recipe_step["parameters"]
-        if parameters.get("cluster_submission_parameters"):
-            self.log.error(
-                f"Deprecated cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
-            )
-            self._transport.nack(header)
-            return
-
-        try:
-            params = JobSubmissionParameters(**parameters.get("cluster", {}))
-        except pydantic.ValidationError as e:
-            self.log.error(f"Invalid JobSubmissionParameters: {e}")
-            self._transport.nack(header)
-            return
+        params = parameters.cluster
 
         if params.scheduler not in self.schedulers.keys():
             self.log.error(
@@ -238,18 +251,13 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        if not isinstance(params.commands, str):
-            params.commands = "\n".join(params.commands)
-
-        if "recipefile" in parameters:
-            recipefile = parameters["recipefile"]
+        if recipefile := parameters.recipefile:
             params.commands = params.commands.replace("$RECIPEFILE", recipefile)
             if not self._write_job_file(
                 header, recipefile, "recipe file", rw.recipe.pretty()
             ):
                 return
-        if "recipeenvironment" in parameters:
-            recipeenvironment = parameters["recipeenvironment"]
+        if recipeenvironment := parameters.recipeenvironment:
             params.commands = params.commands.replace("$RECIPEENV", recipeenvironment)
             if not self._write_job_file(
                 header,
@@ -260,8 +268,7 @@ class DLSCluster(CommonService):
                 ),
             ):
                 return
-        if "recipewrapper" in parameters:
-            recipewrapper = parameters["recipewrapper"]
+        if recipewrapper := parameters.recipewrapper:
             params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
             if not self._write_job_file(
                 header,
@@ -281,15 +288,7 @@ class DLSCluster(CommonService):
             ):
                 return
 
-        if "workingdir" not in parameters or not parameters["workingdir"].startswith(
-            "/"
-        ):
-            self.log.error(
-                "No absolute working directory specified. Will not run cluster job"
-            )
-            self._transport.nack(header)
-            return
-        working_directory = pathlib.Path(parameters["workingdir"])
+        working_directory = parameters.workingdir
         try:
             working_directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -321,7 +320,7 @@ class DLSCluster(CommonService):
             self.log,
             zc=self.config,
             scheduler=params.scheduler,
-            recipewrapper=recipewrapper,
+            recipewrapper=parameters.recipewrapper,
         )
         if not jobnumber:
             self._transport.nack(header)

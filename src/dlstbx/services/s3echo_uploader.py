@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from pprint import pformat
+from typing import Annotated
 
 import prometheus_client
-import workflows.recipe
+import pydantic
 from minio.error import S3Error
+from workflows.recipe.typed import NonEmpty, typed_handler
 from workflows.services.common_service import CommonService
 
 from dlstbx.util.iris import (
@@ -16,6 +18,21 @@ from dlstbx.util.iris import (
     update_dcid_info_file,
 )
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
+
+
+class S3EchoParameters(pydantic.BaseModel):
+    bucket: Annotated[str, NonEmpty]
+
+
+class UploadRpidParameters(S3EchoParameters):
+    rpid: int
+
+
+class DownloadParameters(S3EchoParameters):
+    rpid: int
+    working_directory: Annotated[Path, NonEmpty]
+    filename: Annotated[str, NonEmpty]
+    cleanup: bool = True
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -83,28 +100,19 @@ class S3EchoUploader(CommonService):
 
         self._message_delay = 5
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "s3echo.upload.rpid",
             self.on_upload_rpid,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "s3echo.upload.dcid",
             self.on_upload_dcid,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "s3echo.download",
             self.on_download,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
         # Initialise metrics if requested
@@ -113,7 +121,8 @@ class S3EchoUploader(CommonService):
         else:
             self._prom_metrics = NoMetrics()
 
-    def on_upload_rpid(self, rw, header, message):
+    @typed_handler
+    def on_upload_rpid(self, rw, header, message, parameters: UploadRpidParameters):
         """
         Upload images from DLS filesystem to S3 Echo object store.
         """
@@ -121,7 +130,6 @@ class S3EchoUploader(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        params = rw.recipe_step["parameters"]
         minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
 
         # We have a list of files to upload set in recipe environment and we receive
@@ -144,15 +152,15 @@ class S3EchoUploader(CommonService):
             filepath = s3echo_upload_files.get(filename)
         except StopIteration:
             self.log.exception(
-                f"No more files to upload to S3 bucket {params['bucket']} after receiving following file list:\n{s3_urls}"
+                f"No more files to upload to S3 bucket {parameters.bucket} after receiving following file list:\n{s3_urls}"
             )
             rw.send_to("success", message, transaction=txn)
         else:
             try:
                 upload_s3_url = get_presigned_urls(
                     minio_client,
-                    params["bucket"],
-                    params["rpid"],
+                    parameters.bucket,
+                    parameters.rpid,
                     [
                         filepath,
                     ],
@@ -161,7 +169,7 @@ class S3EchoUploader(CommonService):
                 )
             except S3Error as err:
                 self.log.exception(
-                    f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(s3echo_upload_files)}"
+                    f"Error uploading following files to S3 bucket {parameters.bucket}:\n{pformat(s3echo_upload_files)}"
                 )
                 rw.send_to("failure", message, transaction=txn)
                 raise err
@@ -182,7 +190,8 @@ class S3EchoUploader(CommonService):
         # Commit transaction
         rw.transport.transaction_commit(txn)
 
-    def on_upload_dcid(self, rw, header, message):
+    @typed_handler
+    def on_upload_dcid(self, rw, header, message, parameters: S3EchoParameters):
         """
         Upload images from DLS filesystem to S3 Echo object store.
         """
@@ -190,7 +199,6 @@ class S3EchoUploader(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        params = rw.recipe_step["parameters"]
         minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
 
         # We have a list of files to upload set in recipe environment and we receive
@@ -220,14 +228,14 @@ class S3EchoUploader(CommonService):
                 filepath = s3echo_upload_files.get(filename)
             except StopIteration:
                 self.log.exception(
-                    f"No more files to upload to S3 bucket {params['bucket']} after receiving following file list:\n{s3_urls}"
+                    f"No more files to upload to S3 bucket {parameters.bucket} after receiving following file list:\n{s3_urls}"
                 )
                 rw.send_to("success", message, transaction=txn)
             else:
                 try:
                     upload_s3_url = get_presigned_urls(
                         minio_client,
-                        params["bucket"],
+                        parameters.bucket,
                         dcid,
                         [
                             filepath,
@@ -238,10 +246,10 @@ class S3EchoUploader(CommonService):
                     )
                 except S3Error as err:
                     update_dcid_info_file(
-                        minio_client, params["bucket"], dcid, -1, None, self.log
+                        minio_client, parameters.bucket, dcid, -1, None, self.log
                     )
                     self.log.exception(
-                        f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(s3echo_upload_files_all)}"
+                        f"Error uploading following files to S3 bucket {parameters.bucket}:\n{pformat(s3echo_upload_files_all)}"
                     )
                     rw.send_to("failure", message, transaction=txn)
                     raise err
@@ -261,14 +269,15 @@ class S3EchoUploader(CommonService):
                         )
                     else:
                         update_dcid_info_file(
-                            minio_client, params["bucket"], dcid, 1, None, self.log
+                            minio_client, parameters.bucket, dcid, 1, None, self.log
                         )
                         rw.environment["s3_urls"] = s3_urls
                         rw.send_to("success", "Finished processing", transaction=txn)
         # Commit transaction
         rw.transport.transaction_commit(txn)
 
-    def on_download(self, rw, header, message):
+    @typed_handler
+    def on_download(self, rw, header, message, parameters: DownloadParameters):
         """
         Download files from S3 Echo object store to DLS filesystem. Remove image files, if requested.
         """
@@ -276,21 +285,20 @@ class S3EchoUploader(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        params = rw.recipe_step["parameters"]
         minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
         try:
             retrieve_results_from_s3(
                 minio_client,
-                params["bucket"],
-                Path(params["working_directory"]),
-                params["rpid"],
-                params["filename"],
+                parameters.bucket,
+                parameters.working_directory,
+                parameters.rpid,
+                parameters.filename,
                 self.log,
                 metrics=self._prom_metrics,
             )
         except S3Error:
             self.log.exception(
-                f"Error reading {params['rpid']}_{params['filename']} from S3 bucket {params['bucket']}"
+                f"Error reading {parameters.rpid}_{parameters.filename} from S3 bucket {parameters.bucket}"
             )
             rw.send_to("failure", message, transaction=txn)
         else:
@@ -298,8 +306,8 @@ class S3EchoUploader(CommonService):
 
         # For downstream tasks processing data are removed here as uploads are done per prcessing job.
         # For data reduction tasks data is shared between different pipelines as removed by S3EchoCollector service.
-        if s3_urls := params.get("cleanup", True) and rw.environment.get("s3_urls"):
-            remove_objects_from_s3(minio_client, params["bucket"], s3_urls, self.log)
+        if s3_urls := parameters.cleanup and rw.environment.get("s3_urls"):
+            remove_objects_from_s3(minio_client, parameters.bucket, s3_urls, self.log)
 
         # Commit transaction
         rw.transport.transaction_commit(txn)

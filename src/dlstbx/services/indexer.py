@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pydantic
 import workflows.recipe
@@ -17,10 +17,10 @@ from dxtbx.model.experiment_list import (
     ExperimentListFactory,
 )
 from pydantic import ConfigDict
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 
 from dlstbx.services.per_image_analysis import msgpack_mangle_for_receiving
-from dlstbx.util import ChainMapWithReplacement
 
 UnitCell = tuple[float, float, float, float, float, float]
 
@@ -81,28 +81,23 @@ class DLSIndexer(CommonService):
 
     def initializing(self):
         logging.getLogger("dials").setLevel(logging.WARNING)
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "index",
             self.index,
-            acknowledgement=True,
-            log_extender=self.extend_log,
             mangle_for_receiving=msgpack_mangle_for_receiving,
         )
 
-    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def index(self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict):
-        parameters = ChainMapWithReplacement(
-            message if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"],
-            substitutions=rw.environment,
-        )
-        try:
-            payload = IndexingPayload(**parameters)
-        except pydantic.ValidationError as e:
-            self.log.error(e, exc_info=True)
-            rw.transport.ack(header)
-            return
+    @typed_handler(
+        parameters_from=("message", "step"), substitute=True, on_invalid="drop"
+    )
+    def index(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        header: dict,
+        message: dict[str, Any],
+        parameters: IndexingPayload,
+    ):
+        payload = parameters
 
         if (n_refl := payload.reflections.size()) < 10:
             self.log.debug(

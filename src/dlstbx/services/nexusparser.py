@@ -1,11 +1,27 @@
 from __future__ import annotations
 
 import os.path
+from typing import Any
 
-import workflows.recipe
+import pydantic
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.hdf5
+
+
+class NexusParserParameters(pydantic.BaseModel):
+    file: str | None = None
+    run_status: str | None = None
+    expected_images: int | None = None
+
+    @property
+    def error_expected(self) -> bool:
+        """Whether errors are expected given the data collection run status"""
+        return (
+            self.run_status is not None
+            and self.run_status != "DataCollection Successful"
+        )
 
 
 class DLSNexusParser(CommonService):
@@ -20,20 +36,20 @@ class DLSNexusParser(CommonService):
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
         self.log.info("Nexusparser starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "nexusparser.find_related_files",
             self.find_related_files,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
-    def find_related_files(self, rw, header, message):
+    @typed_handler
+    def find_related_files(
+        self, rw, header, message: Any, parameters: NexusParserParameters
+    ):
         """Take a single file and recursively find all referenced files."""
 
         # Find file to start with
-        root_file = rw.recipe_step.get("parameters", {}).get("file")
-        if not root_file:
+        root_file = parameters.file
+        if not root_file and isinstance(message, dict):
             root_file = message.get("file")
 
         # Sanity check received message
@@ -46,18 +62,12 @@ class DLSNexusParser(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        error_expected = (
-            "run_status" in rw.recipe_step.get("parameters", {})
-            and rw.recipe_step["parameters"]["run_status"]
-            != "DataCollection Successful"
-        )
-
         if not os.path.exists(root_file):
-            if error_expected:
+            if parameters.error_expected:
                 self.log.info(
                     "Ignoring missing file %s due to run status '%s'",
                     root_file,
-                    rw.recipe_step["parameters"]["run_status"],
+                    parameters.run_status,
                 )
             else:
                 self.log.error("File %s not found", root_file)
@@ -78,18 +88,9 @@ class DLSNexusParser(CommonService):
             return
         self.log.info("Found %d files related to %s", len(related), root_file)
 
-        expected_images = rw.recipe_step.get("parameters", {}).get("expected_images")
+        expected_images = parameters.expected_images
         if expected_images is not None:
             # Check all images are there
-            try:
-                expected_images = int(expected_images)
-            except ValueError:
-                self.log.error(
-                    "Invalid number of expected images (%r)", expected_images
-                )
-                rw.transport.transaction_abort(txn)
-                rw.transport.nack(header)
-                return
             seen_images = sum(v for v in related.values() if v is not None)
             if seen_images < expected_images:
                 errors = [
@@ -101,14 +102,10 @@ class DLSNexusParser(CommonService):
                         errors.append("File %s is invalid or missing" % k)
                     else:
                         errors.append("File %s contains %d images" % (k, related[k]))
-                if (
-                    "run_status" in rw.recipe_step.get("parameters", {})
-                    and rw.recipe_step["parameters"]["run_status"]
-                    != "DataCollection Successful"
-                ):
+                if parameters.error_expected:
                     self.log.info(
                         "Ignoring the following errors due to run status '%s'\n%s",
-                        rw.recipe_step["parameters"]["run_status"],
+                        parameters.run_status,
                         "\n".join(errors),
                     )
                 else:

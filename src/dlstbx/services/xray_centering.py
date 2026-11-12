@@ -11,6 +11,7 @@ import prometheus_client
 import pydantic
 import workflows.recipe
 from pydantic import ConfigDict
+from workflows.recipe.typed import typed_handler
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.symlink
@@ -57,11 +58,6 @@ class Parameters(pydantic.BaseModel):
     threshold_absolute: pydantic.NonNegativeFloat = 0
     threshold_msp: pydantic.NonNegativeFloat = 0.25
     threshold_absolute_msp: pydantic.NonNegativeFloat = 3
-
-
-class RecipeStep(pydantic.BaseModel):
-    parameters: Parameters
-    gridinfo: GridInfo
 
 
 class Message(pydantic.BaseModel):
@@ -124,13 +120,10 @@ class DLSXRayCentering(CommonService):
 
         self._next_garbage_collection = time.time() + 60
         self._register_idle(60, self.garbage_collect)
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            self._environment.get("queue") or "reduce.xray_centering",
+        self.subscribe(
+            "reduce.xray_centering",
             self.add_pia_result,
-            acknowledgement=True,
             exclusive=True,
-            log_extender=self.extend_log,
             prefetch_count=65535,
         )
 
@@ -164,7 +157,8 @@ class DLSXRayCentering(CommonService):
                     rw.transport.transaction_commit(txn)
                     del self._centering_data[dcid]
 
-    def add_pia_result(self, rw, header, message):
+    @typed_handler
+    def add_pia_result(self, rw, header, message: Message, parameters: Parameters):
         """Process incoming PIA result.
 
         This is invoked repeatedly as each image in the gridscan comes through.
@@ -179,15 +173,14 @@ class DLSXRayCentering(CommonService):
 
         """
 
+        # The grid information is part of the recipe step, not its parameters
         try:
-            recipe_step = RecipeStep(**rw.recipe_step)
-            parameters = recipe_step.parameters
-            gridinfo = recipe_step.gridinfo
+            gridinfo = GridInfo.model_validate(rw.recipe_step.get("gridinfo"))
         except pydantic.ValidationError as e:
             self.log.error(
-                "X-ray centering service called with invalid parameters: %s", e
+                "X-ray centering service called with invalid grid information: %s", e
             )
-            rw.transport.nack(header)
+            rw.transport.nack(header, requeue=False)
             return
         if not gridinfo:
             if (
@@ -208,12 +201,6 @@ class DLSXRayCentering(CommonService):
             return
         dcid = parameters.dcid
         dcg_dcids = parameters.dcg_dcids
-        try:
-            message = Message(**message)
-        except pydantic.ValidationError as e:
-            self.log.error("X-ray centering service called with invalid payload: %s", e)
-            rw.transport.nack(header)
-            return
 
         with self._centering_lock:
             if dcid in self._centering_data:
@@ -301,7 +288,7 @@ class DLSXRayCentering(CommonService):
                             threshold=threshold,
                             threshold_absolute=threshold_absolute,
                             plot=False,
-                            multipin_sample_ids=parameters.msp_sample_ids,
+                            multipin_sample_ids=parameters.msp_sample_ids or {},
                             well_limits=well_limits,
                         )
                         self.log.info(f"3D X-ray centering result: {result}")
@@ -349,7 +336,7 @@ class DLSXRayCentering(CommonService):
                         ),
                         snaked=gridinfo.snaked,
                         orientation=gridinfo.orientation,
-                        multipin_sample_ids=parameters.msp_sample_ids,
+                        multipin_sample_ids=parameters.msp_sample_ids or {},
                         well_limits=well_limits,
                     )
                     self.log.debug(output)

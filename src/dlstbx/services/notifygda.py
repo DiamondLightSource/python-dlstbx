@@ -1,9 +1,48 @@
 from __future__ import annotations
 
-import workflows.recipe
+from typing import Annotated
+
+import pydantic
+from workflows.recipe.typed import NonEmpty, typed_handler
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.gda
+
+# Values forwarded to GDA keep their type, so that eg. integers are not
+# reformatted as floats
+Number = int | float
+
+
+class GDAParameters(pydantic.BaseModel):
+    dcid: pydantic.PositiveInt
+    host: Annotated[str, NonEmpty]
+    port: pydantic.PositiveInt
+
+    @pydantic.field_validator("host")
+    @classmethod
+    def check_hostname(cls, host: str) -> str:
+        if "{" in host:
+            raise ValueError(f"{host} is not a valid hostname")
+        return host
+
+
+class PerImageAnalysisResult(pydantic.BaseModel):
+    file_pattern_index: int | None = pydantic.Field(None, alias="file-pattern-index")
+    file_number: int | None = pydantic.Field(None, alias="file-number")
+    n_spots_total: Number = 0
+    n_spots_no_ice: Number | None = 0
+    estimated_d_min: Number | None = 0
+    total_intensity: Number | None = 0
+
+    @property
+    def image_number(self) -> int | None:
+        return self.file_pattern_index or self.file_number
+
+    @pydantic.model_validator(mode="after")
+    def check_image_number(self) -> PerImageAnalysisResult:
+        if not self.image_number:
+            raise ValueError("Image number not specified")
+        return self
 
 
 class DLSNotifyGDA(CommonService):
@@ -21,50 +60,31 @@ class DLSNotifyGDA(CommonService):
         Received messages must be acknowledged.
         """
         self.log.debug("GDA Bridge starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "notify_gda",  # consider transient queue
             self.notify_gda,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
-    def notify_gda(self, rw, header, message):
+    @typed_handler
+    def notify_gda(
+        self,
+        rw,
+        header,
+        message: PerImageAnalysisResult,
+        parameters: GDAParameters,
+    ):
         """Forward some information to GDA."""
 
-        if not isinstance(message, dict):
-            self.log.error("message payload must be a dictionary")
-            rw.transport.nack(header)
-            return
+        dcid = parameters.dcid
+        gdahost = parameters.host
+        gdaport = parameters.port
+        image_number = message.image_number
 
-        parameter = rw.recipe_step["parameters"].get
-        dcid = parameter("dcid")
-        gdahost = parameter("host")
-        gdaport = parameter("port")
-        if not dcid:
-            self.log.error("DataCollectionID not specified")
-            rw.transport.nack(header)
-            return
-        if not gdahost or not gdaport:
-            self.log.error("GDA host/port undefined")
-            rw.transport.nack(header)
-            return
-
-        image_number = message.get("file-pattern-index") or message.get("file-number")
-        if not image_number:
-            self.log.error("Image number not specified")
-            rw.transport.nack(header)
-            return
-
-        record = {}
-        record["spot_total"] = message.get("n_spots_total", 0)
-        record["good_bragg_candidates"] = message.get("n_spots_no_ice", 0)
-        record["method1_res"] = message.get("estimated_d_min", 0)
-        record["total_integrated_signal"] = message.get("total_intensity", 0)
-        if record["spot_total"] is None:
-            self.log.error("Message does not contain a spot count")
-            rw.transport.nack(header)
-            return
+        record: dict[str, Number | None] = {}
+        record["spot_total"] = message.n_spots_total
+        record["good_bragg_candidates"] = message.n_spots_no_ice
+        record["method1_res"] = message.estimated_d_min
+        record["total_integrated_signal"] = message.total_intensity
 
         self.log.debug(
             "Forwarding PIA record for image %r in DCID %s: %r",
@@ -73,11 +93,7 @@ class DLSNotifyGDA(CommonService):
             record,
         )
 
-        if "{" in gdahost:
-            self.log.error("Could not notify GDA, %s is not a valid hostname", gdahost)
-            rw.transport.nack(header)
-            return
-        elif gdahost == "mx-control":
+        if gdahost == "mx-control":
             pass  # skip
         else:
             # We notify according to https://jira.diamond.ac.uk/browse/MXGDA-3243

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import time
 
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
@@ -27,13 +26,10 @@ class DLSMimasBacklog(CommonService):
 
         # Subscribe to the mimas.held queue, which contains the held mimas
         # recipes we would like to drip-feed to the dispatcher
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "mimas.held",
             self.on_mimas_held,
-            acknowledgement=True,
             exclusive=True,
-            log_extender=self.extend_log,
         )
 
         # Subscribe to the transient.statistics.cluster topic, which we will

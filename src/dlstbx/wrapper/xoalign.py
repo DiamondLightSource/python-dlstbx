@@ -93,7 +93,15 @@ class XOalignWrapper(Wrapper):
         with open(working_directory / "XOalign.log", "w") as log_file:
             log_file.write(result.stdout)
 
-        self.insertXOalignStrategies(result.stdout)
+        # Workaround for mosflm mat files because xoalign does not read space group from them
+        space_group_symbol = None
+        if experiment_file.suffix.lower() == ".mat":
+            for line in experiment_file.read_text().splitlines():
+                if match := re.match(r"\s*SYMM\s+(\S+)\s*$", line):
+                    space_group_symbol = match.group(1)
+                    break
+
+        self.insertXOalignStrategies(result.stdout, space_group_symbol)
 
         results_directory.mkdir(parents=True, exist_ok=True)
 
@@ -109,7 +117,7 @@ class XOalignWrapper(Wrapper):
                 shutil.copy(path, results_directory)
         return success
 
-    def insertXOalignStrategies(self, xoalign_log):
+    def insertXOalignStrategies(self, xoalign_log, input_space_group_symbol=None):
         smargon = False
         found_solutions = False
 
@@ -128,6 +136,9 @@ class XOalignWrapper(Wrapper):
             if match := space_group_pattern.search(line):
                 space_group_symbol = match.group(1)
                 found_space_group = True
+                # Workaround for mosflm mat files because xoalign does not read space group from them
+                if input_space_group_symbol is not None:
+                    space_group_symbol = input_space_group_symbol
 
             if match := unit_cell_pattern.search(line):
                 unit_cell = [float(uc_param) for uc_param in match.groups()]

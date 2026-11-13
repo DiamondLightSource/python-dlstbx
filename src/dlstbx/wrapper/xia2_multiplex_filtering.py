@@ -165,12 +165,27 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
         working_directory = pathlib.Path(params["working_directory"])
         results_directory = pathlib.Path(params["results_directory"])
 
-        if "multiplex_directory" in params.keys():
-            multiplex_dir = pathlib.Path(params["multiplex_directory"])
-        else:
-            for param, value in params["ispyb_parameters"].items():
-                if param == "multiplex_directory":
-                    multiplex_dir = pathlib.Path(value[0])
+        uuid = None
+
+        for param, value in params["ispyb_parameters"].items():
+            if param == "multiplex_directory":
+                uuid = value[0]
+
+        if uuid is None:
+            uuid = results_directory.parent.name
+
+        folders = list(results_directory.parts)
+        i = folders.index("processed")
+        multiplex_dir = str(
+            pathlib.Path(
+                *folders[:i],
+                "tmp",
+                "zocalo",
+                *folders[i + 1 : -2],
+                uuid,
+                "xia2.multiplex",
+            )
+        )
 
         command = self.construct_commandline(params, multiplex_dir)
 

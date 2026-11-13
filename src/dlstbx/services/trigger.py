@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import uuid
 from datetime import datetime, timedelta
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
@@ -2358,24 +2359,19 @@ class DLSTrigger(CommonService):
             # If we are running filtering standalone, we need to find where the previous multiplex data is
 
             original_processed = (
-                session.query(AutoProcProgramAttachment.filePath)
+                session.query(AutoProcProgram.jobUuid)
                 .join(
                     AutoProc,
-                    AutoProc.autoProcProgramId
-                    == AutoProcProgramAttachment.autoProcProgramId,
+                    AutoProc.autoProcProgramId == AutoProcProgram.autoProcProgramId,
                 )
                 .join(
                     AutoProcScaling, AutoProcScaling.autoProcId == AutoProc.autoProcId
                 )
                 .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
-                .where(AutoProcProgramAttachment.fileName == "xia2.multiplex.log")
             ).all()[0][0]
 
-            folders = list(pathlib.Path(original_processed).parts)
-            i = folders.index("processed")
-            multiplex_directory = str(
-                pathlib.Path(*folders[:i], "tmp", "zocalo", *folders[i + 1 :])
-            )
+            multiplex_directory = str(uuid.UUID(bytes=original_processed))
+
         else:
             parameters.recipe = "postprocessing-xia2-multiplex"
             self.log.info("Running postprocessing-xia2-multiplex")

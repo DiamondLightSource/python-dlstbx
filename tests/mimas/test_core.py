@@ -133,7 +133,7 @@ def test_eiger_screening(get_zocalo_commands):
 def _ffs_gpu_command(dcid: int) -> str:
     return (
         f"ispyb.job --new --dcid={dcid} --source=automatic"
-        " --recipe=autoprocessing-gpu-processing --display='FFS GPU' --trigger"
+        " --recipe=autoprocessing-gpu-processing --display='fast dials gpu' --trigger"
     )
 
 

@@ -211,7 +211,7 @@ def _ffs_gpu_processing(
         autostart=True,
         recipe="autoprocessing-gpu-processing",
         source="automatic",
-        displayname="FFS GPU",
+        displayname="fast dials gpu",
     )
 
 

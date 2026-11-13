@@ -2370,7 +2370,11 @@ class DLSTrigger(CommonService):
                 .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
             ).all()[0][0]
 
-            multiplex_directory = str(uuid.UUID(bytes=original_processed))
+            try:
+                multiplex_directory = str(uuid.UUID(bytes=original_processed))
+            except TypeError:
+                # This can occur for older datasets where we were not uploading the UUID to the database
+                multiplex_directory = None
 
         else:
             parameters.recipe = "postprocessing-xia2-multiplex"

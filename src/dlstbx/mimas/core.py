@@ -10,6 +10,7 @@ from dlstbx.mimas.specification import (
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
+    VisitSpecification,
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
@@ -34,6 +35,7 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION) | DCClassSpecifi
 )
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 is_characterization = DCClassSpecification(mimas.MimasDCClass.CHARACTERIZATION)
+is_commissioning = VisitSpecification({"cm"})
 
 XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(
@@ -201,6 +203,36 @@ def handle_characterization(
     ]
 
 
+def _ffs_gpu_processing(
+    scenario: mimas.MimasScenario,
+) -> mimas.MimasISPyBJobInvocation:
+    return mimas.MimasISPyBJobInvocation(
+        DCID=scenario.DCID,
+        autostart=True,
+        recipe="autoprocessing-gpu-processing",
+        source="automatic",
+        displayname="fast dials gpu",
+    )
+
+
+@mimas.match_specification(
+    is_eiger & is_end & is_i03 & is_commissioning & is_rotation & ~is_characterization
+)
+def handle_ffs_i03_commissioning(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> list[mimas.Invocation]:
+    return [_ffs_gpu_processing(scenario)]
+
+
+@mimas.match_specification(is_eiger & is_end & is_i04 & is_screening)
+def handle_ffs_i04_screening(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> list[mimas.Invocation]:
+    return [_ffs_gpu_processing(scenario)]
+
+
 def has_related_data_collections(scenario: mimas.MimasScenario):
     return (
         scenario.dcclass is mimas.MimasDCClass.ROTATION
@@ -287,27 +319,6 @@ def handle_rotation_end(
                 displayname="fast_dp",
             )
         )
-
-    # fast-feedback-service stubs to be added once autoprocessing is desirable
-    #
-    # tasks.append(
-    #     mimas.MimasISPyBJobInvocation(
-    #         DCID=scenario.DCID,
-    #         autostart=False,
-    #         recipe="autoprocessing-gpu-processing",
-    #         source="automatic",
-    #         displayname="FFS GPU",
-    #     )
-    # )
-    # tasks.append(
-    #     mimas.MimasISPyBJobInvocation(
-    #         DCID=scenario.DCID,
-    #         autostart=False,
-    #         recipe="autoprocessing-gpu-processing-from-spots",
-    #         source="automatic",
-    #         displayname="FFS GPU (from spots)",
-    #     )
-    # )
 
     xia2_dials_beamline_extra_params: ParamTuple = ()
     if scenario.beamline == "i02-1":

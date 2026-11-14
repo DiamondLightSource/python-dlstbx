@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ispyb
 import sqlalchemy
-import workflows.recipe
 
 from dlstbx.services.ispybsvc import DLSISPyB
 
@@ -33,11 +32,4 @@ class DLSISPyBPIA(DLSISPyB):
             )
         )
         self.log.debug("ISPyB PIA inserter starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "ispyb_pia",
-            self.receive_msg,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-            allow_non_recipe_messages=True,
-        )
+        self.subscribe("ispyb_pia", self.receive_msg, allow_non_recipe_messages=True)

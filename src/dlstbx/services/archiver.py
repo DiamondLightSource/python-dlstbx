@@ -8,7 +8,6 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import INDUSTRIAL_CODES
@@ -112,20 +111,8 @@ class DLSArchiver(CommonService):
         """Subscribe to the archiver queue. Received messages must be
         acknowledged."""
         self.log.info("Archiver starting")
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "archive.pattern",
-            self.archive_dcid,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "archive.filelist",
-            self.archive_filelist,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        self.subscribe("archive.pattern", self.archive_dcid)
+        self.subscribe("archive.filelist", self.archive_filelist)
 
     @staticmethod
     def rangifier(numbers):

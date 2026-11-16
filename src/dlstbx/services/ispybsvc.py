@@ -349,7 +349,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
         environment = environment[: min(255, len(environment))]
         rpid = parameters("rpid")
-        if rpid and not rpid.isdigit():
+        if rpid and not str(rpid).isdigit():
             self.log.error("Invalid processing id '%s'", rpid)
             return False
         try:

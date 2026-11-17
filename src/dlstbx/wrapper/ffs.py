@@ -325,6 +325,28 @@ def estimated_resolution(log: str) -> float | None:
     return float(match.group(1)) if match else None
 
 
+def user_resolution_limit(params: dict) -> float | None:
+    """
+    Read the resolution limit a reprocessing request asked for.
+
+    The recipe fills dmin from the request, so it arrives as a string
+    and is None or empty on an automatic run.
+
+    Args:
+        params: The job_parameters block of the recipe step
+
+    Returns:
+        float | None: The limit in Angstrom, or None when none was given
+
+    Raises:
+        ValueError: The value is not a number
+    """
+    value = params.get("dmin")
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 def resolution_limits(*d_star_sq: float | None) -> tuple[float | None, float | None]:
     """
     Convert d* squared bounds to low and high resolution limits.
@@ -354,28 +376,33 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
     xia2 sends them, as a write_autoproc followed by an insert_scaling,
     which yields the AutoProcScalingId that downstream triggers key off.
 
-    The integrator does not cut by resolution, so the merge cuts at the
-    CC½ limit dials.estimate_resolution fits. Scaling runs before the
-    limit is known, so the unmerged MTZ still covers the full resolution
-    range while the merged MTZ and the statistics are cut.
+    The integrator does not cut by resolution, so the merge step does.
+    A limit given on the request is used as it is; without one, the
+    merge cuts at the CC½ limit dials.estimate_resolution fits. Scaling
+    runs before the limit is known, so the unmerged MTZ still covers
+    the full resolution range while the merged MTZ and the statistics
+    are cut.
     """
 
     _logger_name = "dlstbx.wrap.ffs_merge"
     name = "ffs_merge"
 
-    def construct_commandlines(self, params: dict) -> list[tuple[str, list[str]]]:
+    def construct_commandlines(
+        self, params: dict, estimate: bool = True
+    ) -> list[tuple[str, list[str]]]:
         """
         Build the DIALS stages that run before merging, in order.
 
         Args:
-            params: The job_parameters block of the recipe step
+            params:   The job_parameters block of the recipe step
+            estimate: Whether to fit a resolution limit after scaling
 
         Returns:
             list: Stage name paired with the argv to run for it
         """
         experiment = params.get("experiment") or "indexed.expt"
         reflections = params.get("reflections") or "integrated.refl"
-        return [
+        stages = [
             ("symmetry", ["dials.symmetry", experiment, reflections]),
             (
                 "scale",
@@ -387,11 +414,15 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
                     "output.json=dials.scale.json",
                 ],
             ),
-            (
-                "estimate_resolution",
-                ["dials.estimate_resolution", "scaled.expt", "scaled.refl"],
-            ),
         ]
+        if estimate:
+            stages.append(
+                (
+                    "estimate_resolution",
+                    ["dials.estimate_resolution", "scaled.expt", "scaled.refl"],
+                )
+            )
+        return stages
 
     def merge_commandline(self, d_min: float | None) -> list[str]:
         """
@@ -644,15 +675,26 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             self.log.error("Recipe is missing job parameter %s", e)
             return False
 
+        # A limit on the request replaces the estimate, so none is fitted
+        try:
+            d_min = user_resolution_limit(params)
+        except ValueError:
+            self.log.error("Resolution limit %r is not a number", params["dmin"])
+            return False
+
         start_time = time.perf_counter()
         timeout = params.get("timeout")
 
         # Merging needs the limit the earlier stages fit, so it runs last
-        for stage, command in self.construct_commandlines(params):
+        stages = self.construct_commandlines(params, estimate=d_min is None)
+        for stage, command in stages:
             if not self.run_stage(stage, command, working_directory, timeout):
                 return False
 
-        d_min = self.read_resolution_limit(working_directory)
+        if d_min is None:
+            d_min = self.read_resolution_limit(working_directory)
+        else:
+            self.log.info("Merging with the requested resolution limit of %s A", d_min)
         merge = self.merge_commandline(d_min)
         if not self.run_stage("merge", merge, working_directory, timeout):
             return False

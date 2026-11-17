@@ -332,3 +332,43 @@ def test_the_estimated_limit_reaches_the_merge(tmp_path, mocker, log, expected):
     assert [a for a in commands[-1] if a.startswith("d_min=")] == expected, (
         "the merge must cut at the estimated limit, or not at all without one"
     )
+
+
+# A limit given on the request replaces the estimate: no fit runs and
+# the merge cuts where the request asked. The recipe fills the value
+# in as a string.
+@pytest.mark.parametrize("dmin", ["2.0", 2.0])
+def test_a_requested_limit_replaces_the_estimate(tmp_path, mocker, dmin):
+    params = {"working_directory": str(tmp_path), "dmin": dmin}
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    mocker.patch("subprocess.run", side_effect=fake_run)
+    wrapper = MergeWrapper()
+    wrapper.recwrap = mocker.Mock(recipe_step={"job_parameters": params})
+    wrapper.publish = mocker.Mock()
+    wrapper.read_statistics = mocker.Mock(return_value={"merging_stats": {}})
+    wrapper.send_results_to_ispyb = mocker.Mock()
+
+    assert wrapper.run() is True, "a requested limit must merge successfully"
+    assert "dials.estimate_resolution" not in [c[0] for c in commands], (
+        "no limit should be fitted when the request gave one"
+    )
+    assert [a for a in commands[-1] if a.startswith("d_min=")] == ["d_min=2.0"], (
+        "the merge must cut at the requested limit"
+    )
+
+
+# A limit that is not a number is a bad request, so it must fail the job
+# before any DIALS stage runs rather than merge at a limit nobody asked for.
+def test_an_unreadable_requested_limit_fails_before_any_stage(tmp_path, mocker):
+    params = {"working_directory": str(tmp_path), "dmin": "high"}
+    run = mocker.patch("subprocess.run")
+    wrapper = MergeWrapper()
+    wrapper.recwrap = mocker.Mock(recipe_step={"job_parameters": params})
+
+    assert wrapper.run() is False, "an unreadable limit must fail the job"
+    assert not run.called, "no DIALS stage may run on a bad request"

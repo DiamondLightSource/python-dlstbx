@@ -2350,6 +2350,7 @@ class DLSTrigger(CommonService):
             parameters.apply_cchalf_filtering
             and not parameters.d_min
             and not parameters.spacegroup
+            and not parameters.small_molecule
         ):
             parameters.recipe = "reprocess-xia2-multiplex-filtering"
             self.log.info(

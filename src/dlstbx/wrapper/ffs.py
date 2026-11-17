@@ -81,7 +81,13 @@ CELL_AXES = ("a", "b", "c", "alpha", "beta", "gamma")
 
 REPORT = "ffs.log"
 
-REPORT_RULE = "-" * 80
+# Width of the text inside the report's summary card, and of the bar
+# drawn for the longest stage
+REPORT_CARD_WIDTH = 60
+REPORT_BAR_WIDTH = 40
+
+# Partial block characters, in eighths of a bar cell, that end a bar
+REPORT_BAR_EIGHTHS = " ▏▎▍▌▋▊▉"
 
 # Rows of the report's statistics table: label, key in the ISPyB shell,
 # and how to print the value. Anomalous completeness arrives as a
@@ -95,7 +101,7 @@ REPORT_ROWS = (
     ("I/sigma", "mean_i_sig_i", "{:.2f}".format),
     ("Completeness", "completeness", "{:.1f}".format),
     ("Multiplicity", "multiplicity", "{:.1f}".format),
-    ("CC 1/2", "cc_half", "{:.3f}".format),
+    ("CC½", "cc_half", "{:.3f}".format),
     ("Anom. Completeness", "anom_completeness", lambda v: f"{100 * v:.1f}"),
     ("Anom. Multiplicity", "anom_multiplicity", "{:.1f}".format),
     ("Anom. Correlation", "cc_anom", "{:.3f}".format),
@@ -375,8 +381,26 @@ def user_resolution_limit(params: dict) -> float | None:
     return float(value)
 
 
+def report_bar(duration: float, longest: float) -> str:
+    """
+    Draw a stage's wall time as a bar, to eighth-cell precision.
+
+    Args:
+        duration: Wall time of the stage, in seconds
+        longest:  Wall time of the longest stage, which fills the width
+
+    Returns:
+        str: The bar, empty for a stage that took no time
+    """
+    if longest <= 0:
+        return ""
+    full, part = divmod(round(8 * REPORT_BAR_WIDTH * duration / longest), 8)
+    return "█" * full + (REPORT_BAR_EIGHTHS[part] if part else "")
+
+
 def format_report(
-    stages: list[dict],
+    pipeline_stages: list[dict],
+    merge_stages: list[dict],
     model: dict,
     shells: list[dict] | None,
     resolution_limit: float | None,
@@ -386,13 +410,15 @@ def format_report(
     """
     Lay out the short processing report SynchWeb shows first.
 
-    A row of the statistics table is left out when no shell has a
-    value for it, as the anomalous rows are when no anomalous merging
-    ran.
+    A card with the result opens the report, then the statistics table
+    and the wall time of every stage as a bar. A row of the table is
+    left out when no shell has a value for it, as the anomalous rows
+    are when no anomalous merging ran.
 
     Args:
-        stages:           Every stage that ran, GPU pipeline first, each
-                          with its name, exit code and duration
+        pipeline_stages:  Stages the fast feedback service ran, each with
+                          its name, exit code and duration
+        merge_stages:     DIALS stages the merge ran, in the same form
         model:            Space group, cell and image range, or empty
         shells:           Overall, inner and outer ISPyB shells, or None
                           when merging did not finish
@@ -404,45 +430,75 @@ def format_report(
     Returns:
         str: The report text
     """
-    title = "Fast Feedback Service GPU processing"
-    lines = [f"{title} {version}" if version else title]
+    stages = pipeline_stages + merge_stages
+    ffs_time = sum(stage["duration"] for stage in pipeline_stages)
+    dials_time = sum(stage["duration"] for stage in merge_stages)
 
-    # What was processed and the model it settled on
+    # The card: the model, then the result or where the job stopped
+    card = []
+    if "spacegroup" in model and "cell" in model:
+        cell = " ".join(f"{v:.2f}" for v in model["cell"])
+        card.append(f"{model['spacegroup']}   {cell}")
     if "image_range" in model:
         first, last = model["image_range"]
-        lines.append(f"Processing images: {first} -> {last}")
-    if "spacegroup" in model:
-        lines.append(f"Space group: {model['spacegroup']}")
-    if "cell" in model:
-        lines.append("Unit cell: " + " ".join(f"{v:6.2f}" for v in model["cell"]))
-
-    # The cut merging used, then the statistics in the overall, inner
-    # and outer shells
+        card.append(f"Images {first} -> {last}")
     if shells:
+        overall = shells[0]
         if resolution_limit is None:
-            lines.append("Resolution cut: none")
+            cut = "No resolution cut"
         else:
-            how = "requested" if resolution_limit_source == "request" else "CC 1/2 fit"
-            lines.append(f"Resolution cut: {resolution_limit:.2f} ({how})")
-        lines += [REPORT_RULE, f"{'':>20} {'Overall':>7} {'Inner':>7} {'Outer':>7}"]
+            how = "requested" if resolution_limit_source == "request" else "CC½ fit"
+            cut = f"{resolution_limit:.2f} Å ({how})"
+        result = [cut]
+        if overall.get("cc_half") is not None:
+            result.append(f"CC½ {overall['cc_half']:.3f}")
+        if overall.get("completeness") is not None:
+            result.append(f"{overall['completeness']:.1f} % complete")
+        card.append("   ".join(result))
+    else:
+        stopped = next((s for s in stages if s["exit_code"] != 0), None)
+        if stopped is None:
+            card.append("Merging has not finished")
+        elif stopped["exit_code"] is None:
+            card.append(f"Stopped: {stopped['stage']} timed out")
+        else:
+            code = stopped["exit_code"]
+            card.append(f"Stopped: {stopped['stage']} failed with exit code {code}")
+    card.append(f"ffs {ffs_time:.1f} s   DIALS {dials_time:.1f} s")
+
+    title = "─ Fast Feedback Service GPU "
+    tail = f" {version} ─╮" if version else "─╮"
+    rule = "─" * (REPORT_CARD_WIDTH + 4 - len(title) - len(tail) + 1)
+    lines = ["╭" + title + rule + tail]
+    lines += [f"│  {row:<{REPORT_CARD_WIDTH}}  │" for row in card]
+    lines += ["╰" + "─" * (REPORT_CARD_WIDTH + 4) + "╯", ""]
+
+    # Statistics in the overall, inner and outer shells
+    if shells:
+        lines.append(f"{'':>20} {'Overall':>7} {'Inner':>7} {'Outer':>7}")
         for label, key, show in REPORT_ROWS:
             values = [shell.get(key) for shell in shells]
             if all(v is None for v in values):
                 continue
             cells = ("-" if v is None else show(v) for v in values)
             lines.append(f"{label:>20} " + " ".join(f"{c:>7}" for c in cells))
+        lines.append("")
 
-    # Wall time of each stage, marking the one that stopped the job
-    lines += [REPORT_RULE, "Timings:"]
-    for stage in stages:
-        line = f"{stage['stage']:>20} {stage['duration']:7.1f} s"
-        if stage["exit_code"] is None:
-            line += "  timed out"
-        elif stage["exit_code"]:
-            line += f"  failed with exit code {stage['exit_code']}"
-        lines.append(line)
-    total = sum(stage["duration"] for stage in stages)
-    lines += [f"{'Total':>20} {total:7.1f} s", REPORT_RULE]
+    # Wall time of each stage as a bar, marking the one that stopped the job
+    longest = max((stage["duration"] for stage in stages), default=0.0)
+    for group, group_stages in (("ffs", pipeline_stages), ("DIALS", merge_stages)):
+        for i, stage in enumerate(group_stages):
+            label = group if i == 0 else ""
+            line = (
+                f"  {label:<6}{stage['stage']:<20}{stage['duration']:7.1f} s  "
+                + report_bar(stage["duration"], longest)
+            )
+            if stage["exit_code"] is None:
+                line += "  timed out"
+            elif stage["exit_code"]:
+                line += f"  failed with exit code {stage['exit_code']}"
+            lines.append(line.rstrip())
+    lines.append(f"  {'':<6}{'total':<20}{ffs_time + dials_time:7.1f} s")
     return "\n".join(lines) + "\n"
 
 
@@ -648,7 +704,8 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         if entry is not None:
             shells = [self.shell(entry), self.shell(entry, 0), self.shell(entry, -1)]
         report = format_report(
-            (self.pipeline_summary.get("stages") or []) + self.stages,
+            self.pipeline_summary.get("stages") or [],
+            self.stages,
             model or {},
             shells,
             self.resolution_limit,
@@ -657,7 +714,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         )
         path = working_directory / REPORT
         try:
-            path.write_text(report)
+            path.write_text(report, encoding="utf-8")
         except OSError as e:
             self.log.warning("Could not write the report to %s: %s", path, e)
 

@@ -375,11 +375,12 @@ def test_an_unreadable_requested_limit_fails_before_any_stage(tmp_path, mocker):
     assert not run.called, "no DIALS stage may run on a bad request"
 
 
-# The report SynchWeb shows first: the release that ran, the model, the
-# cut and where it came from, the shell statistics with the rows no
-# shell has left out (here the anomalous ones, as after a merge without
-# anomalous statistics), and the time of every stage with the total.
-def test_the_report_lays_out_the_model_statistics_and_timings():
+# The report SynchWeb shows first: a card with the release, the model,
+# the cut and where it came from, then the shell statistics with the
+# rows no shell has left out (here the anomalous ones, as after a merge
+# without anomalous statistics), and every stage as a bar scaled to the
+# longest, grouped by the tool that ran it.
+def test_the_report_lays_out_the_card_statistics_and_timings():
     def shell(low, high, isig, comp, cc, n, u):
         return {
             "res_lim_low": low,
@@ -395,11 +396,12 @@ def test_the_report_lays_out_the_model_statistics_and_timings():
             "n_tot_unique_obs": u,
         }
 
-    stages = [
-        {"stage": "spotfinder", "exit_code": 0, "duration": 21.07},
-        {"stage": "integrator", "exit_code": 0, "duration": 6.83},
-        {"stage": "merge", "exit_code": 0, "duration": 5.1},
+    # 20 s fills the 40-cell bar, so 5.3 s is 10.6 cells and 1.5 s is 3
+    pipeline = [
+        {"stage": "spotfinder", "exit_code": 0, "duration": 20.0},
+        {"stage": "integrator", "exit_code": 0, "duration": 5.3},
     ]
+    merge = [{"stage": "merge", "exit_code": 0, "duration": 1.5}]
     model = {
         "image_range": (1, 3600),
         "spacegroup": "I 2 3",
@@ -411,15 +413,19 @@ def test_the_report_lays_out_the_model_statistics_and_timings():
         shell(2.38, 2.34, 3.1, 100.0, 0.81, 7300, 174),
     ]
 
-    report = format_report(stages, model, shells, 2.34, "estimate", "2026.11")
+    report = format_report(pipeline, merge, model, shells, 2.34, "estimate", "2026.11")
+
+    def card(row: str) -> str:
+        return f"│  {row:<60}  │\n"
 
     assert report == (
-        "Fast Feedback Service GPU processing 2026.11\n"
-        "Processing images: 1 -> 3600\n"
-        "Space group: I 2 3\n"
-        "Unit cell:  77.80  77.80  77.80  90.00  90.00  90.00\n"
-        "Resolution cut: 2.34 (CC 1/2 fit)\n"
-        f"{'-' * 80}\n"
+        f"╭─ Fast Feedback Service GPU {'─' * 26} 2026.11 ─╮\n"
+        + card("I 2 3   77.80 77.80 77.80 90.00 90.00 90.00")
+        + card("Images 1 -> 3600")
+        + card("2.34 Å (CC½ fit)   CC½ 0.999   99.9 % complete")
+        + card("ffs 25.3 s   DIALS 1.5 s")
+        + f"╰{'─' * 64}╯\n"
+        "\n"
         "                     Overall   Inner   Outer\n"
         "      Low resolution   54.80   54.80    2.38\n"
         "     High resolution    2.34    6.35    2.34\n"
@@ -428,14 +434,12 @@ def test_the_report_lays_out_the_model_statistics_and_timings():
         "             I/sigma   30.10   90.20    3.10\n"
         "        Completeness    99.9    99.5   100.0\n"
         "        Multiplicity    40.1    40.1    40.1\n"
-        "              CC 1/2   0.999   1.000   0.810\n"
+        "                 CC½   0.999   1.000   0.810\n"
         "               Nrefl  140000    6100    7300\n"
         "             Nunique    3490     175     174\n"
-        f"{'-' * 80}\n"
-        "Timings:\n"
-        "          spotfinder    21.1 s\n"
-        "          integrator     6.8 s\n"
-        "               merge     5.1 s\n"
-        "               Total    33.0 s\n"
-        f"{'-' * 80}\n"
-    ), "the report must match the fast_dp-style layout"
+        "\n"
+        f"  ffs   spotfinder             20.0 s  {'█' * 40}\n"
+        f"        integrator              5.3 s  {'█' * 10}▋\n"
+        "  DIALS merge                   1.5 s  ███\n"
+        "        total                  26.8 s\n"
+    ), "the report must lay out the card, the shells and the stage bars"

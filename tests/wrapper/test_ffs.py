@@ -216,10 +216,11 @@ def test_the_integration_record_carries_the_refined_geometry():
     assert integration["refined_detector_dist"] == 283.705, (
         "the detector distance scaling settled on reaches ISPyB"
     )
+    # Swapped to match the other wrappers until SynchWeb reads the true order (#406)
     assert (integration["refined_xbeam"], integration["refined_ybeam"]) == (
-        152.154,
         165.049,
-    ), "the beam centre reaches ISPyB in the order ISPyB names it"
+        152.154,
+    ), "the beam centre reaches ISPyB swapped, as SynchWeb currently expects"
 
 
 def test_geometry_absent_from_the_model_is_omitted_rather_than_blanked():

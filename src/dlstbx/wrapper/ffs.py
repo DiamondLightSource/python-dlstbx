@@ -24,6 +24,7 @@ REPORTED_RESULTS = (
 # Files the merge chain produces, paired with the ISPyB attachment type
 # and the rank that orders them in SynchWeb.
 MERGE_RESULTS = (
+    ("ffs.log", "log", 1),
     ("merged.mtz", "result", 1),
     ("scaled_unmerged.mtz", "result", 2),
     ("scaled.expt", "result", 2),
@@ -77,6 +78,30 @@ CC_HALF_LIMIT = re.compile(r"^Resolution cc_half:\s*([\d.]+)\s*$", re.MULTILINE)
 
 # Unit cell axis and angle names, in the order dxtbx reports them.
 CELL_AXES = ("a", "b", "c", "alpha", "beta", "gamma")
+
+REPORT = "ffs.log"
+
+REPORT_RULE = "-" * 80
+
+# Rows of the report's statistics table: label, key in the ISPyB shell,
+# and how to print the value. Anomalous completeness arrives as a
+# fraction, unlike completeness, which arrives as a percentage.
+REPORT_ROWS = (
+    ("Low resolution", "res_lim_low", "{:.2f}".format),
+    ("High resolution", "res_lim_high", "{:.2f}".format),
+    ("Rmerge", "r_merge", "{:.3f}".format),
+    ("Rmeas", "r_meas_all_iplusi_minus", "{:.3f}".format),
+    ("Rpim", "r_pim_all_iplusi_minus", "{:.3f}".format),
+    ("I/sigma", "mean_i_sig_i", "{:.2f}".format),
+    ("Completeness", "completeness", "{:.1f}".format),
+    ("Multiplicity", "multiplicity", "{:.1f}".format),
+    ("CC 1/2", "cc_half", "{:.3f}".format),
+    ("Anom. Completeness", "anom_completeness", lambda v: f"{100 * v:.1f}"),
+    ("Anom. Multiplicity", "anom_multiplicity", "{:.1f}".format),
+    ("Anom. Correlation", "cc_anom", "{:.3f}".format),
+    ("Nrefl", "n_tot_obs", "{:d}".format),
+    ("Nunique", "n_tot_unique_obs", "{:d}".format),
+)
 
 
 def autoproc_parameters(model: dict) -> dict:
@@ -350,6 +375,73 @@ def user_resolution_limit(params: dict) -> float | None:
     return float(value)
 
 
+def format_report(
+    stages: list[dict],
+    model: dict,
+    shells: list[dict] | None,
+    resolution_limit: float | None,
+    resolution_limit_source: str | None,
+) -> str:
+    """
+    Lay out the short processing report SynchWeb shows first.
+
+    A row of the statistics table is left out when no shell has a
+    value for it, as the anomalous rows are when no anomalous merging
+    ran.
+
+    Args:
+        stages:           Every stage that ran, GPU pipeline first, each
+                          with its name, exit code and duration
+        model:            Space group, cell and image range, or empty
+        shells:           Overall, inner and outer ISPyB shells, or None
+                          when merging did not finish
+        resolution_limit: High resolution cut in Angstrom, or None
+        resolution_limit_source: "estimate" or "request" for a cut
+
+    Returns:
+        str: The report text
+    """
+    lines = ["Fast Feedback Service GPU processing"]
+
+    # What was processed and the model it settled on
+    if "image_range" in model:
+        first, last = model["image_range"]
+        lines.append(f"Processing images: {first} -> {last}")
+    if "spacegroup" in model:
+        lines.append(f"Space group: {model['spacegroup']}")
+    if "cell" in model:
+        lines.append("Unit cell: " + " ".join(f"{v:6.2f}" for v in model["cell"]))
+
+    # The cut merging used, then the statistics in the overall, inner
+    # and outer shells
+    if shells:
+        if resolution_limit is None:
+            lines.append("Resolution cut: none")
+        else:
+            how = "requested" if resolution_limit_source == "request" else "CC 1/2 fit"
+            lines.append(f"Resolution cut: {resolution_limit:.2f} ({how})")
+        lines += [REPORT_RULE, f"{'':>20} {'Overall':>7} {'Inner':>7} {'Outer':>7}"]
+        for label, key, show in REPORT_ROWS:
+            values = [shell.get(key) for shell in shells]
+            if all(v is None for v in values):
+                continue
+            cells = ("-" if v is None else show(v) for v in values)
+            lines.append(f"{label:>20} " + " ".join(f"{c:>7}" for c in cells))
+
+    # Wall time of each stage, marking the one that stopped the job
+    lines += [REPORT_RULE, "Timings:"]
+    for stage in stages:
+        line = f"{stage['stage']:>20} {stage['duration']:7.1f} s"
+        if stage["exit_code"] is None:
+            line += "  timed out"
+        elif stage["exit_code"]:
+            line += f"  failed with exit code {stage['exit_code']}"
+        lines.append(line)
+    total = sum(stage["duration"] for stage in stages)
+    lines += [f"{'Total':>20} {total:7.1f} s", REPORT_RULE]
+    return "\n".join(lines) + "\n"
+
+
 def resolution_limits(*d_star_sq: float | None) -> tuple[float | None, float | None]:
     """
     Convert d* squared bounds to low and high resolution limits.
@@ -507,6 +599,63 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             path.write_text(json.dumps(summary, indent=2))
         except OSError as e:
             self.log.warning("Could not write the merge summary to %s: %s", path, e)
+        self.write_report(working_directory)
+
+    def read_pipeline_stages(self, working_directory: Path) -> list[dict]:
+        """
+        Read the stages the GPU pipeline recorded in its summary.
+
+        Either pipeline may have run before the merge, so whichever
+        summary is present is read.
+
+        Returns:
+            list: The pipeline's stages, or empty when no summary is
+                readable
+        """
+        for name in (
+            SpotfindIndexIntegrateWrapper.summary_filename,
+            IndexIntegrateWrapper.summary_filename,
+        ):
+            try:
+                summary = json.loads((working_directory / name).read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            return summary.get("stages") or []
+        self.log.warning("No pipeline summary in %s to report", working_directory)
+        return []
+
+    def write_report(
+        self,
+        working_directory: Path,
+        entry: dict | None = None,
+        model: dict | None = None,
+    ) -> None:
+        """
+        Write the short processing report.
+
+        It is rewritten after every stage, as the summary is, and once
+        more with the statistics when merging has finished.
+
+        Args:
+            working_directory: Where the report is written
+            entry:             The merging statistics, once there are any
+            model:             The model scaling settled on, once read
+        """
+        shells = None
+        if entry is not None:
+            shells = [self.shell(entry), self.shell(entry, 0), self.shell(entry, -1)]
+        report = format_report(
+            self.pipeline_stages + self.stages,
+            model or {},
+            shells,
+            self.resolution_limit,
+            self.resolution_limit_source,
+        )
+        path = working_directory / REPORT
+        try:
+            path.write_text(report)
+        except OSError as e:
+            self.log.warning("Could not write the report to %s: %s", path, e)
 
     def run_stage(
         self,
@@ -641,14 +790,17 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             model["beam_centre"] = panel.get_beam_centre(experiment.beam.get_s0())
         return model
 
-    def send_results_to_ispyb(self, entry: dict, working_directory: Path) -> None:
+    def send_results_to_ispyb(self, entry: dict, model: dict) -> None:
         """
         Register the AutoProc record and attach the scaling to it.
 
         The commands travel as one list and in this order, because each
         refers to an identifier the one before it stored.
+
+        Args:
+            entry: The merging statistics
+            model: The model scaling settled on, or empty when unreadable
         """
-        model = self.experiment_parameters(working_directory)
 
         register_autoproc = {
             "ispyb_command": "write_autoproc",
@@ -738,6 +890,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         self.stages: list[dict] = []
         self.resolution_limit: float | None = None
         self.resolution_limit_source: str | None = None
+        self.pipeline_stages = self.read_pipeline_stages(working_directory)
 
         start_time = time.perf_counter()
         timeout = params.get("timeout")
@@ -761,13 +914,18 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             return False
 
         self._runtime_hist.observe(time.perf_counter() - start_time)
-        self.publish(working_directory)
 
+        # The report needs the statistics, so it is finished before
+        # anything is attached
         entry = self.read_statistics(working_directory)
+        if entry is not None:
+            model = self.experiment_parameters(working_directory)
+            self.write_report(working_directory, entry, model)
+        self.publish(working_directory)
         if entry is None:
             self._failure_counter.inc()
             return False
-        self.send_results_to_ispyb(entry, working_directory)
+        self.send_results_to_ispyb(entry, model)
 
         self._success_counter.inc()
         return True

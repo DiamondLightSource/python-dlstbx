@@ -13,6 +13,7 @@ from dlstbx.wrapper.ffs import (
     SpotfindIndexIntegrateWrapper,
     autoproc_parameters,
     estimated_resolution,
+    format_report,
     integration_parameters,
 )
 
@@ -372,3 +373,69 @@ def test_an_unreadable_requested_limit_fails_before_any_stage(tmp_path, mocker):
 
     assert wrapper.run() is False, "an unreadable limit must fail the job"
     assert not run.called, "no DIALS stage may run on a bad request"
+
+
+# The report SynchWeb shows first: the model, the cut and where it came
+# from, the shell statistics with the rows no shell has left out (here
+# the anomalous ones, as after a merge without anomalous statistics),
+# and the time of every stage with the total.
+def test_the_report_lays_out_the_model_statistics_and_timings():
+    def shell(low, high, isig, comp, cc, n, u):
+        return {
+            "res_lim_low": low,
+            "res_lim_high": high,
+            "r_meas_all_iplusi_minus": 0.083,
+            "r_pim_all_iplusi_minus": 0.013,
+            "mean_i_sig_i": isig,
+            "completeness": comp,
+            "multiplicity": 40.1,
+            "cc_half": cc,
+            "anom_completeness": None,
+            "n_tot_obs": n,
+            "n_tot_unique_obs": u,
+        }
+
+    stages = [
+        {"stage": "spotfinder", "exit_code": 0, "duration": 21.07},
+        {"stage": "integrator", "exit_code": 0, "duration": 6.83},
+        {"stage": "merge", "exit_code": 0, "duration": 5.1},
+    ]
+    model = {
+        "image_range": (1, 3600),
+        "spacegroup": "I 2 3",
+        "cell": (77.8, 77.8, 77.8, 90.0, 90.0, 90.0),
+    }
+    shells = [
+        shell(54.8, 2.34, 30.1, 99.9, 0.999, 140000, 3490),
+        shell(54.8, 6.35, 90.2, 99.5, 1.0, 6100, 175),
+        shell(2.38, 2.34, 3.1, 100.0, 0.81, 7300, 174),
+    ]
+
+    report = format_report(stages, model, shells, 2.34, "estimate")
+
+    assert report == (
+        "Fast Feedback Service GPU processing\n"
+        "Processing images: 1 -> 3600\n"
+        "Space group: I 2 3\n"
+        "Unit cell:  77.80  77.80  77.80  90.00  90.00  90.00\n"
+        "Resolution cut: 2.34 (CC 1/2 fit)\n"
+        f"{'-' * 80}\n"
+        "                     Overall   Inner   Outer\n"
+        "      Low resolution   54.80   54.80    2.38\n"
+        "     High resolution    2.34    6.35    2.34\n"
+        "               Rmeas   0.083   0.083   0.083\n"
+        "                Rpim   0.013   0.013   0.013\n"
+        "             I/sigma   30.10   90.20    3.10\n"
+        "        Completeness    99.9    99.5   100.0\n"
+        "        Multiplicity    40.1    40.1    40.1\n"
+        "              CC 1/2   0.999   1.000   0.810\n"
+        "               Nrefl  140000    6100    7300\n"
+        "             Nunique    3490     175     174\n"
+        f"{'-' * 80}\n"
+        "Timings:\n"
+        "          spotfinder    21.1 s\n"
+        "          integrator     6.8 s\n"
+        "               merge     5.1 s\n"
+        "               Total    33.0 s\n"
+        f"{'-' * 80}\n"
+    ), "the report must match the fast_dp-style layout"

@@ -28,10 +28,11 @@ MERGE_RESULTS = (
     ("merged.mtz", "result", 1),
     ("scaled_unmerged.mtz", "result", 2),
     ("scaled.expt", "result", 2),
-    ("dials.merge.html", "graph", 2),
-    ("dials.scale.html", "graph", 2),
-    ("dials.estimate_resolution.html", "graph", 2),
-    ("dials.symmetry.html", "graph", 3),
+    ("iotbx-merging-stats.json", "graph", 2),
+    ("dials.merge.html", "log", 2),
+    ("dials.scale.html", "log", 2),
+    ("dials.estimate_resolution.html", "log", 2),
+    ("dials.symmetry.html", "log", 3),
     ("dials.symmetry.log", "log", 3),
     ("dials.scale.log", "log", 3),
     ("dials.estimate_resolution.log", "log", 3),
@@ -66,6 +67,8 @@ ANOMALOUS_SCALING_FIELDS = {
 MERGE_JSON = "dials.merge.json"
 
 UNMERGED_MTZ = "scaled_unmerged.mtz"
+
+PLOT_JSON = "iotbx-merging-stats.json"
 
 ESTIMATE_LOG = "dials.estimate_resolution.log"
 
@@ -753,6 +756,24 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             return False
         return True
 
+    def write_plot_data(self, working_directory: Path, entry: dict) -> None:
+        """
+        Write the merging statistics SynchWeb draws its plots from.
+
+        dials.merge records them in the same form as the
+        iotbx-merging-stats.json fast_dp and autoPROC attach, already
+        cut at the limit the merge used.
+
+        Args:
+            working_directory: Where the plot data is written
+            entry:             The merging statistics read_statistics returns
+        """
+        path = working_directory / PLOT_JSON
+        try:
+            path.write_text(json.dumps(entry["merging_stats"]))
+        except OSError as e:
+            self.log.warning("Could not write plot data to %s: %s", path, e)
+
     def read_statistics(self, working_directory: Path) -> dict | None:
         """
         Read the merging statistics dials.merge records.
@@ -982,6 +1003,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         if entry is not None:
             model = self.experiment_parameters(working_directory)
             self.write_report(working_directory, entry, model)
+            self.write_plot_data(working_directory, entry)
         self.publish(working_directory)
         if entry is None:
             self._failure_counter.inc()

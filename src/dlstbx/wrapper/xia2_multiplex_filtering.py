@@ -167,9 +167,13 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
 
         uuid = None
 
+        # if multiplex_directory is in parameters, means that only filtering is being run and we use this UUID to find the original multiplex job
+
         for param, value in params["ispyb_parameters"].items():
             if param == "multiplex_directory":
                 uuid = value[0]
+
+        # This means multiplex will have run before filtering and we use that directory OR reprocessing was done on data that does not have the UUID uploaded to ISPyB
 
         if uuid is None:
             uuid = results_directory.parent.name

@@ -7,11 +7,36 @@ from pathlib import Path
 import pytest
 
 from dlstbx.wrapper.ffs import (
+    ESTIMATE_LOG,
     IndexIntegrateWrapper,
+    MergeWrapper,
     SpotfindIndexIntegrateWrapper,
     autoproc_parameters,
+    estimated_resolution,
     integration_parameters,
 )
+
+# dials.estimate_resolution.log from DIALS 3.31.0 on the i03 insulin
+# test collection, cm44137-5 TestInsulin/ins_1/ins_1_1_master.h5
+ESTIMATE_LOG_TEXT = """\
+DIALS (2018) Acta Cryst. D74, 85-97. https://doi.org/10.1107/S2059798317017235
+DIALS 3.31.0-g0870ea466-release
+Read 679409 predicted reflections
+Selected 679270 scaled reflections
+Removing 92 Wilson outliers with E^2 >= 16.0
+Resolution cc_half:       2.34
+Resolution cc_half_significance_level:    2.11
+"""
+
+# The same log when the CC½ fit fails, in the form
+# dials.util.resolution_analysis.Resolutionizer.resolution_auto logs it
+FAILED_FIT_LOG_TEXT = """\
+DIALS 3.31.0-g0870ea466-release
+Read 679409 predicted reflections
+Selected 679270 scaled reflections
+Resolution fit against cc_half failed: Fit failed
+Resolution cc_half_significance_level:    2.11
+"""
 
 
 def summary(working_directory: Path, name: str, success: bool = True, **paths) -> Path:
@@ -244,7 +269,106 @@ def test_geometry_absent_from_the_model_is_omitted_rather_than_blanked():
 
 @pytest.mark.parametrize("mapper", [autoproc_parameters, integration_parameters])
 def test_an_unreadable_experiment_maps_to_nothing(mapper):
-    assert mapper({}) == {}, (
-        "an unreadable scaled.expt must not fabricate ISPyB fields"
+    assert mapper({}) == {}, "an unreadable scaled.expt must not fabricate ISPyB fields"
+
+
+# The limit is read from the CC½ line alone; the significance-level line
+# that follows it must not be mistaken for it, and a failed fit or an
+# empty log must give no limit rather than raise.
+@pytest.mark.parametrize(
+    "log, expected",
+    [
+        (ESTIMATE_LOG_TEXT, 2.34),
+        (FAILED_FIT_LOG_TEXT, None),
+        ("", None),
+    ],
+)
+def test_the_cc_half_limit_is_read_from_the_estimate_log(log, expected):
+    assert estimated_resolution(log) == expected, (
+        "only the cc_half line may set the resolution limit"
     )
 
+
+# Without a limit, merging must stay exactly as it was before the cut
+# existed, so d_min appears only when one was estimated.
+@pytest.mark.parametrize("d_min, expected", [(2.34, "d_min=2.34"), (None, None)])
+def test_the_merge_carries_a_cut_only_when_there_is_one(d_min, expected):
+    command = MergeWrapper().merge_commandline(d_min)
+
+    cuts = [arg for arg in command if arg.startswith("d_min=")]
+    assert cuts == ([expected] if expected else []), (
+        "d_min must reach dials.merge exactly when a limit was estimated"
+    )
+
+
+# The estimate runs before merging and its limit must reach dials.merge;
+# a log without a limit degrades to an uncut merge instead of failing.
+@pytest.mark.parametrize(
+    "log, expected",
+    [(ESTIMATE_LOG_TEXT, ["d_min=2.34"]), (FAILED_FIT_LOG_TEXT, [])],
+)
+def test_the_estimated_limit_reaches_the_merge(tmp_path, mocker, log, expected):
+    params = {"working_directory": str(tmp_path)}
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        if command[0] == "dials.estimate_resolution":
+            (tmp_path / ESTIMATE_LOG).write_text(log)
+        return subprocess.CompletedProcess(command, 0)
+
+    mocker.patch("subprocess.run", side_effect=fake_run)
+    wrapper = MergeWrapper()
+    wrapper.recwrap = mocker.Mock(recipe_step={"job_parameters": params})
+    wrapper.publish = mocker.Mock()
+    wrapper.read_statistics = mocker.Mock(return_value={"merging_stats": {}})
+    wrapper.send_results_to_ispyb = mocker.Mock()
+
+    assert wrapper.run() is True, "a failed fit must not fail the job"
+    assert [c[0] for c in commands][-2:] == [
+        "dials.estimate_resolution",
+        "dials.merge",
+    ], "the estimate must run immediately before merging"
+    assert [a for a in commands[-1] if a.startswith("d_min=")] == expected, (
+        "the merge must cut at the estimated limit, or not at all without one"
+    )
+
+
+# A limit given on the request replaces the estimate: no fit runs and
+# the merge cuts where the request asked. The recipe fills the value
+# in as a string.
+@pytest.mark.parametrize("dmin", ["2.0", 2.0])
+def test_a_requested_limit_replaces_the_estimate(tmp_path, mocker, dmin):
+    params = {"working_directory": str(tmp_path), "dmin": dmin}
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0)
+
+    mocker.patch("subprocess.run", side_effect=fake_run)
+    wrapper = MergeWrapper()
+    wrapper.recwrap = mocker.Mock(recipe_step={"job_parameters": params})
+    wrapper.publish = mocker.Mock()
+    wrapper.read_statistics = mocker.Mock(return_value={"merging_stats": {}})
+    wrapper.send_results_to_ispyb = mocker.Mock()
+
+    assert wrapper.run() is True, "a requested limit must merge successfully"
+    assert "dials.estimate_resolution" not in [c[0] for c in commands], (
+        "no limit should be fitted when the request gave one"
+    )
+    assert [a for a in commands[-1] if a.startswith("d_min=")] == ["d_min=2.0"], (
+        "the merge must cut at the requested limit"
+    )
+
+
+# A limit that is not a number is a bad request, so it must fail the job
+# before any DIALS stage runs rather than merge at a limit nobody asked for.
+def test_an_unreadable_requested_limit_fails_before_any_stage(tmp_path, mocker):
+    params = {"working_directory": str(tmp_path), "dmin": "high"}
+    run = mocker.patch("subprocess.run")
+    wrapper = MergeWrapper()
+    wrapper.recwrap = mocker.Mock(recipe_step={"job_parameters": params})
+
+    assert wrapper.run() is False, "an unreadable limit must fail the job"
+    assert not run.called, "no DIALS stage may run on a bad request"

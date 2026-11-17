@@ -535,45 +535,40 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
     which yields the AutoProcScalingId that downstream triggers key off.
 
     The integrator does not cut by resolution, so the merge step does.
-    A limit given on the request is used as it is; without one, the
-    merge cuts at the CC½ limit dials.estimate_resolution fits. Scaling
-    runs before the limit is known, so the unmerged MTZ still covers
-    the full resolution range while the merged MTZ and the statistics
-    are cut.
+    A limit given on the request is applied from the first scaling.
+    Without one, dials.estimate_resolution fits a CC½ limit to the
+    scaled data, and scaling runs again from there with the cut, so the
+    scale model is refined only on the reflections that are kept and
+    the unmerged MTZ covers the same range as the merged one.
     """
 
     _logger_name = "dlstbx.wrap.ffs_merge"
     name = "ffs_merge"
 
     def construct_commandlines(
-        self, params: dict, estimate: bool = True
+        self, params: dict, d_min: float | None = None
     ) -> list[tuple[str, list[str]]]:
         """
-        Build the DIALS stages that run before merging, in order.
+        Build the DIALS stages that run before the resolution limit is
+        known, in order.
 
         Args:
-            params:   The job_parameters block of the recipe step
-            estimate: Whether to fit a resolution limit after scaling
+            params: The job_parameters block of the recipe step
+            d_min:  A requested high resolution cut in Angstrom, which
+                    scaling applies directly, or None to scale everything
+                    and fit a limit afterwards
 
         Returns:
             list: Stage name paired with the argv to run for it
         """
         experiment = params.get("experiment") or "indexed.expt"
         reflections = params.get("reflections") or "integrated.refl"
+        scale = self.scale_commandline("symmetrized.expt", "symmetrized.refl", d_min)
         stages = [
             ("symmetry", ["dials.symmetry", experiment, reflections]),
-            (
-                "scale",
-                [
-                    "dials.scale",
-                    "symmetrized.expt",
-                    "symmetrized.refl",
-                    f"output.unmerged_mtz={UNMERGED_MTZ}",
-                    "output.json=dials.scale.json",
-                ],
-            ),
+            ("scale", scale),
         ]
-        if estimate:
+        if d_min is None:
             stages.append(
                 (
                     "estimate_resolution",
@@ -581,6 +576,32 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
                 )
             )
         return stages
+
+    def scale_commandline(
+        self, experiments: str, reflections: str, d_min: float | None
+    ) -> list[str]:
+        """
+        Build a scaling stage.
+
+        Args:
+            experiments: The experiment file to scale
+            reflections: The reflection file to scale
+            d_min:       High resolution cut in Angstrom, or None to scale
+                         every reflection
+
+        Returns:
+            list: The argv to run
+        """
+        command = [
+            "dials.scale",
+            experiments,
+            reflections,
+            f"output.unmerged_mtz={UNMERGED_MTZ}",
+            "output.json=dials.scale.json",
+        ]
+        if d_min is not None:
+            command.append(f"d_min={d_min}")
+        return command
 
     def merge_commandline(self, d_min: float | None) -> list[str]:
         """
@@ -978,7 +999,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         timeout = params.get("timeout")
 
         # Merging needs the limit the earlier stages fit, so it runs last
-        stages = self.construct_commandlines(params, estimate=d_min is None)
+        stages = self.construct_commandlines(params, d_min)
         for stage, command in stages:
             if not self.run_stage(stage, command, working_directory, timeout):
                 return False
@@ -991,6 +1012,13 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             source = "request"
         self.resolution_limit = d_min
         self.resolution_limit_source = source
+
+        # A fitted limit is known only after the first scaling, so scaling
+        # continues from its output with the cut before merging
+        if source == "estimate":
+            rescale = self.scale_commandline("scaled.expt", "scaled.refl", d_min)
+            if not self.run_stage("rescale", rescale, working_directory, timeout):
+                return False
         merge = self.merge_commandline(d_min)
         if not self.run_stage("merge", merge, working_directory, timeout):
             return False

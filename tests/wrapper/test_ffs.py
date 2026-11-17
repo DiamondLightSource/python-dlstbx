@@ -302,11 +302,25 @@ def test_the_merge_carries_a_cut_only_when_there_is_one(d_min, expected):
     )
 
 
-# The estimate runs before merging and its limit must reach dials.merge;
-# a log without a limit degrades to an uncut merge instead of failing.
+# After the estimate, a fitted limit must rescale and then merge at the
+# cut, as xia2 does; a log without a limit skips the rescale and merges
+# uncut instead of failing.
 @pytest.mark.parametrize(
     "log, expected",
-    [(ESTIMATE_LOG_TEXT, ["d_min=2.34"]), (FAILED_FIT_LOG_TEXT, [])],
+    [
+        (
+            ESTIMATE_LOG_TEXT,
+            [
+                ("dials.estimate_resolution", []),
+                ("dials.scale", ["d_min=2.34"]),
+                ("dials.merge", ["d_min=2.34"]),
+            ],
+        ),
+        (
+            FAILED_FIT_LOG_TEXT,
+            [("dials.estimate_resolution", []), ("dials.merge", [])],
+        ),
+    ],
 )
 def test_the_estimated_limit_reaches_the_merge(tmp_path, mocker, log, expected):
     params = {"working_directory": str(tmp_path)}
@@ -326,18 +340,18 @@ def test_the_estimated_limit_reaches_the_merge(tmp_path, mocker, log, expected):
     wrapper.send_results_to_ispyb = mocker.Mock()
 
     assert wrapper.run() is True, "a failed fit must not fail the job"
-    assert [c[0] for c in commands][-2:] == [
-        "dials.estimate_resolution",
-        "dials.merge",
-    ], "the estimate must run immediately before merging"
-    assert [a for a in commands[-1] if a.startswith("d_min=")] == expected, (
-        "the merge must cut at the estimated limit, or not at all without one"
+    after_scaling = [
+        (c[0], [a for a in c if a.startswith("d_min=")]) for c in commands[2:]
+    ]
+    assert after_scaling == expected, (
+        "a fitted limit must rescale and merge at the cut, and no fit must "
+        "merge uncut without rescaling"
     )
 
 
-# A limit given on the request replaces the estimate: no fit runs and
-# the merge cuts where the request asked. The recipe fills the value
-# in as a string.
+# A limit given on the request replaces the estimate: no fit runs, and
+# scaling and merging cut where the request asked. The recipe fills the
+# value in as a string.
 @pytest.mark.parametrize("dmin", ["2.0", 2.0])
 def test_a_requested_limit_replaces_the_estimate(tmp_path, mocker, dmin):
     params = {"working_directory": str(tmp_path), "dmin": dmin}
@@ -360,6 +374,10 @@ def test_a_requested_limit_replaces_the_estimate(tmp_path, mocker, dmin):
     )
     assert [a for a in commands[-1] if a.startswith("d_min=")] == ["d_min=2.0"], (
         "the merge must cut at the requested limit"
+    )
+    scales = [c for c in commands if c[0] == "dials.scale"]
+    assert len(scales) == 1 and "d_min=2.0" in scales[0], (
+        "a requested limit must be applied by a single scaling"
     )
 
 

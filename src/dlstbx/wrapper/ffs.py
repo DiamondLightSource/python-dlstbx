@@ -381,6 +381,7 @@ def format_report(
     shells: list[dict] | None,
     resolution_limit: float | None,
     resolution_limit_source: str | None,
+    version: str | None = None,
 ) -> str:
     """
     Lay out the short processing report SynchWeb shows first.
@@ -397,11 +398,14 @@ def format_report(
                           when merging did not finish
         resolution_limit: High resolution cut in Angstrom, or None
         resolution_limit_source: "estimate" or "request" for a cut
+        version:          Fast feedback service release that ran, when
+                          its summary records one
 
     Returns:
         str: The report text
     """
-    lines = ["Fast Feedback Service GPU processing"]
+    title = "Fast Feedback Service GPU processing"
+    lines = [f"{title} {version}" if version else title]
 
     # What was processed and the model it settled on
     if "image_range" in model:
@@ -601,16 +605,15 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             self.log.warning("Could not write the merge summary to %s: %s", path, e)
         self.write_report(working_directory)
 
-    def read_pipeline_stages(self, working_directory: Path) -> list[dict]:
+    def read_pipeline_summary(self, working_directory: Path) -> dict:
         """
-        Read the stages the GPU pipeline recorded in its summary.
+        Read the summary the GPU pipeline wrote.
 
         Either pipeline may have run before the merge, so whichever
         summary is present is read.
 
         Returns:
-            list: The pipeline's stages, or empty when no summary is
-                readable
+            dict: The summary, or empty when none is readable
         """
         for name in (
             SpotfindIndexIntegrateWrapper.summary_filename,
@@ -620,9 +623,9 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
                 summary = json.loads((working_directory / name).read_text())
             except (OSError, json.JSONDecodeError):
                 continue
-            return summary.get("stages") or []
+            return summary
         self.log.warning("No pipeline summary in %s to report", working_directory)
-        return []
+        return {}
 
     def write_report(
         self,
@@ -645,11 +648,12 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         if entry is not None:
             shells = [self.shell(entry), self.shell(entry, 0), self.shell(entry, -1)]
         report = format_report(
-            self.pipeline_stages + self.stages,
+            (self.pipeline_summary.get("stages") or []) + self.stages,
             model or {},
             shells,
             self.resolution_limit,
             self.resolution_limit_source,
+            self.pipeline_summary.get("version"),
         )
         path = working_directory / REPORT
         try:
@@ -890,7 +894,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         self.stages: list[dict] = []
         self.resolution_limit: float | None = None
         self.resolution_limit_source: str | None = None
-        self.pipeline_stages = self.read_pipeline_stages(working_directory)
+        self.pipeline_summary = self.read_pipeline_summary(working_directory)
 
         start_time = time.perf_counter()
         timeout = params.get("timeout")

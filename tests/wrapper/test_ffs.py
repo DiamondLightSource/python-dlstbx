@@ -375,10 +375,10 @@ def test_an_unreadable_requested_limit_fails_before_any_stage(tmp_path, mocker):
     assert not run.called, "no DIALS stage may run on a bad request"
 
 
-# The report SynchWeb shows first: the model, the cut and where it came
-# from, the shell statistics with the rows no shell has left out (here
-# the anomalous ones, as after a merge without anomalous statistics),
-# and the time of every stage with the total.
+# The report SynchWeb shows first: the release that ran, the model, the
+# cut and where it came from, the shell statistics with the rows no
+# shell has left out (here the anomalous ones, as after a merge without
+# anomalous statistics), and the time of every stage with the total.
 def test_the_report_lays_out_the_model_statistics_and_timings():
     def shell(low, high, isig, comp, cc, n, u):
         return {
@@ -411,10 +411,10 @@ def test_the_report_lays_out_the_model_statistics_and_timings():
         shell(2.38, 2.34, 3.1, 100.0, 0.81, 7300, 174),
     ]
 
-    report = format_report(stages, model, shells, 2.34, "estimate")
+    report = format_report(stages, model, shells, 2.34, "estimate", "2026.11")
 
     assert report == (
-        "Fast Feedback Service GPU processing\n"
+        "Fast Feedback Service GPU processing 2026.11\n"
         "Processing images: 1 -> 3600\n"
         "Space group: I 2 3\n"
         "Unit cell:  77.80  77.80  77.80  90.00  90.00  90.00\n"

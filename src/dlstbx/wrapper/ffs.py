@@ -35,6 +35,7 @@ MERGE_RESULTS = (
     ("dials.scale.log", "log", 3),
     ("dials.estimate_resolution.log", "log", 3),
     ("dials.merge.log", "log", 3),
+    ("ffs_merge.json", "log", 2),
 )
 
 # ISPyB AutoProcScaling column paired with its key in the merging_stats
@@ -66,6 +67,8 @@ MERGE_JSON = "dials.merge.json"
 UNMERGED_MTZ = "scaled_unmerged.mtz"
 
 ESTIMATE_LOG = "dials.estimate_resolution.log"
+
+MERGE_SUMMARY = "ffs_merge.json"
 
 # The line dials.estimate_resolution logs for the CC½ criterion. The
 # colon straight after the name keeps the cc_half_significance_level
@@ -462,6 +465,49 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             self.log.info("Merging with the CC½ resolution limit of %.2f A", d_min)
         return d_min
 
+    def record_stage(
+        self,
+        working_directory: Path,
+        stage: str,
+        command: list[str],
+        exit_code: int | None,
+        duration: float,
+    ) -> None:
+        """
+        Add a finished stage to the summary and rewrite it.
+
+        The summary is rewritten after every stage, so a job that stops
+        part way still records how far it got.
+
+        Args:
+            working_directory: Where the summary is written
+            stage:             Name of the stage
+            command:           The argv it ran
+            exit_code:         Its exit code, or None when it timed out
+            duration:          Wall time it took, in seconds
+        """
+        self.stages.append(
+            {
+                "stage": stage,
+                "command": command,
+                "exit_code": exit_code,
+                "duration": duration,
+            }
+        )
+        merged = bool(self.stages) and self.stages[-1]["stage"] == "merge"
+        summary = {
+            "working_directory": str(working_directory),
+            "stages": self.stages,
+            "resolution_limit": self.resolution_limit,
+            "resolution_limit_source": self.resolution_limit_source,
+            "success": merged and all(s["exit_code"] == 0 for s in self.stages),
+        }
+        path = working_directory / MERGE_SUMMARY
+        try:
+            path.write_text(json.dumps(summary, indent=2))
+        except OSError as e:
+            self.log.warning("Could not write the merge summary to %s: %s", path, e)
+
     def run_stage(
         self,
         stage: str,
@@ -476,13 +522,20 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             bool: True when the stage exited cleanly
         """
         self.log.info("command: %s", " ".join(command))
+        start_time = time.perf_counter()
         try:
             result = subprocess.run(command, cwd=working_directory, timeout=timeout)
         except subprocess.TimeoutExpired as e:
+            duration = time.perf_counter() - start_time
+            self.record_stage(working_directory, stage, command, None, duration)
             self.log.warning("%s timed out after %s s", stage, e.timeout)
             self._timeout_counter.inc()
             self._failure_counter.inc()
             return False
+        duration = time.perf_counter() - start_time
+        self.record_stage(
+            working_directory, stage, command, result.returncode, duration
+        )
         if result.returncode:
             self.log.error("%s failed with exit code %s", stage, result.returncode)
             self.publish(working_directory)
@@ -682,6 +735,10 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             self.log.error("Resolution limit %r is not a number", params["dmin"])
             return False
 
+        self.stages: list[dict] = []
+        self.resolution_limit: float | None = None
+        self.resolution_limit_source: str | None = None
+
         start_time = time.perf_counter()
         timeout = params.get("timeout")
 
@@ -693,8 +750,12 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
 
         if d_min is None:
             d_min = self.read_resolution_limit(working_directory)
+            source = None if d_min is None else "estimate"
         else:
             self.log.info("Merging with the requested resolution limit of %s A", d_min)
+            source = "request"
+        self.resolution_limit = d_min
+        self.resolution_limit_source = source
         merge = self.merge_commandline(d_min)
         if not self.run_stage("merge", merge, working_directory, timeout):
             return False

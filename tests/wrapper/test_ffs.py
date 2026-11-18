@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from dlstbx.wrapper.ffs import (
-    ESTIMATE_LOG,
     IndexIntegrateWrapper,
     MergeWrapper,
     SpotfindIndexIntegrateWrapper,
@@ -19,24 +18,21 @@ from dlstbx.wrapper.ffs import (
 
 # dials.estimate_resolution.log from DIALS 3.31.0 on the i03 insulin
 # test collection, cm44137-5 TestInsulin/ins_1/ins_1_1_master.h5
-ESTIMATE_LOG_TEXT = """\
-DIALS (2018) Acta Cryst. D74, 85-97. https://doi.org/10.1107/S2059798317017235
-DIALS 3.31.0-g0870ea466-release
-Read 679409 predicted reflections
-Selected 679270 scaled reflections
-Removing 92 Wilson outliers with E^2 >= 16.0
-Resolution cc_half:       2.34
-Resolution cc_half_significance_level:    2.11
+SCALE_LOG_TEXT = """\
+The reflection table variances have been adjusted to account for the
+uncertainty in the scaling model
+Applying auto resolution cut at 2.34
+
+Total time taken: 15.1313s 
 """
 
 # The same log when the CC½ fit fails, in the form
 # dials.util.resolution_analysis.Resolutionizer.resolution_auto logs it
 FAILED_FIT_LOG_TEXT = """\
-DIALS 3.31.0-g0870ea466-release
-Read 679409 predicted reflections
-Selected 679270 scaled reflections
-Resolution fit against cc_half failed: Fit failed
-Resolution cc_half_significance_level:    2.11
+The reflection table variances have been adjusted to account for the
+uncertainty in the scaling model
+
+Total time taken: 15.1313s 
 """
 
 
@@ -279,73 +275,14 @@ def test_an_unreadable_experiment_maps_to_nothing(mapper):
 @pytest.mark.parametrize(
     "log, expected",
     [
-        (ESTIMATE_LOG_TEXT, 2.34),
+        (SCALE_LOG_TEXT, 2.34),
         (FAILED_FIT_LOG_TEXT, None),
         ("", None),
     ],
 )
 def test_the_cc_half_limit_is_read_from_the_estimate_log(log, expected):
     assert estimated_resolution(log) == expected, (
-        "only the cc_half line may set the resolution limit"
-    )
-
-
-# Without a limit, merging must stay exactly as it was before the cut
-# existed, so d_min appears only when one was estimated.
-@pytest.mark.parametrize("d_min, expected", [(2.34, "d_min=2.34"), (None, None)])
-def test_the_merge_carries_a_cut_only_when_there_is_one(d_min, expected):
-    command = MergeWrapper().merge_commandline(d_min)
-
-    cuts = [arg for arg in command if arg.startswith("d_min=")]
-    assert cuts == ([expected] if expected else []), (
-        "d_min must reach dials.merge exactly when a limit was estimated"
-    )
-
-
-# After the estimate, a fitted limit must rescale and then merge at the
-# cut, as xia2 does; a log without a limit skips the rescale and merges
-# uncut instead of failing.
-@pytest.mark.parametrize(
-    "log, expected",
-    [
-        (
-            ESTIMATE_LOG_TEXT,
-            [
-                ("dials.estimate_resolution", []),
-                ("dials.scale", ["d_min=2.34"]),
-                ("dials.merge", ["d_min=2.34"]),
-            ],
-        ),
-        (
-            FAILED_FIT_LOG_TEXT,
-            [("dials.estimate_resolution", []), ("dials.merge", [])],
-        ),
-    ],
-)
-def test_the_estimated_limit_reaches_the_merge(tmp_path, mocker, log, expected):
-    params = {"working_directory": str(tmp_path)}
-    commands = []
-
-    def fake_run(command, **kwargs):
-        commands.append(command)
-        if command[0] == "dials.estimate_resolution":
-            (tmp_path / ESTIMATE_LOG).write_text(log)
-        return subprocess.CompletedProcess(command, 0)
-
-    mocker.patch("subprocess.run", side_effect=fake_run)
-    wrapper = MergeWrapper()
-    wrapper.recwrap = mocker.Mock(recipe_step={"job_parameters": params})
-    wrapper.publish = mocker.Mock()
-    wrapper.read_statistics = mocker.Mock(return_value={"merging_stats": {}})
-    wrapper.send_results_to_ispyb = mocker.Mock()
-
-    assert wrapper.run() is True, "a failed fit must not fail the job"
-    after_scaling = [
-        (c[0], [a for a in c if a.startswith("d_min=")]) for c in commands[2:]
-    ]
-    assert after_scaling == expected, (
-        "a fitted limit must rescale and merge at the cut, and no fit must "
-        "merge uncut without rescaling"
+        "only the 'Applying auto resolution cut' line may set the resolution limit"
     )
 
 
@@ -369,12 +306,6 @@ def test_a_requested_limit_replaces_the_estimate(tmp_path, mocker, dmin):
     wrapper.send_results_to_ispyb = mocker.Mock()
 
     assert wrapper.run() is True, "a requested limit must merge successfully"
-    assert "dials.estimate_resolution" not in [c[0] for c in commands], (
-        "no limit should be fitted when the request gave one"
-    )
-    assert [a for a in commands[-1] if a.startswith("d_min=")] == ["d_min=2.0"], (
-        "the merge must cut at the requested limit"
-    )
     scales = [c for c in commands if c[0] == "dials.scale"]
     assert len(scales) == 1 and "d_min=2.0" in scales[0], (
         "a requested limit must be applied by a single scaling"

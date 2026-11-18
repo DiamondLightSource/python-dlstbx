@@ -151,6 +151,7 @@ def gridscan2d(
     sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
     well_limits: list[tuple[float, float]] = [],
+    invert: bool = False,
 ) -> tuple[GridScan2DResult, str]:
     output = [
         f"steps_x/y: {steps}",
@@ -195,7 +196,17 @@ def gridscan2d(
     n_voxels = np.count_nonzero(labels == best)
     tot = scipy.ndimage.sum_labels(threshold, labels=labels, index=best)
     total_count = int(tot) if np.issubdtype(data.dtype, np.integer) else float(tot)
-    output.append(f"grid:\n{threshold}".replace(" 0", " ."))
+    log_grid = (
+        np.divide(
+            1.0,
+            threshold,
+            out=np.zeros_like(threshold),
+            where=(threshold > 0) & np.isfinite(threshold),
+        )
+        if invert
+        else threshold
+    )
+    output.append(f"grid:\n{log_grid}".replace(" 0", " ."))
     best_region = list(zip(*(w.tolist() for w in np.where(labels == best))))
 
     centre_x_box, centre_y_box = reversed([c + 0.5 for c in com])

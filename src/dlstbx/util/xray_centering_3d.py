@@ -52,6 +52,7 @@ def gridscan3d(
     sample_id: int | None = None,
     multipin_sample_ids: dict[int, int] = {},
     well_limits: list[tuple[float, float]] = [],
+    invert: bool = False,
 ) -> list[GridScan3DResult]:
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
@@ -182,7 +183,18 @@ def gridscan3d(
             results.append(result)
 
     if plot:
-        plot_gridscan3d_results(data, reconstructed_3d, results)
+        plot_data = data
+        plot_recon = reconstructed_3d
+        if invert:
+            plot_data = tuple(
+                np.where((d > 0) & np.isfinite(d), 1.0 / d, 0.0) for d in data
+            )
+            plot_recon = np.where(
+                (reconstructed_3d > 0) & np.isfinite(reconstructed_3d),
+                1.0 / reconstructed_3d,
+                0.0,
+            )
+        plot_gridscan3d_results(plot_data, plot_recon, results)
 
     return sorted(results, key=operator.attrgetter("total_count"), reverse=True)
 

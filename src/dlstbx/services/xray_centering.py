@@ -335,6 +335,7 @@ class DLSXRayCentering(CommonService):
                             plot=False,
                             multipin_sample_ids=parameters.msp_sample_ids,
                             well_limits=well_limits,
+                            invert=parameters.invert,
                         )
                         if parameters.invert:
                             for r in result:
@@ -402,6 +403,7 @@ class DLSXRayCentering(CommonService):
                         multipin_sample_ids=parameters.msp_sample_ids,
                         well_limits=well_limits,
                         spots_data=cd.spots,
+                        invert=parameters.invert,
                     )
                     if parameters.invert:
                         if result.max_count:

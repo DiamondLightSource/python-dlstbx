@@ -89,7 +89,12 @@ class CudaProfiler:
                 yield
             finally:
                 end.record()
-                torch.cuda.synchronize(self._dev_idx)
+                # Block until the end event has actually completed on the GPU
+                # before reading its timestamp; without this, elapsed_time()
+                # can raise "CUDA error: device not ready". event.synchronize()
+                # is the documented pattern — it waits for only this event,
+                # rather than draining the whole device like cuda.synchronize().
+                end.synchronize()
                 elapsed_ms = start.elapsed_time(end)
                 if self._track_memory:
                     mem_after = torch.cuda.memory_allocated(self._dev_idx)

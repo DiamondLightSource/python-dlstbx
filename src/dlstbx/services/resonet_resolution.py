@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import glob as glob_module
 import os
 import time
@@ -8,7 +9,6 @@ from typing import Optional
 import dxtbx
 import dxtbx.nexus
 import h5py
-import hdf5plugin  # noqa: F401 - registers HDF5 filters
 import numpy as np
 import nxmx
 import pydantic
@@ -17,9 +17,9 @@ from resonet.utils.predict_dxtbx import ImagePredictDxtbx
 from tqdm import tqdm
 from workflows.services.common_service import CommonService
 
+from dlstbx.swmr import h5check
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.cuda_profiler import CudaProfiler
-from dlstbx.util.resonet import plot_detector_image, plot_resolution_grid
 from dlstbx.util.xray_centering import Orientation
 
 
@@ -36,6 +36,7 @@ class ResonetResolutionParameters(pydantic.BaseModel):
     glob_pattern: str
     max_proc: Optional[int] = None
     grid_info: Optional[GridInfo] = None
+    seen_images: Optional[int] = None
 
 
 class DLSResonetResolution(CommonService):
@@ -84,16 +85,50 @@ class DLSResonetResolution(CommonService):
             log_extender=self.extend_log,
         )
 
-    def load_image_from_file(self, image_file):
-        """Generator yielding (raw_image, frame_index) for each frame in an image file."""
+    def load_image_from_file(self, image_file, target_frame=None):
+        """Generator yielding (raw_image, frame_index) for each frame in an image file.
+
+        target_frame: when set, seek directly to that 0-indexed frame and yield
+            only that one frame.  Avoids reading preceding frames.
+        """
         if not h5py.is_hdf5(image_file):
-            for frame_idx, path in enumerate(sorted(glob_module.glob(image_file))):
+            paths = sorted(glob_module.glob(image_file))
+            if target_frame is not None:
+                if 0 <= target_frame < len(paths):
+                    loader = dxtbx.load(paths[target_frame])
+                    raw = loader.get_raw_data()
+                    if isinstance(raw, tuple):
+                        raw = raw[0]
+                    yield raw, target_frame
+                return
+            for frame_idx, path in enumerate(paths):
                 loader = dxtbx.load(path)
                 raw = loader.get_raw_data()
                 if isinstance(raw, tuple):
                     raw = raw[0]
                 yield raw, frame_idx
             return
+        if target_frame is not None:
+            try:
+                with h5py.File(image_file, mode="r", swmr=True) as f:
+                    d = f["/entry/data/data"]
+                    dataset_files, file_map = h5check.get_real_frames(f, d)
+            except Exception:
+                self.log.exception(f"Error reading {image_file}")
+                return
+            m, frame = file_map[target_frame]
+            h5_data_file, dsetname = dataset_files[m]
+            try:
+                with h5py.File(h5_data_file, mode="r", swmr=True) as h5_file:
+                    self.log.debug(f"Opening file {h5_data_file}")
+                    dataset = h5_file[dsetname]
+                    dataset.id.refresh()
+                    raw_image = dataset[frame, ...]  # Slice your frame
+                    yield raw_image, target_frame
+                return
+            except Exception:
+                self.log.exception(f"Error reading {h5_data_file}")
+                return
         with h5py.File(image_file, swmr=True) as f:
             nxmx_obj = nxmx.NXmx(f)
             nxsample = nxmx_obj.entries[0].samples[0]
@@ -120,20 +155,26 @@ class DLSResonetResolution(CommonService):
             num_images = len(scan_axis)
             for frame_idx, j in enumerate(tqdm(range(num_images), unit=" images")):
                 (raw_image,) = dxtbx.nexus.get_raw_data(nxdata, nxdetector, j)
-                yield raw_image, frame_idx
+                yield raw_image.as_numpy_array(), frame_idx
 
-    def eat_images(self, glob_s, max_proc=None):
-        """Process all images matching glob_s.
+    def eat_images(self, glob_s, max_proc=None, seen_images=None):
+        """Process images matching glob_s.
 
         Returns a tuple of (results, n_found) where results is a list of dicts
         containing per-frame resolution or multilattice probability estimates.
-        Replaces the Pyro4-RPC / MPI-distributed execution from image_eater.py.
+
+        seen_images: when set (supplied by the DLSFilewatcher "every" channel as
+            file-number, 1-indexed), processes ONLY the frame at index
+            seen_images - 1.  This enables work distribution across multiple
+            DLSResonetResolution instances: the broker round-robins "every"
+            messages between instances on the validation queue, and each
+            instance processes exactly the one frame its message identifies.
         """
+        t_wall_start = time.time()
         fnames = sorted(glob_module.glob(glob_s))
         n_found = len(fnames)
         self.log.info("Found %d images matching %s", n_found, glob_s)
 
-        results = []
         t_reads = []
         seen = 0
 
@@ -200,33 +241,35 @@ class DLSResonetResolution(CommonService):
             self._predictor.quads = valid_quads[:2]
 
             frame_count = 0
-            for raw_image, frame_idx in self.load_image_from_file(f):
+            target_frame = seen_images - 1 if seen_images is not None else None
+            for raw_image, frame_idx in self.load_image_from_file(
+                f, target_frame=target_frame
+            ):
                 if max_proc is not None and frame_count >= max_proc:
                     break
 
                 t = time.time()
-                raw_image = raw_image.as_numpy_array()
                 if raw_image.dtype != np.int16:
                     raw_image = raw_image.astype(np.int16)
                 t_reads.append(time.time() - t)
 
-                plot_detector_image(
-                    raw_image,
-                    f"/tmp/frame_{frame_idx:04d}.png",
-                    title=f"{os.path.basename(f)} frame {frame_idx}",
-                )
+                # plot_detector_image(
+                #    raw_image,
+                #    f"/tmp/frame_{frame_idx:04d}.png",
+                #    title=f"{os.path.basename(f)} frame {frame_idx}",
+                # )
 
                 self._predictor._set_pixel_tensor(raw_image.astype(np.float32))
                 if self._kind == "reso":
                     with self._cuda_profiler.record():
                         d = self._predictor.detect_resolution()
-                    results.append(
-                        {
-                            "file": f,
-                            "frame": frame_idx,
-                            "resolution": round(float(d), 4),
-                        }
-                    )
+                        # q_val = 1000.0 / float(d) ** 2 if d > 0 else 0
+                    result = {
+                        "file": f,
+                        "frame": frame_idx,
+                        "estimated_d_min": round(float(d), 4),
+                        # "dozor_score": round(q_val),
+                    }
                     self.log.debug(
                         "%s [%d]  resolution=%.3f Å  (%d/%d)",
                         os.path.basename(f),
@@ -235,18 +278,18 @@ class DLSResonetResolution(CommonService):
                         i_f + 1,
                         n_found,
                     )
+                    yield result, n_found
                 else:
                     with self._cuda_profiler.record():
                         pval = self._predictor.detect_multilattice_scattering(
                             binary=False
                         )
-                    results.append(
-                        {
-                            "file": f,
-                            "frame": frame_idx,
-                            "multilattice_probability": round(float(pval), 6),
-                        }
-                    )
+                    result = {
+                        "file": f,
+                        "frame": frame_idx,
+                        # "multilattice_probability": round(float(pval), 4),
+                        "dozor_score": round(float(pval), 4),
+                    }
                     self.log.debug(
                         "%s [%d]  multilattice_probability=%.4f  (%d/%d)",
                         os.path.basename(f),
@@ -255,10 +298,18 @@ class DLSResonetResolution(CommonService):
                         i_f + 1,
                         n_found,
                     )
+                    yield result, n_found
                 seen += 1
                 frame_count += 1
 
         if t_reads:
+            t_wall_end = time.time()
+            wall_s = t_wall_end - t_wall_start
+            ts_fmt = "%Y-%m-%d %H:%M:%S.%f"
+            start_str = datetime.datetime.fromtimestamp(t_wall_start).strftime(ts_fmt)[
+                :-3
+            ]
+            end_str = datetime.datetime.fromtimestamp(t_wall_end).strftime(ts_fmt)[:-3]
             infer_median = self._cuda_profiler.median_ms or 0.0
             last = (
                 self._cuda_profiler.results[-1] if self._cuda_profiler.results else None
@@ -269,29 +320,54 @@ class DLSResonetResolution(CommonService):
                 else ""
             )
             self.log.info(
-                "Done. Processed %d shots. Median read=%.4f ms, inference=%.4f ms%s",
+                "Done. Processed %d shots in %.3f s wall (start=%s, end=%s). "
+                "Median read=%.4f ms, inference=%.4f ms%s",
                 seen,
+                wall_s,
+                start_str,
+                end_str,
                 float(np.median(t_reads)) * 1e3,
                 infer_median,
                 mem_msg,
             )
-        return results, n_found
+        return
 
     def process(self, rw, header, message):
+        msg = message if isinstance(message, dict) else {}
+        # file-number is a top-level field injected by DLSFilewatcher on its
+        # "every" output channel; map it to seen_images so eat_images() can cap
+        # HDF5 frame iteration to only the frames written so far in SWMR mode.
+        seen_images = msg.get("file-number")
         parameters = ChainMapWithReplacement(
-            message.get("parameters", {}) if isinstance(message, dict) else {},
+            msg.get("parameters", {}),
             rw.recipe_step.get("parameters", {}),
             substitutions=rw.environment,
         )
         try:
-            payload = ResonetResolutionParameters(**parameters)
+            payload = ResonetResolutionParameters(
+                **parameters,
+                **({"seen_images": seen_images} if seen_images is not None else {}),
+            )
         except pydantic.ValidationError as e:
             self.log.error("Invalid parameters for resonet.resolution: %s", e)
-            rw.transport.nack(header)
+            txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
+            rw.transport.nack(header, transaction=txn)
+            rw.transport.transaction_commit(txn)
             return
 
+        results_messages = []
         try:
-            results, n_found = self.eat_images(payload.glob_pattern, payload.max_proc)
+            for result, n_found in self.eat_images(
+                payload.glob_pattern, payload.max_proc, payload.seen_images
+            ):
+                result_message = {
+                    "glob_pattern": payload.glob_pattern,
+                    "n_found": n_found,
+                }
+                result_message.update(result)
+                for key in (x for x in message if x.startswith("file")):
+                    result_message[key] = message[key]
+                results_messages.append(result_message)
         except Exception as e:
             self.log.error("Unexpected error in eat_images: %s", e, exc_info=True)
             txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
@@ -299,27 +375,22 @@ class DLSResonetResolution(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        if payload.grid_info and results:
-            glob_s = payload.glob_pattern
-            if "*" in glob_s or "?" in glob_s:
-                plot_path = os.path.join(os.path.dirname(glob_s), "resonet_grid.png")
-            else:
-                plot_path = os.path.splitext(glob_s)[0] + "_resonet_grid.png"
-            try:
-                plot_resolution_grid(results, payload.grid_info, self._kind, plot_path)
-            except Exception as e:
-                self.log.warning("Could not save resolution grid plot: %s", e)
-
-        result_message = {
-            "glob_pattern": payload.glob_pattern,
-            "n_found": n_found,
-            "n_processed": len(results),
-            "results": results,
-        }
-        for key in (x for x in message if x.startswith("file")):
-            result_message[key] = message[key]
+        # if payload.grid_info and results:
+        #    glob_s = payload.glob_pattern
+        #    if "*" in glob_s or "?" in glob_s:
+        #        plot_path = os.path.join(os.path.dirname(glob_s), "resonet_grid.png")
+        #    else:
+        #        plot_path = os.path.splitext(glob_s)[0] + "_resonet_grid.png"
+        #    try:
+        #        plot_resolution_grid(results, payload.grid_info, self._kind, plot_path)
+        #    except Exception as e:
+        #        self.log.warning("Could not save resolution grid plot: %s", e)
 
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
-        rw.send(result_message, transaction=txn)
+        for i, res in enumerate(results_messages):
+            res["file-number"] = (
+                seen_images if seen_images is not None else i + 1
+            )  # 1-indexed for compatibility with DLSFilewatcher "every" messages
+            rw.send(res, transaction=txn)
         rw.transport.transaction_commit(txn)

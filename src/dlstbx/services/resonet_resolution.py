@@ -18,6 +18,7 @@ from tqdm import tqdm
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util.cuda_profiler import CudaProfiler
 from dlstbx.util.resonet import plot_detector_image, plot_resolution_grid
 from dlstbx.util.xray_centering import Orientation
 
@@ -45,7 +46,7 @@ class DLSResonetResolution(CommonService):
 
     def initializing(self):
         kind = self.config.storage.get("kind", "reso")
-        gpu = self.config.storage.get("gpu", False)
+        gpu = self.config.storage.get("gpu", True)
         dev = "cuda:0" if gpu else "cpu"
         model_key = f"{kind}_model"
         arch_key = f"{kind}_arch"
@@ -73,6 +74,7 @@ class DLSResonetResolution(CommonService):
         self._predictor.quads = [-2]
         self._predictor.cache_raw_image = False
         self._kind = kind
+        self._cuda_profiler = CudaProfiler(device=dev, track_memory=gpu)
 
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -133,7 +135,6 @@ class DLSResonetResolution(CommonService):
 
         results = []
         t_reads = []
-        t_infers = []
         seen = 0
 
         for i_f, f in enumerate(fnames):
@@ -215,11 +216,10 @@ class DLSResonetResolution(CommonService):
                     title=f"{os.path.basename(f)} frame {frame_idx}",
                 )
 
-                t = time.time()
                 self._predictor._set_pixel_tensor(raw_image.astype(np.float32))
                 if self._kind == "reso":
-                    d = self._predictor.detect_resolution()
-                    t_infers.append(time.time() - t)
+                    with self._cuda_profiler.record():
+                        d = self._predictor.detect_resolution()
                     results.append(
                         {
                             "file": f,
@@ -236,8 +236,10 @@ class DLSResonetResolution(CommonService):
                         n_found,
                     )
                 else:
-                    pval = self._predictor.detect_multilattice_scattering(binary=False)
-                    t_infers.append(time.time() - t)
+                    with self._cuda_profiler.record():
+                        pval = self._predictor.detect_multilattice_scattering(
+                            binary=False
+                        )
                     results.append(
                         {
                             "file": f,
@@ -257,11 +259,21 @@ class DLSResonetResolution(CommonService):
                 frame_count += 1
 
         if t_reads:
+            infer_median = self._cuda_profiler.median_ms or 0.0
+            last = (
+                self._cuda_profiler.results[-1] if self._cuda_profiler.results else None
+            )
+            mem_msg = (
+                f", GPU reserved={last.mem_reserved_mb:.0f} MB"
+                if last and last.mem_reserved_mb is not None
+                else ""
+            )
             self.log.info(
-                "Done. Processed %d shots. Median read=%.4f ms, inference=%.4f ms",
+                "Done. Processed %d shots. Median read=%.4f ms, inference=%.4f ms%s",
                 seen,
                 float(np.median(t_reads)) * 1e3,
-                float(np.median(t_infers)) * 1e3,
+                infer_median,
+                mem_msg,
             )
         return results, n_found
 

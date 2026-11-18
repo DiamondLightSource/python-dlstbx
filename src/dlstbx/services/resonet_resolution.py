@@ -77,13 +77,38 @@ class DLSResonetResolution(CommonService):
         self._kind = kind
         self._cuda_profiler = CudaProfiler(device=dev, track_memory=gpu)
 
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "resonet.resolution",
-            self.process,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+        if kind == "reso":
+            workflows.recipe.wrap_subscribe(
+                self._transport,
+                "resonet.resolution",
+                self.process,
+                acknowledgement=True,
+                log_extender=self.extend_log,
+            )
+            self.log.info(
+                "ResoNet resolution service initialised (model=%s, arch=%s, dev=%s)",
+                model_path,
+                arch,
+                dev,
+            )
+        elif kind == "multi":
+            workflows.recipe.wrap_subscribe(
+                self._transport,
+                "resonet.multilattice",
+                self.process,
+                acknowledgement=True,
+                log_extender=self.extend_log,
+            )
+            self.log.info(
+                "ResoNet multilattice service initialised (model=%s, arch=%s, dev=%s)",
+                model_path,
+                arch,
+                dev,
+            )
+        else:
+            raise ValueError(
+                f"Unknown kind {kind} in configuration; must be 'reso' or 'multi'"
+            )
 
     def load_image_from_file(self, image_file, target_frame=None):
         """Generator yielding (raw_image, frame_index) for each frame in an image file.
@@ -279,7 +304,7 @@ class DLSResonetResolution(CommonService):
                         n_found,
                     )
                     yield result, n_found
-                else:
+                elif self._kind == "multi":
                     with self._cuda_profiler.record():
                         pval = self._predictor.detect_multilattice_scattering(
                             binary=False
@@ -299,6 +324,8 @@ class DLSResonetResolution(CommonService):
                         n_found,
                     )
                     yield result, n_found
+                else:
+                    raise ValueError(f"Unknown kind {self._kind!r}; cannot process")
                 seen += 1
                 frame_count += 1
 

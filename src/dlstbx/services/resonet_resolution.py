@@ -12,7 +12,6 @@ import h5py
 import numpy as np
 import nxmx
 import pydantic
-import workflows.recipe
 from resonet.utils.predict_dxtbx import ImagePredictDxtbx
 from tqdm import tqdm
 from workflows.services.common_service import CommonService
@@ -78,12 +77,9 @@ class DLSResonetResolution(CommonService):
         self._cuda_profiler = CudaProfiler(device=dev, track_memory=gpu)
 
         if kind == "reso":
-            workflows.recipe.wrap_subscribe(
-                self._transport,
+            self.subscribe(
                 "resonet.resolution",
                 self.process,
-                acknowledgement=True,
-                log_extender=self.extend_log,
             )
             self.log.info(
                 "ResoNet resolution service initialised (model=%s, arch=%s, dev=%s)",
@@ -92,12 +88,9 @@ class DLSResonetResolution(CommonService):
                 dev,
             )
         elif kind == "multi":
-            workflows.recipe.wrap_subscribe(
-                self._transport,
+            self.subscribe(
                 "resonet.multilattice",
                 self.process,
-                acknowledgement=True,
-                log_extender=self.extend_log,
             )
             self.log.info(
                 "ResoNet multilattice service initialised (model=%s, arch=%s, dev=%s)",

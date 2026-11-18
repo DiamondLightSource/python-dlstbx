@@ -108,3 +108,23 @@ class XrayCentring(BaseModel):
     status: XrayCentringStatus
     type: XrayCentringType
     results: list[XrayCentringResult]
+
+
+class ImageQualityIndicators(BaseModel):
+    dcid: pydantic.NonNegativeInt
+    imageNumber: pydantic.NonNegativeInt
+    imageId: pydantic.NonNegativeInt | None = None
+    autoProcProgramId: pydantic.NonNegativeInt | None = None
+    spotTotal: pydantic.NonNegativeInt | None = None
+    inResTotal: pydantic.NonNegativeInt | None = None
+    goodBraggCandidates: pydantic.NonNegativeInt | None = None
+    iceRings: pydantic.NonNegativeInt | None = None
+    method1Res: pydantic.NonNegativeFloat | None = None
+    method2Res: pydantic.NonNegativeFloat | None = None
+    maxUnitCell: pydantic.NonNegativeFloat | None = None
+    pctSaturationTop50Peaks: pydantic.NonNegativeFloat | None = None
+    inResolutionOvrlSpots: pydantic.NonNegativeInt | None = None
+    binPopCutOffMethod2Res: pydantic.NonNegativeFloat | None = None
+    totalIntegratedSignal: pydantic.NonNegativeFloat | None = None
+    dozor_score: pydantic.NonNegativeFloat | None = None
+    driftFactor: pydantic.NonNegativeFloat | None = None

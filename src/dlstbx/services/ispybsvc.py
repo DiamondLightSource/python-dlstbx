@@ -1503,3 +1503,17 @@ class DLSISPyB(EM_Mixin, CommonService):
             session=session,
         )
         return {"success": True, "return_value": xrc_id}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def do_upsert_resonet_resolution(
+        self,
+        *,
+        parameter_map: schemas.ImageQualityIndicators,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        image_number = crud.upsert_resonet_resolution(
+            iqi=parameter_map,
+            session=session,
+        )
+        return {"success": True, "return_value": image_number}

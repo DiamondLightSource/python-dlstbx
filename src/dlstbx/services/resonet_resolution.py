@@ -189,7 +189,7 @@ class DLSResonetResolution(CommonService):
         containing per-frame resolution or multilattice probability estimates.
 
         seen_images: when set (supplied by the DLSFilewatcher "every" channel as
-            file-number, 1-indexed), processes ONLY the frame at index
+            imageNumber, 1-indexed), processes ONLY the frame at index
             seen_images - 1.  This enables work distribution across multiple
             DLSResonetResolution instances: the broker round-robins "every"
             messages between instances on the validation queue, and each
@@ -292,7 +292,7 @@ class DLSResonetResolution(CommonService):
                     result = {
                         "file": f,
                         "frame": frame_idx,
-                        "estimated_d_min": round(float(d), 4),
+                        "binPopCutOffMethod2Res": round(float(d), 4),
                         # "dozor_score": round(q_val),
                     }
                     self.log.debug(
@@ -361,7 +361,7 @@ class DLSResonetResolution(CommonService):
 
     def process(self, rw, header, message):
         msg = message if isinstance(message, dict) else {}
-        # file-number is a top-level field injected by DLSFilewatcher on its
+        # imageNumber is a top-level field injected by DLSFilewatcher on its
         # "every" output channel; map it to seen_images so eat_images() can cap
         # HDF5 frame iteration to only the frames written so far in SWMR mode.
         seen_images = msg.get("file-number")
@@ -416,7 +416,7 @@ class DLSResonetResolution(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
         for i, res in enumerate(results_messages):
-            res["file-number"] = (
+            res["imageNumber"] = (
                 seen_images if seen_images is not None else i + 1
             )  # 1-indexed for compatibility with DLSFilewatcher "every" messages
             rw.send(res, transaction=txn)

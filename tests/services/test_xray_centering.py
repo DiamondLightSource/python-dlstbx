@@ -348,7 +348,7 @@ def test_xray_centering_custom_metric_minimal_2d(mocker, tmp_path):
         "beamline": "i03",
         "sample_id": 3351191,
         "metric": "estimated_d_min",
-        "search_for": "minimal",
+        "invert": True,
     }
     gridinfo = {
         "orientation": "horizontal",
@@ -444,7 +444,7 @@ def test_xray_centering_custom_metric_3d_minimal(mocker):
         "beamline": "i03",
         "sample_id": 2077076,
         "metric": "resolution",
-        "search_for": "minimal",
+        "invert": True,
     }
 
     gridinfo = {

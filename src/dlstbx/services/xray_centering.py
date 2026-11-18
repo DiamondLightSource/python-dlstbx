@@ -4,7 +4,7 @@ import logging
 import pathlib
 import threading
 import time
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 import numpy as np
 import prometheus_client
@@ -58,7 +58,7 @@ class Parameters(pydantic.BaseModel):
     threshold_msp: pydantic.NonNegativeFloat = 0.25
     threshold_absolute_msp: pydantic.NonNegativeFloat = 3
     metric: str = "n_spots_total"
-    search_for: Literal["maximal", "minimal"] = "maximal"
+    invert: bool = False
     plot_heatmap_grid: Optional[str] = None
 
 
@@ -300,7 +300,7 @@ class DLSXRayCentering(CommonService):
                         for _dcid in dcids:
                             _cd = self._centering_data.get(_dcid)
                             arr = _cd.data
-                            if parameters.search_for == "minimal":
+                            if parameters.invert:
                                 arr = np.where(
                                     (arr > 0) & np.isfinite(arr), 1.0 / arr, 0.0
                                 )
@@ -336,7 +336,7 @@ class DLSXRayCentering(CommonService):
                             multipin_sample_ids=parameters.msp_sample_ids,
                             well_limits=well_limits,
                         )
-                        if parameters.search_for == "minimal":
+                        if parameters.invert:
                             for r in result:
                                 if r.max_count:
                                     inv = 1.0 / r.max_count
@@ -379,7 +379,7 @@ class DLSXRayCentering(CommonService):
                         "All records arrived for X-ray centering on DCID %d", dcid
                     )
                     grid_data = cd.data
-                    if parameters.search_for == "minimal":
+                    if parameters.invert:
                         grid_data = np.where(
                             (grid_data > 0) & np.isfinite(grid_data),
                             1.0 / grid_data,
@@ -403,7 +403,7 @@ class DLSXRayCentering(CommonService):
                         well_limits=well_limits,
                         spots_data=cd.spots,
                     )
-                    if parameters.search_for == "minimal":
+                    if parameters.invert:
                         if result.max_count:
                             inv = 1.0 / result.max_count
                             result.max_count = int(inv) if inv.is_integer() else inv

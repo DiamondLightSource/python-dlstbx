@@ -516,7 +516,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             params["maxunitcell"] = 0
             params["pctsaturationtop50peaks"] = 0
             params["inresolutionovrlspots"] = 0
-            params["binpopcutoffmethod2res"] = 0
+            params["binPopCutOffMethod2Res"] = 0
         elif not any(
             parameters(val)
             for val in [
@@ -525,10 +525,11 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "estimated_d_min",
                 "method1_res",
                 "method2_res",
+                "binPopCutOffMethod2Res",
             ]
         ):
             self.log.error(
-                "Message contains none of dozor_score, n_spots_total, estimated_d_min, method1_res or method2_res for image %s in DCID %s",
+                "Message contains none of dozor_score, n_spots_total, estimated_d_min, method1_res, method2_res or binPopCutOffMethod2Res for image %s in DCID %s",
                 params["image_number"],
                 params["datacollectionid"],
             )

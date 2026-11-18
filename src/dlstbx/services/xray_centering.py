@@ -69,7 +69,7 @@ class RecipeStep(pydantic.BaseModel):
 
 class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
-    n_spots_total: pydantic.NonNegativeInt
+    n_spots_total: Optional[pydantic.NonNegativeInt] = None
     file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
 
     model_config = ConfigDict(extra="allow")
@@ -243,7 +243,11 @@ class DLSXRayCentering(CommonService):
                 cd.images_seen,
                 gridinfo.image_count,
             )
-            metric_val = getattr(message, parameters.metric, None)
+            # Get the metric value from either the validated fields or model_extra
+            if parameters.metric in Message.model_fields:
+                metric_val = getattr(message, parameters.metric)
+            else:
+                metric_val = (message.model_extra or {}).get(parameters.metric)
             if metric_val is None:
                 self.log.error(
                     "X-ray centering service called with invalid payload: metric %s missing",
@@ -254,7 +258,8 @@ class DLSXRayCentering(CommonService):
 
             try:
                 cd.data[message.file_number - 1] = float(metric_val)
-                cd.spots[message.file_number - 1] = message.n_spots_total
+                if message.n_spots_total is not None:
+                    cd.spots[message.file_number - 1] = message.n_spots_total
             except (ValueError, TypeError):
                 self.log.error(
                     "X-ray centering service called with invalid metric value for %s: %r",

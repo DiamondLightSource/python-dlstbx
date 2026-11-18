@@ -31,11 +31,7 @@ MERGE_RESULTS = (
     ("iotbx-merging-stats.json", "graph", 2),
     ("dials.merge.html", "log", 2),
     ("dials.scale.html", "log", 2),
-    ("dials.estimate_resolution.html", "log", 2),
-    ("dials.symmetry.html", "log", 3),
-    ("dials.symmetry.log", "log", 3),
     ("dials.scale.log", "log", 3),
-    ("dials.estimate_resolution.log", "log", 3),
     ("dials.merge.log", "log", 3),
     ("ffs_merge.json", "log", 2),
 )
@@ -70,14 +66,14 @@ UNMERGED_MTZ = "scaled_unmerged.mtz"
 
 PLOT_JSON = "iotbx-merging-stats.json"
 
-ESTIMATE_LOG = "dials.estimate_resolution.log"
+SCALE_LOG = "dials.scale.log"
 
 MERGE_SUMMARY = "ffs_merge.json"
 
 # The line dials.estimate_resolution logs for the CC½ criterion. The
 # colon straight after the name keeps the cc_half_significance_level
 # line from matching.
-CC_HALF_LIMIT = re.compile(r"^Resolution cc_half:\s*([\d.]+)\s*$", re.MULTILINE)
+CC_HALF_LIMIT = re.compile(r"^Applying auto resolution cut at\s*([\d.]+)\s*$", re.MULTILINE)
 
 # Unit cell axis and angle names, in the order dxtbx reports them.
 CELL_AXES = ("a", "b", "c", "alpha", "beta", "gamma")
@@ -349,7 +345,7 @@ class SpotfindIndexIntegrateWrapper(PipelineWrapper):
 
 def estimated_resolution(log: str) -> float | None:
     """
-    Read the CC½ resolution limit from a dials.estimate_resolution log.
+    Read the CC½ resolution limit from a dials.scale log.
 
     Args:
         log: Text of the log
@@ -534,12 +530,10 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
     xia2 sends them, as a write_autoproc followed by an insert_scaling,
     which yields the AutoProcScalingId that downstream triggers key off.
 
-    The integrator does not cut by resolution, so the merge step does.
+    The integrator does not cut by resolution, so the scale and merge step does.
     A limit given on the request is applied from the first scaling.
-    Without one, dials.estimate_resolution fits a CC½ limit to the
-    scaled data, and scaling runs again from there with the cut, so the
-    scale model is refined only on the reflections that are kept and
-    the unmerged MTZ covers the same range as the merged one.
+    Without one, dials.scale uses d_min=auto to fit a CC½ limit to the
+    scaled data.
     """
 
     _logger_name = "dlstbx.wrap.ffs_merge"
@@ -563,18 +557,8 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         """
         experiment = params.get("experiment") or "indexed.expt"
         reflections = params.get("reflections") or "integrated.refl"
-        scale = self.scale_commandline("symmetrized.expt", "symmetrized.refl", d_min)
-        stages = [
-            ("symmetry", ["dials.symmetry", experiment, reflections]),
-            ("scale", scale),
-        ]
-        if d_min is None:
-            stages.append(
-                (
-                    "estimate_resolution",
-                    ["dials.estimate_resolution", "scaled.expt", "scaled.refl"],
-                )
-            )
+        scale = self.scale_commandline(experiment, reflections, d_min)
+        stages = [("scale", scale)]
         return stages
 
     def scale_commandline(
@@ -596,32 +580,29 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
             "dials.scale",
             experiments,
             reflections,
+            "check_consistent_indexing=True", # runs cosym's laue group analysis even on single sweep
             f"output.unmerged_mtz={UNMERGED_MTZ}",
             "output.json=dials.scale.json",
         ]
         if d_min is not None:
             command.append(f"d_min={d_min}")
+        else:
+            command.append("d_min=auto")
         return command
 
-    def merge_commandline(self, d_min: float | None) -> list[str]:
+    def merge_commandline(self) -> list[str]:
         """
         Build the merging stage.
-
-        Args:
-            d_min: High resolution cut in Angstrom, or None to merge every
-                scaled reflection
 
         Returns:
             list: The argv to run
         """
-        command = ["dials.merge", "scaled.expt", "scaled.refl", f"json={MERGE_JSON}"]
-        if d_min is not None:
-            command.append(f"d_min={d_min}")
+        command = ["dials.merge", "scaled.expt", "scaled.refl", "assess_space_group=True", f"json={MERGE_JSON}"]
         return command
 
     def read_resolution_limit(self, working_directory: Path) -> float | None:
         """
-        Read the limit dials.estimate_resolution fitted.
+        Read the limit dials.scale fitted.
 
         A missing log or a failed fit degrades to an uncut merge rather
         than failing the job.
@@ -629,7 +610,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         Returns:
             float | None: The limit in Angstrom, or None to merge uncut
         """
-        path = working_directory / ESTIMATE_LOG
+        path = working_directory / SCALE_LOG
         try:
             d_min = estimated_resolution(path.read_text())
         except OSError:
@@ -967,7 +948,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
 
     def run(self) -> bool:
         """
-        Run symmetry, scaling, resolution estimation and merging, then
+        Run symmetry determination, scaling, resolution estimation and merging, then
         report what came out.
 
         Returns:
@@ -998,7 +979,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         start_time = time.perf_counter()
         timeout = params.get("timeout")
 
-        # Merging needs the limit the earlier stages fit, so it runs last
+        # Run anything pre-merge
         stages = self.construct_commandlines(params, d_min)
         for stage, command in stages:
             if not self.run_stage(stage, command, working_directory, timeout):
@@ -1013,13 +994,7 @@ class MergeWrapper(dlstbx.wrapper.Wrapper):
         self.resolution_limit = d_min
         self.resolution_limit_source = source
 
-        # A fitted limit is known only after the first scaling, so scaling
-        # continues from its output with the cut before merging
-        if source == "estimate":
-            rescale = self.scale_commandline("scaled.expt", "scaled.refl", d_min)
-            if not self.run_stage("rescale", rescale, working_directory, timeout):
-                return False
-        merge = self.merge_commandline(d_min)
+        merge = self.merge_commandline()
         if not self.run_stage("merge", merge, working_directory, timeout):
             return False
 

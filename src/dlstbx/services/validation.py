@@ -8,7 +8,6 @@ import dxtbx.model.experiment_list
 import h5py
 import numpy as np
 import pytest
-import workflows.recipe
 
 try:
     from dxtbx.format.FormatNXmxDLS import find_meta_filename
@@ -35,12 +34,9 @@ class DLSValidation(CommonService):
     def initializing(self):
         # The main per_image_analysis queue.
         # For every received message a single frame will be analysed.
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "validation",
             self.validate,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def fail_validation(self, rw, header, output, reason):

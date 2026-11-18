@@ -56,12 +56,9 @@ class DLSImages(CommonService):
                 group="zocalo.services.images.plugins"
             )
         }
-        workflows.recipe.wrap_subscribe(
-            self._transport,
+        self.subscribe(
             "images",
             self.image_call,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     def image_call(self, rw, header, message):

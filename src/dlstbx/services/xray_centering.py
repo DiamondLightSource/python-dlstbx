@@ -124,13 +124,10 @@ class DLSXRayCentering(CommonService):
 
         self._next_garbage_collection = time.time() + 60
         self._register_idle(60, self.garbage_collect)
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            self._environment.get("queue") or "reduce.xray_centering",
+        self.subscribe(
+            "reduce.xray_centering",
             self.add_pia_result,
-            acknowledgement=True,
             exclusive=True,
-            log_extender=self.extend_log,
             prefetch_count=65535,
         )
 

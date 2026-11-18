@@ -90,12 +90,9 @@ class DLSPerImageAnalysis(CommonService):
 
         # The main per_image_analysis queue.
         # For every received message a single frame will be analysed.
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            self._environment.get("queue") or "per_image_analysis",
+        self.subscribe(
+            "per_image_analysis",
             self.per_image_analysis,
-            acknowledgement=True,
-            log_extender=self.extend_log,
         )
 
     # @pydantic.validate_call(config=dict(arbitrary_types_allowed=True))

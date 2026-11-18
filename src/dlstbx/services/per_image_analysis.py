@@ -4,7 +4,7 @@ import io
 import logging
 import pathlib
 import time
-from typing import Optional
+from typing import Annotated
 
 import dials.util.ext
 import msgpack
@@ -12,19 +12,26 @@ import pydantic
 import workflows.recipe
 from dials.array_family import flex
 from dxtbx.model.experiment_list import ExperimentList, ExperimentListFactory
+from workflows.recipe.typed import NonEmpty, typed_handler
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.sanity
-from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.per_image_analysis import (
     PerImageAnalysisParameters,
     do_per_image_analysis,
 )
 
 
-class PerImageAnalysisPayload(pydantic.BaseModel):
-    file: pathlib.Path
-    parameters: Optional[PerImageAnalysisParameters] = None
+class PerImageAnalysisMessage(pydantic.BaseModel):
+    """A request to analyse a single image.
+
+    Other fields, such as file-number, are kept and passed on to the output.
+    """
+
+    model_config = pydantic.ConfigDict(extra="allow")
+
+    file: Annotated[str, NonEmpty]
+    ntry: int = 0
 
 
 def msgpack_mangle_for_sending(message):
@@ -95,12 +102,13 @@ class DLSPerImageAnalysis(CommonService):
             self.per_image_analysis,
         )
 
-    # @pydantic.validate_call(config=dict(arbitrary_types_allowed=True))
+    @typed_handler(parameters_from=("message.parameters", "step"), substitute=True)
     def per_image_analysis(
         self,
         rw: workflows.recipe.RecipeWrapper,
         header: dict,
-        message: dict,
+        message: PerImageAnalysisMessage,
+        parameters: PerImageAnalysisParameters,
     ):
         """Run PIA on one image.
 
@@ -138,23 +146,18 @@ class DLSPerImageAnalysis(CommonService):
           "total_intensity": ... }
         """
 
-        parameters = ChainMapWithReplacement(
-            message.get("parameters", {}) if isinstance(message, dict) else {},
-            rw.recipe_step.get("parameters", {}),
-            substitutions=rw.environment,
-        )
-        payload = PerImageAnalysisPayload(**(message | {"parameters": parameters}))
-        self.log.info("Starting PIA on %s", payload.file)
-        params = payload.parameters or PerImageAnalysisParameters()
+        filename = pathlib.Path(message.file)
+        params = parameters
+        # The message as received, to be passed on
+        message_fields = message.model_dump(exclude_unset=True)
+        self.log.info("Starting PIA on %s", filename)
 
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
 
         # Do the per-image-analysis
         start = time.time()
         try:
-            expts, reflections, pia_results = do_per_image_analysis(
-                payload.file, params
-            )
+            expts, reflections, pia_results = do_per_image_analysis(filename, params)
         except Exception as e:
             # if isinstance(e, RuntimeError) and str(e).startswith(
             #     "Server does not have read access to file"
@@ -168,15 +171,14 @@ class DLSPerImageAnalysis(CommonService):
             #     )
             #     self._request_termination()
             #     return
-            ntry = message.get("ntry", 0)
+            ntry = message.ntry
             if ntry < self._max_ntry:
                 self.log.warning(
-                    f"PIA on {payload.file} with parameters {params} failed with {e}. Retry cycle #{ntry}",
+                    f"PIA on {filename} with parameters {params} failed with {e}. Retry cycle #{ntry}",
                 )
-                message.update({"ntry": ntry + 1})
                 rw.transport.ack(header, transaction=txn)
                 rw.checkpoint(
-                    message,
+                    message_fields | {"ntry": ntry + 1},
                     delay=self._message_delay,
                     transaction=txn,
                 )
@@ -185,7 +187,7 @@ class DLSPerImageAnalysis(CommonService):
             else:
                 self.log.error(
                     "PIA on %s with parameters %s failed with %r",
-                    payload.file,
+                    filename,
                     params,
                     e,
                     exc_info=True,
@@ -197,8 +199,8 @@ class DLSPerImageAnalysis(CommonService):
 
         results = pia_results.model_dump()
         # Pass through all file* fields
-        for key in (x for x in message if x.startswith("file")):
-            results[key] = message[key]
+        for key in (x for x in message_fields if x.startswith("file")):
+            results[key] = message_fields[key]
 
         # Conditionally acknowledge receipt of the message
         rw.transport.ack(header, transaction=txn)
@@ -217,8 +219,8 @@ class DLSPerImageAnalysis(CommonService):
                 "experiments": expts,
             }
             # Pass through all file* fields
-            for key in (x for x in message if x.startswith("file")):
-                payload_out[key] = message[key]
+            for key in (x for x in message_fields if x.startswith("file")):
+                payload_out[key] = message_fields[key]
 
             self.log.info(f"Sending reflections to {reflections_queue}")
             rw.send_to(
@@ -234,7 +236,7 @@ class DLSPerImageAnalysis(CommonService):
         rw.transport.transaction_commit(txn)
         self.log.info(
             "PIA completed on %s with parameters %s, %d spots found in %.2f seconds",
-            payload.file,
+            filename,
             params,
             results["n_spots_total"],
             runtime,

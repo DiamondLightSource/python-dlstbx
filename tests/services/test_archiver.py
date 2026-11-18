@@ -350,6 +350,7 @@ class TestArchiverDCID:
         dropfile_path = tmp_path / "dropfile.xml"
         parameters = {
             "visit": "in12345-1",
+            "beamline": "i03",
             "pattern": pattern,
             "pattern-start": "1",
             "pattern-end": "1",

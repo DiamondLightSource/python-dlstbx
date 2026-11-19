@@ -139,8 +139,7 @@ def integration_parameters(model: dict) -> dict:
     if "detector_distance" in model:
         params["refined_detector_dist"] = model["detector_distance"]
     if "beam_centre" in model:
-        # Temporarily swapped x and y until SynchWeb changes made historic database data swapped
-        params["refined_ybeam"], params["refined_xbeam"] = model["beam_centre"]
+        params["refined_xbeam"], params["refined_ybeam"] = model["beam_centre"]
     return params
 
 

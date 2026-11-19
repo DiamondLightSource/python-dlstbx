@@ -225,7 +225,7 @@ def handle_ffs_i03_commissioning(
     return [_ffs_gpu_processing(scenario)]
 
 
-@mimas.match_specification(is_eiger & is_end & is_i04 & is_characterization)
+@mimas.match_specification(is_eiger & is_end & is_i04 & is_rotation & is_characterization)
 def handle_ffs_i04_screening(
     scenario: mimas.MimasScenario,
     **kwargs,

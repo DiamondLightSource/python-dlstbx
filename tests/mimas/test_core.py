@@ -161,7 +161,7 @@ def test_i04_screening_launches_the_gpu_pipeline(get_zocalo_commands):
     scenario = functools.partial(
         MimasScenario,
         DCID=dcid,
-        dcclass=MimasDCClass.SCREENING,
+        dcclass=MimasDCClass.CHARACTERIZATION,
         beamline="i04",
         visit="nt28218-3",
         runstatus="DataCollection Successful",

@@ -184,13 +184,9 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
             uuid = results_directory.parent.name
 
         folders = list(results_directory.parts)
-        i = folders.index("processed")
         multiplex_dir = str(
             pathlib.Path(
-                *folders[:i],
-                "tmp",
-                "zocalo",
-                *folders[i + 1 : -2],
+                *folders[:-2],
                 uuid,
                 "xia2.multiplex",
             )

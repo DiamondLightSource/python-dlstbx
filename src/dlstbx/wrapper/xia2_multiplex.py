@@ -452,22 +452,15 @@ class Xia2MultiplexWrapper(Wrapper):
                 + (list(base_dir_logs.iterdir()) if base_dir_logs.is_dir() else [])
                 + list(working_directory.iterdir())
             ):
-                self.log.info(filename)
                 filetype = None
                 if not filename.is_file():
                     continue  # primary log files may not actually exist
-                self.log.info(filetype)
                 filetype = keep_ext.get(filename.suffix)
-                self.log.info(filetype)
                 for file_pattern in keep:
-                    self.log.info("2")
                     if filename.name.endswith(file_pattern):
-                        self.log.info("3")
                         filetype = keep[file_pattern]
-                self.log.info(filetype)
                 if filetype is None:
                     continue
-                self.log.info("Test")
 
                 # Work out if in Processing, DataFiles or LogFiles (parent_dir)
 

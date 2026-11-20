@@ -2345,21 +2345,16 @@ class DLSTrigger(CommonService):
             "ispyb_parameters": {"spacegroup": "P1", "apply_cchalf_filtering":"1", "cchalf_filtering_method": "image_group"},
         }
         """
-        # If only filtering parameters selected, then do not run full multiplex
-        if (
-            parameters.apply_cchalf_filtering
-            and not parameters.d_min
-            and not parameters.spacegroup
-            and not parameters.small_molecule
-        ):
-            parameters.recipe = "reprocess-xia2-multiplex-filtering"
-            self.log.info(
-                "Only filtering parameters present - running reprocess-xia2-multiplex-filtering"
-            )
 
+        parameters.recipe = "postprocessing-xia2-multiplex"
+
+        # If only filtering parameters selected, then do not run full multiplex
+        if parameters.apply_cchalf_filtering and not any(
+            [parameters.d_min, parameters.spacegroup, parameters.small_molecule]
+        ):
             # If we are running filtering standalone, we need to find where the previous multiplex data is
 
-            original_processed = (
+            parent_uuid_bytes = (
                 session.query(AutoProcProgram.jobUuid)
                 .join(
                     AutoProc,
@@ -2369,18 +2364,16 @@ class DLSTrigger(CommonService):
                     AutoProcScaling, AutoProcScaling.autoProcId == AutoProc.autoProcId
                 )
                 .where(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
-            ).all()[0][0]
+            ).one()[0]
 
-            try:
-                multiplex_directory = str(uuid.UUID(bytes=original_processed))
-            except TypeError:
-                # This can occur for older datasets where we were not uploading the UUID to the database
-                multiplex_directory = None
+            if parent_uuid_bytes is not None:
+                self.log.info(
+                    "Only filtering parameters selected and parent multiplex UUID found."
+                )
+                parameters.recipe = "reprocess-xia2-multiplex-filtering"
+                multiplex_uuid = str(uuid.UUID(bytes=parent_uuid_bytes))
 
-        else:
-            parameters.recipe = "postprocessing-xia2-multiplex"
-            self.log.info("Running postprocessing-xia2-multiplex")
-            multiplex_directory = None
+        self.log.info(f"Running {parameters.recipe}")
 
         # First, get the job parameters from the existing multiplex job
 
@@ -2474,11 +2467,8 @@ class DLSTrigger(CommonService):
                     [("anomalous", "true"), ("absorption_level", "high")]
                 )
 
-        if (
-            parameters.recipe == "reprocess-xia2-multiplex-filtering"
-            and multiplex_directory
-        ):
-            job_parameters.append(("multiplex_directory", multiplex_directory))
+        if parameters.recipe == "reprocess-xia2-multiplex-filtering":
+            job_parameters.append(("multiplex_uuid", multiplex_uuid))
 
         # Register and trigger jobs (same as automatic multiplex)
 

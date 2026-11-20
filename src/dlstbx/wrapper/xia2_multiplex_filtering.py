@@ -11,6 +11,7 @@ import iotbx.merging_statistics
 from cctbx import uctbx
 
 import dlstbx.util.symlink
+from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
 
 
@@ -142,7 +143,7 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
                 "anomalous",
                 "absorption_level",
                 "small_molecule",  # This will be taken from the parent phil
-                "multiplex_directory",
+                "multiplex_uuid",
             }
             translation = {
                 "d_min": "resolution.d_min",
@@ -160,18 +161,22 @@ class Xia2MultiplexFilteringWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-        params = self.recwrap.recipe_step["job_parameters"]
+        params = ChainMapWithReplacement(
+            self.recwrap.recipe_step["job_parameters"].get("ispyb_parameters", {}),
+            self.recwrap.recipe_step["job_parameters"],
+            substitutions=self.recwrap.environment,
+        )
 
         working_directory = pathlib.Path(params["working_directory"])
         results_directory = pathlib.Path(params["results_directory"])
 
         uuid = None
 
-        # if multiplex_directory is in parameters, means that only filtering is being run and we use this UUID to find the original multiplex job
+        # if multiplex_uuid is in parameters, means that only filtering is being run and we use this UUID to find the original multiplex job
 
-        for param, value in params["ispyb_parameters"].items():
-            if param == "multiplex_directory":
-                uuid = value[0]
+        uuid = params.get("multiplex_uuid")
+        if isinstance(uuid, list):
+            uuid = uuid[0]
 
         # This means multiplex will have run before filtering and we use that directory OR reprocessing was done on data that does not have the UUID uploaded to ISPyB
 

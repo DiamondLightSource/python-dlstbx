@@ -363,10 +363,14 @@ def update_dcid_info_file(minio_client, bucket_name, dcid, status, rpid, logger)
     try:
         response = None
         if obj_pid in dc_objects:
-            response = minio_client.get_object(bucket_name, obj_pid)
-            if response:
-                response_info = json.loads(response.data.decode())
-                dcid_info.update(response_info)
+            try:
+                response = minio_client.get_object(bucket_name, obj_pid)
+                if response:
+                    response_info = json.loads(response.data.decode())
+                    dcid_info.update(response_info)
+            finally:
+                response.close()
+                response.release_conn()
         if status is not None:
             dcid_info["status"] = status or dcid_info["status"]
         if rpid is not None:

@@ -4,6 +4,7 @@ import json
 import time
 from unittest import mock
 
+import pytest
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.transport.offline_transport import OfflineTransport
 
@@ -234,6 +235,7 @@ def test_xray_centering_3d(mocker):
                     "total_count": 3878.0,
                     "centre_of_mass": mock.ANY,
                     "bounding_box": ((3, 3, 2), (7, 6, 5)),
+                    "ambiguous": False,
                     "sample_id": 2077076,
                 },
             ],
@@ -320,6 +322,7 @@ def test_xray_centering_3d_multisample_pin(mocker):
                     "total_count": 300.0,
                     "centre_of_mass": mock.ANY,
                     "bounding_box": ((5, 0, 0), (7, 1, 1)),
+                    "ambiguous": False,
                     "sample_id": 12346,
                 },
                 {
@@ -329,6 +332,7 @@ def test_xray_centering_3d_multisample_pin(mocker):
                     "total_count": 18.0,
                     "centre_of_mass": mock.ANY,
                     "bounding_box": ((1, 0, 0), (3, 1, 1)),
+                    "ambiguous": False,
                     "sample_id": 12345,
                 },
             ],
@@ -393,7 +397,10 @@ def test_xray_centering_custom_metric_minimal_2d(mocker, tmp_path):
     # Best image should be image 3 (minimal d_min)
     assert results["best_image"] == 3
     # The max_count should be inverted back to 1.5
-    assert results["max_count"] == 1.5
+    assert results["max_count"] == pytest.approx(1.5)
+    # total_count is the sum of the original d_min values in the best region:
+    # images 2, 3 and 4 (3.0 + 1.5 + 2.5)
+    assert results["total_count"] == pytest.approx(7.0)
     # reflections_in_best_image should be set from n_spots_total of image 3
     assert results["reflections_in_best_image"] == 150
     assert send_to.called
@@ -507,7 +514,9 @@ def test_xray_centering_custom_metric_3d_minimal(mocker):
     assert len(results) >= 1
     # Check max_count was inverted back:
     # Outer product for index 0 was (1/2.0)*(1/2.0) = 0.25 -> inverted back is 4.0
-    assert results[0]["max_count"] == 4.0
+    assert results[0]["max_count"] == pytest.approx(4.0)
+    # Only voxel 0 survives the relative threshold: total is 2.0 * 2.0
+    assert results[0]["total_count"] == pytest.approx(4.0)
 
 
 def test_xray_centering_plot_heatmap_grid(mocker, tmp_path):

@@ -19,6 +19,13 @@ import dlstbx.util.xray_centering_3d
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
 
+def _uninvert(value: float | None) -> float | None:
+    """Convert a value computed on 1/x-inverted data back to original units."""
+    if not value:
+        return value
+    return float(1.0 / value)
+
+
 class GridInfo(pydantic.BaseModel):
     "The subset of GridInfo fields required by the X-ray centering service"
 
@@ -59,6 +66,9 @@ class Parameters(pydantic.BaseModel):
     threshold_absolute_msp: pydantic.NonNegativeFloat = 3
     metric: str = "n_spots_total"
     invert: bool = False
+    combine: dlstbx.util.xray_centering_3d.CombineMethod = (
+        dlstbx.util.xray_centering_3d.CombineMethod.PRODUCT
+    )
     plot_heatmap_grid: Optional[str] = None
 
 
@@ -336,17 +346,12 @@ class DLSXRayCentering(CommonService):
                             multipin_sample_ids=parameters.msp_sample_ids,
                             well_limits=well_limits,
                             invert=parameters.invert,
+                            combine=parameters.combine,
                         )
                         if parameters.invert:
+                            # total_count is already in original units (see gridscan3d)
                             for r in result:
-                                if r.max_count:
-                                    inv = 1.0 / r.max_count
-                                    r.max_count = int(inv) if inv.is_integer() else inv
-                                if r.total_count:
-                                    inv = 1.0 / r.total_count
-                                    r.total_count = (
-                                        int(inv) if inv.is_integer() else inv
-                                    )
+                                r.max_count = _uninvert(r.max_count)
 
                         self.log.info(f"3D X-ray centering result: {result}")
 
@@ -406,12 +411,8 @@ class DLSXRayCentering(CommonService):
                         invert=parameters.invert,
                     )
                     if parameters.invert:
-                        if result.max_count:
-                            inv = 1.0 / result.max_count
-                            result.max_count = int(inv) if inv.is_integer() else inv
-                        if result.total_count:
-                            inv = 1.0 / result.total_count
-                            result.total_count = int(inv) if inv.is_integer() else inv
+                        # total_count is already in original units (see gridscan2d)
+                        result.max_count = _uninvert(result.max_count)
                     self.log.debug(output)
 
                     # Write result file

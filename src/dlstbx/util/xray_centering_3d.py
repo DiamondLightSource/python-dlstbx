@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import logging
 import math
 import operator
@@ -14,6 +15,79 @@ logger = logging.getLogger(__name__)
 
 
 Coordinate = tuple[int, int, int]
+
+
+class CombineMethod(str, enum.Enum):
+    """
+    How the two orthogonal 2D projections A[x, y] and B[x, z] are combined into a
+    3D volume R[x, y, z].
+
+    PRODUCT: R = A * B. The original behaviour. Values are in squared units and,
+        for additive metrics, the profile along x is effectively squared, biasing
+        the x position towards the brightest columns.
+    NORMALISED: R = A * B / S(x), where S(x) = (sum_y A + sum_z B) / 2. The
+        maximum-entropy reconstruction for additive (line-integral) metrics such
+        as spot counts or total intensity: R reproduces both projections and is in
+        the original units.
+    GEOMETRIC_MEAN: R = sqrt(A * B). Same peak and region support as PRODUCT but in
+        the original units; the relative threshold applies per projection.
+    MIN: R = min(A, B). The largest volume consistent with both projections for
+        max-like quality metrics, where the value seen along a beam path is set by
+        the best crystal in it (e.g. resolution). Use with `invert` for "lower is
+        better" metrics, so that the result is max(d_A, d_B) in original units.
+    """
+
+    PRODUCT = "product"
+    NORMALISED = "normalised"
+    GEOMETRIC_MEAN = "geometric_mean"
+    MIN = "min"
+
+
+def combine_projections(
+    a: np.ndarray, b: np.ndarray, method: CombineMethod | str = CombineMethod.PRODUCT
+) -> np.ndarray:
+    """
+    Combine two 2D projections A[x, y] and B[x, z], sharing the x axis, into a 3D
+    volume R[x, y, z]. See CombineMethod for the available methods.
+    """
+    method = CombineMethod(method)
+    if a.shape[0] != b.shape[0]:
+        raise ValueError(
+            f"Projections must share the x axis: shapes {a.shape} and {b.shape}"
+        )
+    a3 = a[:, :, np.newaxis]
+    b3 = b[:, np.newaxis, :]
+    if method is CombineMethod.PRODUCT:
+        return a3 * b3
+    if method is CombineMethod.MIN:
+        return np.minimum(a3, b3)
+    if method is CombineMethod.GEOMETRIC_MEAN:
+        return np.sqrt(a3 * b3, dtype=float)
+    # NORMALISED
+    s = 0.5 * (a.sum(axis=1) + b.sum(axis=1)).astype(float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        inv_s = np.where(s > 0, 1.0 / s, 0.0)
+    return a3 * b3 * inv_s[:, np.newaxis, np.newaxis]
+
+
+def _n_runs(mask: np.ndarray) -> int:
+    """Number of separate runs of True values in a 1D boolean array."""
+    return scipy.ndimage.label(mask)[1]
+
+
+def is_ambiguous(kept_mask: np.ndarray, x_slice: slice) -> bool:
+    """
+    Flag results whose (y, z) position cannot be uniquely determined from two
+    orthogonal projections.
+
+    If, within the x range of a result, the identified regions occupy two or more
+    separate intervals along y *and* two or more separate intervals along z, then
+    the pairing of y with z positions is ambiguous: e.g. two crystals at
+    (y1, z1) and (y2, z2) are indistinguishable from crystals at (y1, z2) and
+    (y2, z1), and the reconstruction contains "ghost" peaks at the latter.
+    """
+    slab = kept_mask[x_slice]
+    return _n_runs(slab.any(axis=(0, 2))) >= 2 and _n_runs(slab.any(axis=(0, 1))) >= 2
 
 
 class GridScan3DResult(GridScanResultBase):
@@ -42,6 +116,7 @@ class GridScan3DResult(GridScanResultBase):
     n_voxels: int
     total_count: float
     bounding_box: Tuple[Coordinate, Coordinate]
+    ambiguous: bool = False
 
 
 def gridscan3d(
@@ -53,13 +128,14 @@ def gridscan3d(
     multipin_sample_ids: dict[int, int] = {},
     well_limits: list[tuple[float, float]] = [],
     invert: bool = False,
+    combine: CombineMethod | str = CombineMethod.PRODUCT,
 ) -> list[GridScan3DResult]:
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
 
     Fitting routine first filters out any pixels from either gridscan with intensity
     less than threshold_absolute, then constructs a pseudo-3D grid by taking the outer
-    product of the 2D scans. For multi-sample pins, any separate continuous regions of
+    product (or another combination, see `combine`) of the 2D scans. For multi-sample pins, any separate continuous regions of
     signal are found first, whereas for single sample pins the entire 3D grid is treated
     as a single region for the following steps. For each region, a relative threshold of
     the max voxel intensity of the region is applied, with the aim to separate/disconnect
@@ -95,6 +171,15 @@ def gridscan3d(
             pin as keys.
         well_limits: The lower and upper limits of the x-coordinate for each well in
             the multi-sample pin in units of grid scan boxes.
+        invert: Set if the input data contain the reciprocal (1/x) of a "lower is
+            better" metric. total_count is then returned in the original metric
+            units (sum of 1/value), whereas max_count remains in inverted units and
+            must be converted back by the caller. Results are still ranked by the
+            summed (inverted) signal.
+        combine: How to combine the two 2D projections into a 3D volume (see
+            CombineMethod). Note that `threshold` is relative to the combined
+            values, so the default of 0.25 for "product" corresponds to roughly
+            0.5 for "geometric_mean" or "min".
 
     Returns:
         list[GridScan3DResult]
@@ -103,11 +188,11 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
-    # Apply absolute threshold to screen out noise.
-    data[0][data[0] < threshold_absolute] = 0
-    data[1][data[1] < threshold_absolute] = 0
+    # Apply absolute threshold to screen out noise (on copies, leaving the caller's
+    # arrays untouched).
+    data = tuple(np.where(d < threshold_absolute, 0, d) for d in data)
 
-    reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
+    reconstructed_3d = combine_projections(data[0], data[1], combine)
     logger.debug(data[0].shape)
     logger.debug(data[1].shape)
     logger.debug(reconstructed_3d.shape)
@@ -125,8 +210,11 @@ def gridscan3d(
         labels = np.ones_like(reconstructed_3d, dtype=int)
         n_regions = 1
 
-    results: list[GridScan3DResult] = []
+    # (ranking score, result) pairs; the score is always in the (possibly inverted)
+    # space of the input data, so the best region sorts first regardless of `invert`.
+    scored_results: list[tuple[float, GridScan3DResult]] = []
     # Loop over each continuous region, apply a relative threshold then find sub-regions
+    region_sub_labels = []
     for label in range(1, n_regions + 1):
         labelled_data = (labels == label) * reconstructed_3d
         # Apply relative threshold to filter out edge effects and to separate out multiple centres in a single region.
@@ -135,6 +223,14 @@ def gridscan3d(
             thresholded, structure=structure
         )
         logger.debug(f"For label {label}, {n_sub_regions} sub regions found")
+        region_sub_labels.append((thresholded, sub_labels, n_sub_regions))
+
+    # Voxels retained in any sub-region of any region, used to detect y/z ambiguity
+    kept_mask = np.zeros(reconstructed_3d.shape, dtype=bool)
+    for _, sub_labels, _ in region_sub_labels:
+        kept_mask |= sub_labels > 0
+
+    for thresholded, sub_labels, n_sub_regions in region_sub_labels:
         object_slices = scipy.ndimage.find_objects(sub_labels)
 
         for sub_label in range(1, n_sub_regions + 1):
@@ -160,12 +256,18 @@ def gridscan3d(
             tot = scipy.ndimage.sum_labels(
                 thresholded, labels=sub_labels, index=sub_label
             )
-            total_count = (
-                int(tot)
-                if np.issubdtype(reconstructed_3d.dtype, np.integer)
-                else float(tot)
-            )
+            if invert:
+                # Data were inverted by the caller (1/x); report the total in the
+                # original metric units by summing the per-voxel reciprocals.
+                total_count = float(np.sum(1.0 / thresholded[sub_labels == sub_label]))
+            else:
+                total_count = (
+                    int(tot)
+                    if np.issubdtype(reconstructed_3d.dtype, np.integer)
+                    else float(tot)
+                )
             x, y, z = object_slices[sub_label - 1]
+            ambiguous = is_ambiguous(kept_mask, x)
             bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
             tagged_sample_id = tag_sample_id(
                 sample_id, multipin_sample_ids, well_limits, com[0]
@@ -179,8 +281,12 @@ def gridscan3d(
                 total_count=total_count,
                 bounding_box=bounding_box,
                 sample_id=tagged_sample_id,
+                ambiguous=ambiguous,
             )
-            results.append(result)
+            scored_results.append((float(tot), result))
+
+    scored_results.sort(key=operator.itemgetter(0), reverse=True)
+    results = [r for _, r in scored_results]
 
     if plot:
         plot_data = data
@@ -196,7 +302,7 @@ def gridscan3d(
             )
         plot_gridscan3d_results(plot_data, plot_recon, results)
 
-    return sorted(results, key=operator.attrgetter("total_count"), reverse=True)
+    return results
 
 
 def plot_gridscan3d_results(

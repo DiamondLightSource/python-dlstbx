@@ -153,6 +153,14 @@ def gridscan2d(
     well_limits: list[tuple[float, float]] = [],
     invert: bool = False,
 ) -> tuple[GridScan2DResult, str]:
+    """
+    2D gridscan analysis.
+
+    If ``invert`` is True, ``data`` is expected to contain the reciprocal (1/x) of a
+    "lower is better" metric. In that case ``total_count`` is returned in the
+    original metric units (sum of 1/value over the best region), while
+    ``max_count`` remains in inverted units and must be converted back by the caller.
+    """
     output = [
         f"steps_x/y: {steps}",
         f"box_size_px: {box_size_px}",
@@ -194,8 +202,13 @@ def gridscan2d(
         reversed(scipy.ndimage.maximum_position(threshold, labels == best))
     )
     n_voxels = np.count_nonzero(labels == best)
-    tot = scipy.ndimage.sum_labels(threshold, labels=labels, index=best)
-    total_count = int(tot) if np.issubdtype(data.dtype, np.integer) else float(tot)
+    if invert:
+        # Data were inverted by the caller (1/x); report the total in the original
+        # metric units by summing the per-voxel reciprocals.
+        total_count = float(np.sum(1.0 / threshold[labels == best]))
+    else:
+        tot = scipy.ndimage.sum_labels(threshold, labels=labels, index=best)
+        total_count = int(tot) if np.issubdtype(data.dtype, np.integer) else float(tot)
     log_grid = (
         np.divide(
             1.0,

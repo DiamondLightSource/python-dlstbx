@@ -456,3 +456,26 @@ def test_get_well_limits_from_loop_type(loop_type, expected_result):
         loop_type, step_size
     )
     assert result == expected_result, "Wrong well limits returned"
+
+
+def test_gridscan2d_invert_total_count_in_original_units():
+    # Original "lower is better" metric (e.g. d_min) for a 3x1 grid; the caller
+    # passes the reciprocal, with 0 for missing values.
+    original = np.array([2.0, 4.0, 0.0])
+    inverted = np.where(original > 0, 1.0 / np.where(original > 0, original, 1), 0.0)
+    result, _ = dlstbx.util.xray_centering.gridscan2d(
+        inverted,
+        steps=(3, 1),
+        box_size_px=(1.0, 1.0),
+        snapshot_offset=(0.0, 0.0),
+        snaked=False,
+        orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+        spots_data=np.array([10, 5, 0]),
+        invert=True,
+    )
+    assert result.status == "ok"
+    # max_count stays in inverted space; the caller converts it back
+    assert result.max_count == pytest.approx(0.5)
+    # total_count is the sum of the original metric values: 2.0 + 4.0
+    assert result.total_count == pytest.approx(6.0)
+    assert result.n_voxels == 2

@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import enum
 import json
 import logging
@@ -37,6 +36,11 @@ phil_scope = libtbx.phil.parse(
       .type = choice
     threshold = 0.25
       .type = float(value_min=0)
+    combine = *product normalised geometric_mean min
+      .type = choice
+      .help = "How to combine the two 2D projections into a 3D volume. "
+              "'normalised' is recommended for additive metrics (spot counts, "
+              "intensity), 'min' for max-like quality metrics."
     """
 )
 
@@ -57,6 +61,7 @@ def gridscan3d(
     metric: str | metrics = "n_spots_total",
     threshold: float = 0.25,
     plot: bool = False,
+    combine: str | xray_centering_3d.CombineMethod = "product",
 ):
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
@@ -136,6 +141,7 @@ def gridscan3d(
         data=tuple(data),
         threshold=threshold,
         plot=plot,
+        combine=combine,
     )
 
 
@@ -192,11 +198,12 @@ def run(args: List[str] | None = None, phil: libtbx.phil.scope = phil_scope) -> 
         metric=params.metric,
         threshold=params.threshold,
         plot=params.plot,
+        combine=params.combine,
     )
     logger.info("\n".join(str(r) for r in results))
     logger.debug(
         json.dumps(
-            [dataclasses.asdict(r) for r in results],
+            [r.model_dump() for r in results],
             sort_keys=True,
             indent=2,
         )

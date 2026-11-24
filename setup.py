@@ -119,6 +119,7 @@ service_list = [
     "DLSISPyBPIA = dlstbx.services.ispybsvc_pia:DLSISPyBPIA",
     "DLSImages = dlstbx.services.images:DLSImages",
     "DLSIndexer = dlstbx.services.indexer:DLSIndexer",
+    "DLSIrisMonitor = dlstbx.services.cluster_monitor:DLSIrisMonitor",
     "DLSMimas = dlstbx.services.mimas:DLSMimas",
     "DLSMimasBacklog = dlstbx.services.mimas_backlog:DLSMimasBacklog",
     "DLSNexusParser = dlstbx.services.nexusparser:DLSNexusParser",

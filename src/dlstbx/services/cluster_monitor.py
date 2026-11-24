@@ -11,13 +11,16 @@ from zocalo.util import slurm
 
 
 class DLSClusterMonitor(CommonService):
-    """A service to interface zocalo with functions to gather cluster statistics."""
+    """A service to interface zocalo with functions to gather statistics for the slurm cluster."""
 
     # Human readable service name
     _service_name = "DLS Cluster monitor"
 
     # Logger name
     _logger_name = "dlstbx.services.cluster_monitor"
+
+    # Name of the cluster to monitor, as named by its zocalo slurm plugin
+    _scheduler = "slurm"
 
     def initializing(self):
         """Set up monitoring timer. Do not subscribe to anything."""
@@ -27,18 +30,13 @@ class DLSClusterMonitor(CommonService):
         # Statistics go with debug level to a separate logger so they can be
         # filtered by log monitors.
 
-        self.slurm_api: slurm.SlurmRestApi = (
-            slurm.SlurmRestApi.from_zocalo_configuration(self.config)
+        # The scheduler storage setting is deprecated, use DLSIrisClusterMonitor instead
+        self.scheduler = self.config.storage.get("scheduler", self._scheduler)
+        self.cluster_api: slurm.SlurmRestApi = (
+            slurm.SlurmRestApi.from_zocalo_configuration(
+                self.config, cluster=self.scheduler
+            )
         )
-        self.iris_api: slurm.SlurmRestApi = (
-            slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
-        )
-
-        self.cluster_api = {
-            "slurm": self.slurm_api,
-            "iris": self.iris_api,
-        }
-        self.scheduler = self.config.storage.get("scheduler", "slurm")
         self.stats_log = logging.getLogger(self._logger_name + ".stats")
         self.stats_log.setLevel(logging.DEBUG)
         self._register_idle(30, self.update_cluster_statistics)
@@ -49,9 +47,7 @@ class DLSClusterMonitor(CommonService):
         try:
             self.log.debug(f"Gathering {self.scheduler} job statistics")
             timestamp = time.time()
-            job_info_resp: slurm.models.OpenapiJobInfoResp = self.cluster_api[
-                self.scheduler
-            ].get_jobs()
+            job_info_resp: slurm.models.OpenapiJobInfoResp = self.cluster_api.get_jobs()
         except requests.HTTPError as e:
             self.log.error(f"Failed Slurm API call: {e}\n{e.response.text}")
             raise e
@@ -88,3 +84,10 @@ class DLSClusterMonitor(CommonService):
         }
         data_pack.update(data)
         self._transport.broadcast("transient.statistics.cluster", data_pack)
+
+
+class DLSIrisMonitor(DLSClusterMonitor):
+    """A service to interface zocalo with functions to gather statistics for the IRIS cluster."""
+
+    _service_name = "DLS IRIS cluster monitor"
+    _scheduler = "iris"

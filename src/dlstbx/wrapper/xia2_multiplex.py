@@ -319,6 +319,8 @@ class Xia2MultiplexWrapper(Wrapper):
             "scaled.sca": "result",
             "merging-stats.json": "graph",
             "xia2.multiplex.json": "result",
+            "models.expt": "result",
+            "observations.refl": "result",
         }
 
         # Record these log files first so they appear at the top of the list

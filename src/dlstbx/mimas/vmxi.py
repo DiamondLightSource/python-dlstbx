@@ -77,7 +77,7 @@ def handle_vmxi_rotation_scan(
         spacegroup = scenario.spacegroup.string
         if scenario.spacegroup:
             spacegroup = scenario.spacegroup.string
-            symmetry_parameters = (
+            symmetry_parameters += (
                 mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
             )
             if scenario.unitcell:

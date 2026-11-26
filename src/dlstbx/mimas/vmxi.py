@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
 from dlstbx import mimas
 from dlstbx.mimas.core import (
@@ -71,6 +71,19 @@ def handle_vmxi_rotation_scan(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
+    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+    symmetry_parameters: ParamTuple = ()
+    if scenario.spacegroup:
+        spacegroup = scenario.spacegroup.string
+        symmetry_parameters += (
+            mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
+        )
+        if scenario.unitcell:
+            symmetry_parameters += (
+                mimas.MimasISPyBParameter(
+                    key="unit_cell", value=scenario.unitcell.string
+                ),
+            )
     return [
         # Per-image analysis
         mimas.MimasRecipeInvocation(
@@ -105,6 +118,7 @@ def handle_vmxi_rotation_scan(
                 mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
                 mimas.MimasISPyBParameter(key="failover", value="true"),
                 *xia2_dials_absorption_params(scenario),
+                *symmetry_parameters,
             ),
         ),
         # xia2-3dii
@@ -119,6 +133,7 @@ def handle_vmxi_rotation_scan(
                     key="resolution.cc_half_significance_level",
                     value="0.1",
                 ),
+                *symmetry_parameters,
             ),
         ),
         # autoPROC
@@ -128,5 +143,6 @@ def handle_vmxi_rotation_scan(
             recipe="autoprocessing-autoPROC-eiger",
             source="automatic",
             displayname="autoPROC",
+            parameters=symmetry_parameters,
         ),
     ]

@@ -281,7 +281,7 @@ class ispybtbx:
                         isa.DataCollection.fileTemplate,
                     ).filter(isa.DataCollection.SESSIONID == sessionid)
                     matches = query.all()
-                    sample_group_logs = []
+                    sample_group_logs: dict[tuple[str, ...], set[str]] = {}
                     for sample_group in sample_groups:
                         sample_group_dcids = []
                         visit_dir = ispyb_info["ispyb_visit_directory"]
@@ -289,8 +289,8 @@ class ispybtbx:
                             parts = os.path.relpath(image_directory, visit_dir).split(
                                 os.sep
                             )
-                            sample_group_logs.append(
-                                f"parts: {parts}, template: {template}"
+                            sample_group_logs.setdefault(tuple(parts), set()).add(
+                                template
                             )
                             for prefix in sample_group:
                                 if prefix in parts:
